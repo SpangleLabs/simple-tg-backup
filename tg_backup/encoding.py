@@ -271,7 +271,10 @@ def encode_tl_object(obj: Optional[TLObject]) -> Optional[Dict]:
 
 
 def encode_message(msg: Message) -> Dict:
-    raw_fields = ["id", "button_count", "date", "edit_date", "edit_hide", "from_scheduled", "grouped_id", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards"]
+    raw_fields = [
+        "id", "button_count", "date", "edit_date", "edit_hide", "from_scheduled", "grouped_id", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards",
+        "via_bot_id",  # Fetch peer
+    ]
     encode_fields = {
         "entities": lambda entities: None if entities is None else [encode_tl_object(entity) for entity in entities],
         "peer_id": encode_tl_object,  # Fetch peer
@@ -300,6 +303,8 @@ def encode_message(msg: Message) -> Dict:
         "gif",  # covered by media.document or media.webpage.document
         "sticker",  # covered by media.document
         "geo",  # covered by media.geo
+        "via_bot",  # covered by via_bot_id
+        "via_input_bot",  # covered by via_input_bot
     ]
     expected_value = {
         "is_channel": False,
