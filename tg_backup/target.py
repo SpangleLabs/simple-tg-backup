@@ -43,6 +43,7 @@ async def backup_target(client: TelegramClient, target: Dict) -> None:
             else:
                 msg_dict = encode_message(message)
                 print(json.dumps(msg_dict, default=encode_json_extra))
+            print(f"Done {bar.n} messages")
             bar.update(1)
 
     last_message_id = latest_id
