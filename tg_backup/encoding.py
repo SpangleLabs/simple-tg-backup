@@ -117,7 +117,7 @@ def encode_message(msg: Message) -> Dict:
     raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent"]
     encode_fields = {
         "date": lambda d: d.isoformat(),
-        "entities": lambda entities: [encode_entity(entity) for entity in entities],
+        "entities": lambda entities: [encode_entity(entity) for entity in entities] if entities is not None else None,
         "peer_id": encode_peer_id,
         "media": encode_media,
     }
