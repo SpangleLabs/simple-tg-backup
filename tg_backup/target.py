@@ -41,7 +41,8 @@ async def backup_target(client: TelegramClient, target: Dict) -> None:
                 logger.info(f"- Caught up on %s", chat_name)
                 break
             else:
-                msg_dict = encode_message(message)
+                encoded_msg = encode_message(message)
+                msg_dict = encoded_msg.raw_data
                 print(json.dumps(msg_dict, default=encode_json_extra))
             print(f"Done {bar.n} messages")
             bar.update(1)
