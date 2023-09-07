@@ -34,8 +34,7 @@ def encode_message(msg: Message) -> Dict:
         "entities": lambda entities: [encode_entity(entity) for entity in entities],
         "peer_id": encode_peer_id,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "file", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "media", "photo", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice", "web_preview"]
-    skip_fields = ["chat", "chat_id", "client", "input_chat", "input_sender", "raw_text", "sender", "text"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "photo", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice", "web_preview"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -45,12 +44,18 @@ def encode_message(msg: Message) -> Dict:
         "sender",  # peer_id covers this
         "raw_text",  # covered by message
         "text",  # covered by message
+        "file",  # covered by media
     ]
     expected_value = {
         "is_channel": False,
         "is_group": False,
         "is_private": True,
     }
+    known_fields = raw_fields + list(encode_fields.keys()) + unexpected_value + skip_fields + list(expected_value.keys())
+    # Pre-game check
+    if len(set(known_fields)) != len(known_fields):
+        raise ValueError("Duplicate fields in list!")
+    # Start building output
     output = {}
     # Parse raw fields, which encode as they are
     for raw_field in raw_fields:
@@ -73,7 +78,6 @@ def encode_message(msg: Message) -> Dict:
     if msg.message != msg.text or msg.text != msg.raw_text or msg.raw_text != msg.message:
         raise ValueError(f"Message ID: {msg.id}, message, text, and raw_text do not match")
     # Check if any other fields existed
-    known_fields = raw_fields + list(encode_fields.keys()) + unexpected_value + skip_fields
     all_fields = [field for field in msg.__dict__.keys() if not field.startswith("_")]
     unknown_fields = set(all_fields) - set(known_fields)
     if unknown_fields:
