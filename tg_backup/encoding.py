@@ -4,7 +4,8 @@ from typing import Dict, Optional, Union
 
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
-    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions
+    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions, \
+    MessageMediaPhoto
 
 logger = logging.getLogger(__name__)
 
@@ -115,13 +116,20 @@ def encode_webpage(webpage: Union[WebPage, WebPageEmpty]) -> Dict:
     raise ValueError(f"Unrecognised webpage type: {webpage}")
 
 
-def encode_media(media: Optional[MessageMediaWebPage]) -> Optional[Dict]:
+def encode_media(media: Union[None, MessageMediaWebPage, MessageMediaPhoto]) -> Optional[Dict]:
     if media is None:
         return None
     if isinstance(media, MessageMediaWebPage):
         return {
             "_type": "message_media_web_page",
             "webpage": encode_webpage(media.webpage),
+        }
+    if isinstance(media, MessageMediaPhoto):
+        return {
+            "_type": "message_media_photo",
+            "spoiler": media.spoiler,
+            "photo": encode_photo(media.photo),
+            "ttl_seconds": media.ttl_seconds,
         }
     raise ValueError(f"Unrecognised media type: {media}")
 
