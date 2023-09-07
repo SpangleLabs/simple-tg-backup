@@ -2,8 +2,7 @@ import logging
 from typing import Dict
 
 from telethon.tl.custom import Message
-from telethon.tl.types import PeerUser, MessageEntityUrl
-
+from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +26,53 @@ def encode_entity(entity: MessageEntityUrl) -> Dict:
     raise ValueError(f"Unrecognised entity type: {entity}")
 
 
+def encode_webpage(webpage: WebPage) -> Dict:
+    if isinstance(webpage, WebPage):
+        if webpage.hash != 0:
+            raise ValueError(f"Webpage hash unexpected: {webpage.hash}")
+        if webpage.cached_page is not None:
+            raise ValueError(f"Webpage cached_page unexpected: {webpage.cached_page}")
+        if webpage.attributes is not None:
+            raise ValueError(f"Webpage attributes unexpected: {webpage.attributes}")
+        if webpage.photo is not None:
+            raise ValueError(f"Webpage photo unexpected: {webpage.photo}")
+        if webpage.document is not None:
+            raise ValueError(f"Webpage document unexpected: {webpage.document}")
+        return {
+            "_type": "web_page",
+            "id": webpage.id,
+            "url": webpage.url,
+            "display_url": webpage.display_url,
+            "type": webpage.type,
+            "site_name": webpage.site_name,
+            "title": webpage.title,
+            "description": webpage.description,
+            "embed_url": webpage.embed_url,
+            "embed_type": webpage.embed_type,
+            "embed_width": webpage.embed_width,
+            "embed_height": webpage.embed_height,
+            "duration": webpage.duration,
+            "author": webpage.author,
+        }
+    raise ValueError(f"Unrecognised webpage type: {webpage}")
+
+
+def encode_media(media: MessageMediaWebPage) -> Dict:
+    if isinstance(media, MessageMediaWebPage):
+        return {
+            "_type": "message_media_web_page",
+            "webpage": encode_webpage(media.webpage),
+        }
+    raise ValueError(f"Unrecognised media type: {media}")
+
+
 def encode_message(msg: Message) -> Dict:
     raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent"]
     encode_fields = {
         "date": lambda d: d.isoformat(),
         "entities": lambda entities: [encode_entity(entity) for entity in entities],
         "peer_id": encode_peer_id,
+        "media": encode_media,
     }
     unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "photo", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice", "web_preview"]
     skip_fields = [
