@@ -36,6 +36,16 @@ def encode_message(msg: Message) -> Dict:
     }
     unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "file", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "media", "photo", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice", "web_preview"]
     skip_fields = ["chat", "chat_id", "client", "input_chat", "input_sender", "raw_text", "sender", "text"]
+    skip_fields = [
+        "chat",  # backing up a chat, so this is the same for every message
+        "chat_id",  # backing up a chat, so this is the same for every message
+        "input_chat",  # backing up a chat, so this is the same for every message
+        "client",  # can't backup the telegram client
+        "input_sender",  # peer_id covers this
+        "sender",  # peer_id covers this
+        "raw_text",  # covered by message
+        "text",  # covered by message
+    ]
     expected_value = {
         "is_channel": False,
         "is_group": False,
