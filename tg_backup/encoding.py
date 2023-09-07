@@ -274,6 +274,7 @@ def encode_message(msg: Message) -> Dict:
     raw_fields = [
         "id", "button_count", "date", "edit_date", "edit_hide", "from_scheduled", "grouped_id", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards",
         "via_bot_id",  # Fetch peer
+        "reply_markup",
     ]
     encode_fields = {
         "entities": lambda entities: None if entities is None else [encode_tl_object(entity) for entity in entities],
@@ -283,7 +284,7 @@ def encode_message(msg: Message) -> Dict:
         "reactions": encode_tl_object,  # Might want to fetch?
         "fwd_from": encode_tl_object,  # Fetch peer?
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "ttl_period", "venue", "video_note"]
+    unexpected_value = ["action", "action_entities", "audio", "contact", "dice", "from_id", "game", "invoice", "poll", "post_author", "replies", "restriction_reason", "ttl_period", "venue", "video_note"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -306,6 +307,7 @@ def encode_message(msg: Message) -> Dict:
         "via_bot",  # covered by via_bot_id
         "via_input_bot",  # covered by via_input_bot
         "voice",  # covered by media.document
+        "buttons",  # covered by reply_markup
     ]
     expected_value = {
         "is_channel": False,
