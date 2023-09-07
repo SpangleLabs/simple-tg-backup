@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def encode_peer_id(peer_id: PeerUser) -> Dict:
     if isinstance(peer_id, PeerUser):
         return {
-            "type": "peer_user",
+            "_type": "peer_user",
             "user_id": peer_id.user_id
         }
     raise ValueError(f"Unrecognised Peer ID type: {peer_id}")
@@ -20,7 +20,7 @@ def encode_peer_id(peer_id: PeerUser) -> Dict:
 def encode_entity(entity: MessageEntityUrl) -> Dict:
     if isinstance(entity, MessageEntityUrl):
         return {
-            "type": "message_entity_url",
+            "_type": "message_entity_url",
             "length": entity.length,
             "offset": entity.offset,
         }
