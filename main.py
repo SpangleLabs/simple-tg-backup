@@ -4,7 +4,7 @@ import logging
 from telethon import TelegramClient
 
 from tg_backup.config import load_config
-from tg_backup.target import backup_target
+from tg_backup.target import BackupTask
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +14,9 @@ def main() -> None:
     client = TelegramClient('simple_backup', conf.client.api_id, conf.client.api_hash)
     client.start()
     loop = asyncio.get_event_loop()
-    for target_conf in conf.targets:
-        loop.run_until_complete(backup_target(client, target_conf))
+    tasks = [BackupTask(target_conf) for target_conf in conf.targets]
+    for task in tasks:
+        loop.run_until_complete(task.run(client))
     logger.info("All backups complete")
 
 
