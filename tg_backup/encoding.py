@@ -1,8 +1,10 @@
+import base64
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from telethon.tl.custom import Message
-from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage
+from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
+    PhotoStrippedSize, PhotoSizeProgressive
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,50 @@ def encode_entity(entity: MessageEntityUrl) -> Dict:
     raise ValueError(f"Unrecognised entity type: {entity}")
 
 
+def encode_photo_size(photo_size: Union[PhotoSize, PhotoStrippedSize, PhotoSizeProgressive]) -> Dict:
+    if isinstance(photo_size, PhotoSize):
+        return {
+            "_type": "photo_size",
+            "type": photo_size.type,
+            "w": photo_size.w,
+            "h": photo_size.h,
+            "size": photo_size.size,
+        }
+    if isinstance(photo_size, PhotoStrippedSize):
+        return {
+            "_type": "photo_stripped_size",
+            "type": photo_size.type,
+            "bytes": base64.b64encode(photo_size.bytes).decode(),
+        }
+    if isinstance(photo_size, PhotoSizeProgressive):
+        return {
+            "_type": "photo_size_progressive",
+            "type": photo_size.type,
+            "w": photo_size.w,
+            "h": photo_size.h,
+            "sizes": photo_size.sizes,
+        }
+    raise ValueError(f"Unrecognised photo size type: {photo_size}")
+
+
+def encode_photo(photo: Photo) -> Dict:
+    # TODO: Also return a downloadable resource object
+    if isinstance(photo, Photo):
+        if photo.video_sizes is not None:
+            raise ValueError(f"Photo has unexpected video sizes: {photo.video_sizes}")
+        return {
+            "_type": "photo",
+            "id": photo.id,
+            "access_hash": photo.access_hash,
+            "file_reference": base64.b64encode(photo.file_reference).decode(),
+            "date": photo.date.isoformat(),
+            "sizes": [encode_photo_size(s) for s in photo.sizes],
+            "dc_id": photo.dc_id,
+            "has_stickers": photo.has_stickers,
+        }
+    raise ValueError(f"Unrecognised photo type: {photo}")
+
+
 def encode_webpage(webpage: WebPage) -> Dict:
     if isinstance(webpage, WebPage):
         if webpage.hash != 0:
@@ -34,8 +80,6 @@ def encode_webpage(webpage: WebPage) -> Dict:
             raise ValueError(f"Webpage cached_page unexpected: {webpage.cached_page}")
         if webpage.attributes is not None:
             raise ValueError(f"Webpage attributes unexpected: {webpage.attributes}")
-        if webpage.photo is not None:
-            raise ValueError(f"Webpage photo unexpected: {webpage.photo}")
         if webpage.document is not None:
             raise ValueError(f"Webpage document unexpected: {webpage.document}")
         return {
@@ -53,6 +97,7 @@ def encode_webpage(webpage: WebPage) -> Dict:
             "embed_height": webpage.embed_height,
             "duration": webpage.duration,
             "author": webpage.author,
+            "photo": encode_photo(webpage.photo),
         }
     raise ValueError(f"Unrecognised webpage type: {webpage}")
 
@@ -76,7 +121,7 @@ def encode_message(msg: Message) -> Dict:
         "peer_id": encode_peer_id,
         "media": encode_media,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "photo", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice", "web_preview"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -87,6 +132,8 @@ def encode_message(msg: Message) -> Dict:
         "raw_text",  # covered by message
         "text",  # covered by message
         "file",  # covered by media
+        "photo",  # covered by media.photo or media.webpage.photo
+        "web_preview",  # covered by media.webpage
     ]
     expected_value = {
         "is_channel": False,
