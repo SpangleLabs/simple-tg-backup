@@ -280,7 +280,7 @@ def encode_message(msg: Message) -> Dict:
         "reactions": encode_tl_object,
         "fwd_from": encode_tl_object,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "geo", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video_note", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "geo", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video_note", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -298,6 +298,7 @@ def encode_message(msg: Message) -> Dict:
         "document",  # covered by media.document or media.webpage.document
         "video",  # covered by media.document or media.webpage.document
         "gif",  # covered by media.document or media.webpage.document
+        "sticker",  # covered by media.document
     ]
     expected_value = {
         "is_channel": False,
