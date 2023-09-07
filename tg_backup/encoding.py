@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
-    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention
+    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def encode_photo(photo: Photo) -> Dict:
     raise ValueError(f"Unrecognised photo type: {photo}")
 
 
-def encode_webpage(webpage: WebPage) -> Dict:
+def encode_webpage(webpage: Union[WebPage, WebPageEmpty]) -> Dict:
     if isinstance(webpage, WebPage):
         if webpage.hash != 0:
             raise ValueError(f"Webpage hash unexpected: {webpage.hash}")
@@ -106,6 +106,11 @@ def encode_webpage(webpage: WebPage) -> Dict:
             "duration": webpage.duration,
             "author": webpage.author,
             "photo": encode_photo(webpage.photo),
+        }
+    if isinstance(webpage, WebPageEmpty):
+        return {
+            "_type": "web_page_empty",
+            "id": webpage.id,
         }
     raise ValueError(f"Unrecognised webpage type: {webpage}")
 
