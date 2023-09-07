@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage
@@ -57,7 +57,9 @@ def encode_webpage(webpage: WebPage) -> Dict:
     raise ValueError(f"Unrecognised webpage type: {webpage}")
 
 
-def encode_media(media: MessageMediaWebPage) -> Dict:
+def encode_media(media: Optional[MessageMediaWebPage]) -> Optional[Dict]:
+    if media is None:
+        return None
     if isinstance(media, MessageMediaWebPage):
         return {
             "_type": "message_media_web_page",
