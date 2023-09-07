@@ -218,11 +218,14 @@ def encode_message(msg: Message) -> Dict:
     for field_name, encode_func in encode_fields.items():
         output[field_name] = encode_func(msg.__getattribute__(field_name))
     # Handle null-only fields, where I'm not sure what they do
+    unexpected_field_values = {}
     for field_name in unexpected_value:
         value = msg.__getattribute__(field_name)
         if value is not None:
-            logger.critical("Encountered non-null value when checking message ID %s, field %s", msg.id, field_name)
-            raise ValueError(f"Expected null value for {field_name}, got: {value}")
+            unexpected_field_values[field_name] = value
+    if unexpected_field_values:
+        logger.critical("Encountered non-null values when checking message ID %s, fields: %s", msg.id, unexpected_field_values)
+        raise ValueError(f"Expected null value for {unexpected_field_values.keys()}, got: {unexpected_field_values}")
     # Check if expected value fields are as expected
     for field_name, value in expected_value.items():
         actual_value = msg.__getattribute__(field_name)
