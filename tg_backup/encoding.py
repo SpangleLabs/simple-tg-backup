@@ -261,9 +261,6 @@ def encode_message(msg: Message) -> Dict:
         actual_value = msg.__getattribute__(field_name)
         if actual_value != value:
             raise ValueError(f"Expected value {value} but got {actual_value} for field {field_name} in message ID: {msg.id}")
-    # Check message text raw text, because... err? TODO
-    if msg.message != msg.text or msg.text != msg.raw_text or msg.raw_text != msg.message:
-        raise ValueError(f"Message ID: {msg.id}, message, text, and raw_text do not match")
     # Check if any other fields existed
     all_fields = [field for field in msg.__dict__.keys() if not field.startswith("_")]
     unknown_fields = set(all_fields) - set(known_fields)
