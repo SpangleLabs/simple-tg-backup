@@ -10,13 +10,18 @@ from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, W
 logger = logging.getLogger(__name__)
 
 
-def encode_peer_id(peer_id: Optional[PeerUser]) -> Optional[Dict]:
+def encode_peer_id(peer_id: Union[None, PeerUser, PeerChannel]) -> Optional[Dict]:
     if peer_id is None:
         return None
     if isinstance(peer_id, PeerUser):
         return {
             "_type": "peer_user",
             "user_id": peer_id.user_id
+        }
+    if isinstance(peer_id, PeerChannel):
+        return {
+            "_type": "peer_channel",
+            "channel_id": peer_id.channel_id,
         }
     raise ValueError(f"Unrecognised Peer ID type: {peer_id}")
 
