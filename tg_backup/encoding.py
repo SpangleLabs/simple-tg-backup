@@ -2,6 +2,7 @@ import base64
 import logging
 from typing import Dict, Optional, Union
 
+from telethon.tl import TLObject
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
     PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions, \
@@ -262,19 +263,24 @@ def encode_reactions(reactions: Optional[MessageReactions]) -> Optional[Dict]:
     raise ValueError(f"Unrecognised reactions type: {reactions}")
 
 
+def encode_tl_object(obj: Optional[TLObject]) -> Optional[Dict]:
+    if obj is None:
+        return None
+    obj.to_json()
+    return obj.to_dict()
+
+
 def encode_message(msg: Message) -> Dict:
-    raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards"]
+    raw_fields = ["id", "button_count", "date", "edit_date", "edit_hide", "from_scheduled", "grouped_id", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards"]
     encode_fields = {
-        "date": lambda d: d.isoformat(),
-        "entities": lambda entities: [encode_entity(entity) for entity in entities] if entities is not None else None,
-        "peer_id": encode_peer_id,
-        "media": encode_media,
-        "edit_date": lambda d: d.isoformat() if d is not None else None,
-        "reply_to": encode_message_reply_header,
-        "reactions": encode_reactions,
-        "fwd_from": encode_message_fwd_header,
+        "entities": lambda entities: None if entities is None else [encode_tl_object(entity) for entity in entities],
+        "peer_id": encode_tl_object,
+        "media": encode_tl_object,
+        "reply_to": encode_tl_object,
+        "reactions": encode_tl_object,
+        "fwd_from": encode_tl_object,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "geo", "gif", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -298,8 +304,10 @@ def encode_message(msg: Message) -> Dict:
     }
     known_fields = raw_fields + list(encode_fields.keys()) + unexpected_value + skip_fields + list(expected_value.keys())
     # Pre-game check
-    if len(set(known_fields)) != len(known_fields):
-        raise ValueError("Duplicate fields in list!")
+    _seen_fields = set()
+    duplicate_fields = [x for x in known_fields if x in _seen_fields or _seen_fields.add(x)]
+    if duplicate_fields:
+        raise ValueError(f"Duplicate fields in list: {duplicate_fields}")
     # Start building output
     output = {}
     # Parse raw fields, which encode as they are

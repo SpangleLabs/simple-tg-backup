@@ -1,3 +1,5 @@
+import base64
+import datetime
 import json
 import logging
 from typing import Dict
@@ -10,6 +12,15 @@ from tg_backup.tg_utils import get_message_count, get_chat_name
 
 
 logger = logging.getLogger(__name__)
+
+
+def encode_json_extra(value: object) -> str:
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode('ascii')
+    elif isinstance(value, datetime.datetime):
+        return value.isoformat()
+    else:
+        raise ValueError(f"Unrecognised type to encode: {value}")
 
 
 async def backup_target(client: TelegramClient, target: Dict) -> None:
@@ -30,7 +41,8 @@ async def backup_target(client: TelegramClient, target: Dict) -> None:
                 logger.info(f"- Caught up on %s", chat_name)
                 break
             else:
-                print(json.dumps(encode_message(message)))
+                msg_dict = encode_message(message)
+                print(json.dumps(msg_dict, default=encode_json_extra))
             bar.update(1)
 
     last_message_id = latest_id
