@@ -1,8 +1,9 @@
 import base64
+import dataclasses
 import datetime
 import json
 import logging
-from typing import Dict, Set, Type
+from typing import Dict, Set, Type, Optional
 
 from telethon import TelegramClient
 from tqdm import tqdm
@@ -27,36 +28,40 @@ def encode_json_extra(value: object) -> str:
 class BackupTask:
     def __init__(self, config: TargetConfig) -> None:
         self.config = config
+        self.state = self.config.output.metadata.load_state()
 
     async def run(self, client: TelegramClient) -> None:
         chat_id = self.config.chat_id
-        last_message_id = 0  # TODO: Store for incremental backups
+        last_message_id = self.state.latest_msg_id
 
         entity = await client.get_entity(chat_id)
-        count = await get_message_count(client, entity, last_message_id)
+        count = await get_message_count(client, entity, last_message_id or 0)
         chat_name = get_chat_name(entity)
-        latest_id = None
+        updated_latest = False
         logger.info("Backing up target chat: %s", chat_name)
         print(f"- Updating {chat_name} logs")
         total_resources: Dict[Type, Set[DLResource]] = {}
         with tqdm(total=count) as bar:
             async for message in client.iter_messages(entity):
-                if latest_id is None:
-                    latest_id = message.id
+                # Update latest ID with the first message
+                if not updated_latest:
+                    self.state.latest_msg_id = message.id
+                    updated_latest = True
+                # Check if we've caught up
                 if last_message_id is not None and message.id <= last_message_id:
                     logger.info(f"- Caught up on %s", chat_name)
                     break
-                else:
-                    encoded_msg = encode_message(message)
-                    msg_dict = encoded_msg.raw_data
-                    for resource in encoded_msg.downloadable_resources:
-                        if type(resource) not in total_resources:
-                            total_resources[type(resource)] = set()
-                        total_resources[type(resource)].add(resource)
-                    print(json.dumps(msg_dict, default=encode_json_extra))
-                    total_resource_count = sum([len(x) for x in total_resources.values()])
-                    print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
+                # Handle message
+                encoded_msg = encode_message(message)
+                msg_dict = encoded_msg.raw_data
+                for resource in encoded_msg.downloadable_resources:
+                    if type(resource) not in total_resources:
+                        total_resources[type(resource)] = set()
+                    total_resources[type(resource)].add(resource)
+                print(json.dumps(msg_dict, default=encode_json_extra))
+                total_resource_count = sum([len(x) for x in total_resources.values()])
+                print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
                 print(f"Done {bar.n} messages")
                 bar.update(1)
 
-        last_message_id = latest_id
+        self.config.output.metadata.save_state(self.state)

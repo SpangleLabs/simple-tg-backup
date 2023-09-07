@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import os
 from typing import Dict, List, Optional
 
 
@@ -13,6 +14,22 @@ class ClientConfig:
         return cls(
             data["api_id"],
             data["api_hash"],
+        )
+
+
+@dataclasses.dataclass
+class TargetState:
+    latest_msg_id: Optional[int]
+
+    def to_json(self) -> Dict:
+        return {
+            "latest_msg_id": self.latest_msg_id,
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict) -> "TargetState":
+        return cls(
+            data["latest_msg_id"]
         )
 
 
@@ -36,15 +53,35 @@ class LocationConfig:
 
 
 @dataclasses.dataclass
+class MetadataLocationConfig(LocationConfig):
+
+    def load_state(self) -> TargetState:
+        os.makedirs(self.folder, exist_ok=True)
+        try:
+            with open(f"{self.folder}/state.json", "r") as f:
+                return TargetState.from_json(json.load(f))
+        except FileNotFoundError:
+            return TargetState(None)
+
+    def save_state(self, state: TargetState) -> None:
+        os.makedirs(self.folder, exist_ok=True)
+        with open(f"{self.folder}/state.json", "w") as f:
+            json.dump(state.to_json(), f)
+
+
+@dataclasses.dataclass
 class OutputConfig:
-    metadata: LocationConfig
+    metadata: MetadataLocationConfig
     chats: LocationConfig
     photos: LocationConfig
     documents: LocationConfig
 
     @classmethod
     def from_json(cls, data: Dict, default: Optional["OutputConfig"] = None) -> "OutputConfig":
-        metadata = LocationConfig.from_json_or_default(data.get("metadata"), default.metadata if default else None)
+        metadata = MetadataLocationConfig.from_json_or_default(
+            data.get("metadata"),
+            default.metadata if default else None
+        )
         chats = LocationConfig.from_json_or_default(data.get("chats"), default.chats if default else None)
         photos = LocationConfig.from_json_or_default(data.get("photos"), default.photos if default else None)
         documents = LocationConfig.from_json_or_default(data.get("documents"), default.documents if default else None)
