@@ -5,7 +5,8 @@ from typing import Dict, Optional, Union
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
     PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions, \
-    MessageMediaPhoto, MessageEntityTextUrl, MessageFwdHeader, PeerChannel, Document, DocumentAttributeFilename
+    MessageMediaPhoto, MessageEntityTextUrl, MessageFwdHeader, PeerChannel, Document, DocumentAttributeFilename, Page, \
+    PageBlockTitle
 
 logger = logging.getLogger(__name__)
 
@@ -123,12 +124,39 @@ def encode_document(document: Optional[Document]) -> Optional[Dict]:
             "attributes": [encode_document_attribute(a) for a in document.attributes],
             "thumbs": [encode_photo_size(s) for s in document.thumbs] if document.thumbs is not None else None,
         }
+    raise ValueError(f"Unrecognised document type: {document}")
+
+
+def encode_page_block(block: Union[PageBlockTitle]) -> Dict:
+    if isinstance(block, PageBlockTitle):
+        raise ValueError("Haven't defined how to encode page blocks yet, sorry")
+        return {
+            "_type": "page_block_title",
+            # TODO
+        }
+    raise ValueError(f"Unrecognised page block type: {block}")
+
+
+def encode_page(page: Optional[Page]) -> Optional[Dict]:
+    if page is None:
+        return None
+    if isinstance(page, Page):
+        return {
+            "_type": "page",
+            "url": page.url,
+            "blocks": [encode_page_block(b) for b in page.blocks],
+            "photos": [encode_photo(p) for p in page.photos],
+            "documents": [encode_document(d) for d in page.documents],
+            "part": page.part,
+            "rtl": page.rtl,
+            "v2": page.v2,
+            "views": page.views,
+        }
+
 
 
 def encode_webpage(webpage: Union[WebPage, WebPageEmpty]) -> Dict:
     if isinstance(webpage, WebPage):
-        if webpage.hash != 0:
-            raise ValueError(f"Webpage hash unexpected: {webpage.hash}")
         if webpage.cached_page is not None:
             raise ValueError(f"Webpage cached_page unexpected: {webpage.cached_page}")
         if webpage.attributes is not None:
@@ -138,6 +166,7 @@ def encode_webpage(webpage: Union[WebPage, WebPageEmpty]) -> Dict:
             "id": webpage.id,
             "url": webpage.url,
             "display_url": webpage.display_url,
+            "hash": webpage.hash,
             "type": webpage.type,
             "site_name": webpage.site_name,
             "title": webpage.title,
