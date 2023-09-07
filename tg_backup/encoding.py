@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
     PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions, \
-    MessageMediaPhoto, MessageEntityTextUrl
+    MessageMediaPhoto, MessageEntityTextUrl, MessageFwdHeader, PeerChannel
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +156,29 @@ def encode_message_reply_header(header: Optional[MessageReplyHeader]) -> Optiona
     raise ValueError(f"Unrecognised message reply header type: {header}")
 
 
+def encode_message_fwd_header(header: Optional[MessageFwdHeader]) -> Optional[Dict]:
+    if header is None:
+        return None
+    if isinstance(header, MessageFwdHeader):
+        if header.from_id != header.saved_from_peer:
+            raise ValueError("Expected from ID and saved from peer to match")
+        if header.psa_type is not None:
+            raise ValueError("Didn't expect to see psa_type set")
+        return {
+            "_type": "message_fwd_header",
+            "date": header.date.isoformat(),
+            "imported": header.imported,
+            "from_id": encode_peer_id(header.from_id),
+            "from_name": header.from_name,
+            "channel_post": header.channel_post,
+            "post_author": header.post_author,
+            "saved_from_peer": encode_peer_id(header.saved_from_peer),
+            "saved_from_msg_id": header.saved_from_msg_id,
+            "psa_type": header.psa_type,
+        }
+    raise ValueError(f"Unrecognised message forward header type: {header}")
+
+
 def encode_reactions(reactions: Optional[MessageReactions]) -> Optional[Dict]:
     if reactions is None:
         return None
@@ -175,7 +198,7 @@ def encode_reactions(reactions: Optional[MessageReactions]) -> Optional[Dict]:
 
 
 def encode_message(msg: Message) -> Dict:
-    raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent"]
+    raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards"]
     encode_fields = {
         "date": lambda d: d.isoformat(),
         "entities": lambda entities: [encode_entity(entity) for entity in entities] if entities is not None else None,
@@ -184,8 +207,9 @@ def encode_message(msg: Message) -> Dict:
         "edit_date": lambda d: d.isoformat() if d is not None else None,
         "reply_to": encode_message_reply_header,
         "reactions": encode_reactions,
+        "fwd_from": encode_message_fwd_header,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "from_id", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -199,6 +223,7 @@ def encode_message(msg: Message) -> Dict:
         "photo",  # covered by media.photo or media.webpage.photo
         "web_preview",  # covered by media.webpage
         "reply_to_msg_id",  # covered by reply_to.reply_to_msg_id
+        "forward",  # covered by fwd_from
     ]
     expected_value = {
         "is_channel": False,
