@@ -120,8 +120,9 @@ def encode_message(msg: Message) -> Dict:
         "entities": lambda entities: [encode_entity(entity) for entity in entities] if entities is not None else None,
         "peer_id": encode_peer_id,
         "media": encode_media,
+        "edit_date": lambda d: d.isoformat() if d is not None else None,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "edit_date", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
