@@ -4,12 +4,14 @@ from typing import Dict, Optional, Union
 
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
-    PhotoStrippedSize, PhotoSizeProgressive
+    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader
 
 logger = logging.getLogger(__name__)
 
 
-def encode_peer_id(peer_id: PeerUser) -> Dict:
+def encode_peer_id(peer_id: Optional[PeerUser]) -> Optional[Dict]:
+    if peer_id is None:
+        return None
     if isinstance(peer_id, PeerUser):
         return {
             "_type": "peer_user",
@@ -113,6 +115,21 @@ def encode_media(media: Optional[MessageMediaWebPage]) -> Optional[Dict]:
     raise ValueError(f"Unrecognised media type: {media}")
 
 
+def encode_message_reply_header(header: Optional[MessageReplyHeader]) -> Optional[Dict]:
+    if header is None:
+        return None
+    if isinstance(header, MessageReplyHeader):
+        return {
+            "_type": "message_reply_header",
+            "reply_to_msg_id": header.reply_to_msg_id,
+            "reply_to_scheduled": header.reply_to_scheduled,
+            "forum_topic": header.forum_topic,
+            "reply_to_peer_id": encode_peer_id(header.reply_to_peer_id),
+            "reply_to_top_id": header.reply_to_top_id,
+        }
+    raise ValueError(f"Unrecognised message reply header type: {header}")
+
+
 def encode_message(msg: Message) -> Dict:
     raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent"]
     encode_fields = {
@@ -121,8 +138,9 @@ def encode_message(msg: Message) -> Dict:
         "peer_id": encode_peer_id,
         "media": encode_media,
         "edit_date": lambda d: d.isoformat() if d is not None else None,
+        "reply_to": encode_message_reply_header,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "reply_to", "reply_to_msg_id", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -135,6 +153,7 @@ def encode_message(msg: Message) -> Dict:
         "file",  # covered by media
         "photo",  # covered by media.photo or media.webpage.photo
         "web_preview",  # covered by media.webpage
+        "reply_to_msg_id",  # covered by reply_to.reply_to_msg_id
     ]
     expected_value = {
         "is_channel": False,
