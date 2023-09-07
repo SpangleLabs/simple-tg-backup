@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     conf = load_config()
-    client = TelegramClient('simple_backup', conf["client"]["api_id"], conf["client"]["api_hash"])
+    client = TelegramClient('simple_backup', conf.client.api_id, conf.client.api_hash)
     client.start()
     loop = asyncio.get_event_loop()
-    for target_conf in conf["backup_targets"]:
+    for target_conf in conf.targets:
         loop.run_until_complete(backup_target(client, target_conf))
     logger.info("All backups complete")
 

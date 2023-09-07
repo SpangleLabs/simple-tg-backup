@@ -7,6 +7,7 @@ from typing import Dict, Set, Type
 from telethon import TelegramClient
 from tqdm import tqdm
 
+from tg_backup.config import TargetConfig
 from tg_backup.encoding import encode_message, DLResource
 from tg_backup.tg_utils import get_message_count, get_chat_name
 
@@ -23,8 +24,8 @@ def encode_json_extra(value: object) -> str:
         raise ValueError(f"Unrecognised type to encode: {value}")
 
 
-async def backup_target(client: TelegramClient, target: Dict) -> None:
-    chat_id = target["chat_id"]
+async def backup_target(client: TelegramClient, target: TargetConfig) -> None:
+    chat_id = target.chat_id
     last_message_id = 0  # TODO: Store for incremental backups
 
     entity = await client.get_entity(chat_id)
