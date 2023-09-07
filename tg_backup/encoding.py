@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
     PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions, \
-    MessageMediaPhoto
+    MessageMediaPhoto, MessageEntityTextUrl
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def encode_peer_id(peer_id: Optional[PeerUser]) -> Optional[Dict]:
     raise ValueError(f"Unrecognised Peer ID type: {peer_id}")
 
 
-def encode_entity(entity: Union[MessageEntityUrl, MessageEntityMention]) -> Dict:
+def encode_entity(entity: Union[MessageEntityUrl, MessageEntityMention, MessageEntityTextUrl]) -> Dict:
     if isinstance(entity, MessageEntityUrl):
         return {
             "_type": "message_entity_url",
@@ -33,6 +33,13 @@ def encode_entity(entity: Union[MessageEntityUrl, MessageEntityMention]) -> Dict
             "_type": "message_entity_mention",
             "length": entity.length,
             "offset": entity.offset,
+        }
+    if isinstance(entity, MessageEntityTextUrl):
+        return {
+            "_type": "message_entity_text_url",
+            "length": entity.length,
+            "offset": entity.offset,
+            "url": entity.url,
         }
     raise ValueError(f"Unrecognised entity type: {entity}")
 
