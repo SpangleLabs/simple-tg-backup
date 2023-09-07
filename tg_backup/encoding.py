@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 
 from telethon.tl.custom import Message
 from telethon.tl.types import PeerUser, MessageEntityUrl, MessageMediaWebPage, WebPage, Photo, PhotoSize, \
-    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty
+    PhotoStrippedSize, PhotoSizeProgressive, MessageReplyHeader, MessageEntityMention, WebPageEmpty, MessageReactions
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +141,24 @@ def encode_message_reply_header(header: Optional[MessageReplyHeader]) -> Optiona
     raise ValueError(f"Unrecognised message reply header type: {header}")
 
 
+def encode_reactions(reactions: Optional[MessageReactions]) -> Optional[Dict]:
+    if reactions is None:
+        return None
+    if isinstance(reactions, MessageReactions):
+        if reactions.results:
+            raise ValueError(f"Didn't expect actual results: {reactions.results}")
+        if reactions.recent_reactions is not None:
+            raise ValueError(f"Didn't expect to see recent reactions: {reactions.recent_reactions}")
+        return {
+            "_type": "message_reactions",
+            "results": reactions.results,
+            "min": reactions.min,
+            "can_see_list": reactions.can_see_list,
+            "recent_reactions": reactions.recent_reactions,
+        }
+    raise ValueError(f"Unrecognised reactions type: {reactions}")
+
+
 def encode_message(msg: Message) -> Dict:
     raw_fields = ["id", "button_count", "edit_hide", "from_scheduled", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent"]
     encode_fields = {
@@ -150,8 +168,9 @@ def encode_message(msg: Message) -> Dict:
         "media": encode_media,
         "edit_date": lambda d: d.isoformat() if d is not None else None,
         "reply_to": encode_message_reply_header,
+        "reactions": encode_reactions,
     }
-    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "reactions", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
+    unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "document", "forward", "forwards", "from_id", "fwd_from", "game", "geo", "gif", "grouped_id", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "sticker", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video", "video_note", "views", "voice"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
