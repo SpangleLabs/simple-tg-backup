@@ -274,11 +274,11 @@ def encode_message(msg: Message) -> Dict:
     raw_fields = ["id", "button_count", "date", "edit_date", "edit_hide", "from_scheduled", "grouped_id", "is_reply", "legacy", "media_unread", "mentioned", "message", "noforwards", "out", "pinned", "post", "sender_id", "silent", "views", "forwards"]
     encode_fields = {
         "entities": lambda entities: None if entities is None else [encode_tl_object(entity) for entity in entities],
-        "peer_id": encode_tl_object,
-        "media": encode_tl_object,
+        "peer_id": encode_tl_object,  # Fetch peer
+        "media": encode_tl_object,  # Fetch to DL
         "reply_to": encode_tl_object,
-        "reactions": encode_tl_object,
-        "fwd_from": encode_tl_object,
+        "reactions": encode_tl_object,  # Might want to fetch?
+        "fwd_from": encode_tl_object,  # Fetch peer?
     }
     unexpected_value = ["action", "action_entities", "audio", "buttons", "contact", "dice", "from_id", "game", "geo", "invoice", "poll", "post_author", "replies", "reply_markup", "restriction_reason", "ttl_period", "venue", "via_bot", "via_bot_id", "via_input_bot", "video_note", "voice"]
     skip_fields = [
