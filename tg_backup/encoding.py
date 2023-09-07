@@ -17,20 +17,32 @@ class DLResource:
 class DLResourcePeerID(DLResource):
     peer_id: int
 
+    def __hash__(self):
+        return hash(("peer_id", self.peer_id))
+
 
 @dataclasses.dataclass
 class DLResourcePeerUser(DLResource):
     user_id: int
+
+    def __hash__(self):
+        return hash(("peer_user", self.user_id))
 
 
 @dataclasses.dataclass
 class DLResourcePeerChat(DLResource):
     chat_id: int
 
+    def __hash__(self):
+        return hash(("peer_chat", self.chat_id))
+
 
 @dataclasses.dataclass
 class DLResourcePeerChannel(DLResource):
     channel_id: int
+
+    def __hash__(self):
+        return hash(("peer_channel", self.channel_id))
 
 
 @dataclasses.dataclass
@@ -42,12 +54,16 @@ class DLResourceMedia(DLResource):
 
 @dataclasses.dataclass
 class DLResourcePhoto(DLResourceMedia):
-    pass
+
+    def __hash__(self):
+        return hash(("photo", self.media_id))
 
 
 @dataclasses.dataclass
 class DLResourceDocument(DLResourceMedia):
-    pass
+
+    def __hash__(self):
+        return hash(("document", self.media_id))
 
 
 @dataclasses.dataclass
