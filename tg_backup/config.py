@@ -1,7 +1,18 @@
+import base64
 import dataclasses
+import datetime
 import json
 import os
 from typing import Dict, List, Optional
+
+
+def encode_json_extra(value: object) -> str:
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode('ascii')
+    elif isinstance(value, datetime.datetime):
+        return value.isoformat()
+    else:
+        raise ValueError(f"Unrecognised type to encode: {value}")
 
 
 @dataclasses.dataclass
@@ -67,6 +78,11 @@ class MetadataLocationConfig(LocationConfig):
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/state.json", "w") as f:
             json.dump(state.to_json(), f)
+
+    def save_message(self, msg_id: int, msg_data: Dict) -> None:
+        os.makedirs(self.folder, exist_ok=True)
+        with open(f"{self.folder}/{msg_id}.json", "w") as f:
+            json.dump(msg_data, f, default=encode_json_extra)
 
 
 @dataclasses.dataclass
