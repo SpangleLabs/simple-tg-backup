@@ -43,6 +43,7 @@ class BackupTask:
                 # Handle message
                 encoded_msg = encode_message(message)
                 self.config.output.metadata.save_message(msg_id, encoded_msg.raw_data)
+                # Handle downloadable resources
                 for resource in encoded_msg.downloadable_resources:
                     if type(resource) not in total_resources:
                         total_resources[type(resource)] = set()
