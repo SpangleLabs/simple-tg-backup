@@ -68,7 +68,7 @@ def encode_message(msg: Message) -> Dict:
         value = msg.__getattribute__(field_name)
         if value is not None:
             logger.critical("Encountered non-null value when checking message ID %s, field %s", msg.id, field_name)
-            raise ValueError(f"Expected null value, got: {value}")
+            raise ValueError(f"Expected null value for {field_name}, got: {value}")
     # Check if expected value fields are as expected
     for field_name, value in expected_value.items():
         actual_value = msg.__getattribute__(field_name)
