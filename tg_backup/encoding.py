@@ -284,7 +284,7 @@ def encode_message(msg: Message) -> Dict:
         "reactions": encode_tl_object,  # Might want to fetch?
         "fwd_from": encode_tl_object,  # Fetch peer?
     }
-    unexpected_value = ["action", "action_entities", "audio", "contact", "dice", "from_id", "game", "invoice", "poll", "post_author", "replies", "restriction_reason", "ttl_period", "venue", "video_note"]
+    unexpected_value = ["action", "from_id", "post_author", "replies", "restriction_reason", "ttl_period"]
     skip_fields = [
         "chat",  # backing up a chat, so this is the same for every message
         "chat_id",  # backing up a chat, so this is the same for every message
@@ -308,6 +308,15 @@ def encode_message(msg: Message) -> Dict:
         "via_input_bot",  # covered by via_input_bot
         "voice",  # covered by media.document
         "buttons",  # covered by reply_markup
+        "audio",  # covered by media.document
+        "contact",  # covered by media
+        "dice",  # covered by media
+        "game",  # covered by media.game
+        "invoice",  # covered by media
+        "poll",  # covered by media
+        "venue",  # covered by media
+        "video_note",  # covered by document
+        "action_entites",  # covered by action.user_id, action.inviter_id, action.channel_id, etc
     ]
     expected_value = {
         "is_channel": False,
