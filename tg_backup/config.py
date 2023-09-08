@@ -145,6 +145,12 @@ class TargetConfig:
     def from_json(cls, data: Dict, default_output: OutputConfig) -> "TargetConfig":
         chat_id = data["chat_id"]
         output = OutputConfig.from_json(data.get("output", {}), default=default_output)
+        # TODO: Add update frequency:
+        # - unset: run once
+        # - iso8601 period: run then wait until period since last run started
+        # - cron: run on cron schedule
+        # - live: run once, then keep up with live messages
+        # Maybe allow the above to be a global or have a defualt
         return cls(chat_id, output)
 
 
