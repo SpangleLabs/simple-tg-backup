@@ -75,6 +75,20 @@ class LocationConfig:
 
 
 @dataclasses.dataclass
+class MessageMetadata:
+    raw_msg: Dict
+    tl_scheme_layer: int
+    dl_date: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    def to_json(self) -> Dict:
+        return {
+            "dl_date": self.dl_date,
+            "tl_scheme_layer": self.tl_scheme_layer,
+            "raw_msg": self.raw_msg,
+        }
+
+
+@dataclasses.dataclass
 class MetadataLocationConfig(LocationConfig):
 
     def load_state(self) -> TargetState:
@@ -92,10 +106,10 @@ class MetadataLocationConfig(LocationConfig):
         with open(f"{self.folder}/state.json", "w") as f:
             json.dump(state.to_json(), f)
 
-    def save_message(self, msg_id: int, msg_data: Dict) -> None:
+    def save_message(self, msg_id: int, msg_data: MessageMetadata) -> None:
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/{msg_id}.json", "w") as f:
-            json.dump(msg_data, f, default=encode_json_extra)
+            json.dump(msg_data.to_json(), f, default=encode_json_extra)
 
 
 @dataclasses.dataclass

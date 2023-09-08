@@ -6,7 +6,7 @@ import telethon
 from telethon import TelegramClient
 from tqdm import tqdm
 
-from tg_backup.config import TargetConfig
+from tg_backup.config import TargetConfig, MessageMetadata
 from tg_backup.encoding import encode_message
 from tg_backup.dl_resource import DLResource
 from tg_backup.tg_utils import get_message_count, get_chat_name
@@ -25,7 +25,8 @@ class BackupTask:
         last_message_id = self.state.latest_msg_id
         self.state.latest_start_time = datetime.datetime.now(datetime.timezone.utc)
         # noinspection PyUnresolvedReferences
-        self.state.scheme_layer = telethon.tl.alltlobjects.LAYER
+        scheme_layer = telethon.tl.alltlobjects.LAYER
+        self.state.scheme_layer = scheme_layer
 
         entity = await client.get_entity(chat_id)
         count = await get_message_count(client, entity, last_message_id or 0)
@@ -48,9 +49,11 @@ class BackupTask:
                 if last_message_id is not None and msg_id <= last_message_id:
                     logger.info(f"- Caught up on %s", chat_name)
                     break
-                # Handle message
+                # Encode message
                 encoded_msg = encode_message(message)
-                self.config.output.metadata.save_message(msg_id, encoded_msg.raw_data)
+                # Save message
+                msg_metadata = MessageMetadata(encoded_msg.raw_data, scheme_layer)
+                self.config.output.metadata.save_message(msg_id, msg_metadata)
                 logger.info("Saved message ID %s, date: %s. %s processed", msg_id, message.date, processed_count)
                 # Handle downloadable resources  # TODO
                 for resource in encoded_msg.downloadable_resources:
