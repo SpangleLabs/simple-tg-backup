@@ -7,7 +7,8 @@ from telethon import TelegramClient
 from tqdm import tqdm
 
 from tg_backup.config import TargetConfig
-from tg_backup.encoding import encode_message, DLResource
+from tg_backup.encoding import encode_message
+from tg_backup.dl_resource import DLResource
 from tg_backup.tg_utils import get_message_count, get_chat_name
 
 
