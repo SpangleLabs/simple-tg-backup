@@ -31,16 +31,27 @@ class ClientConfig:
 @dataclasses.dataclass
 class TargetState:
     latest_msg_id: Optional[int]
+    latest_start_time: Optional[datetime.datetime]
+    latest_end_time: Optional[datetime.datetime]
+    tl_scheme_layer: Optional[int]
 
     def to_json(self) -> Dict:
         return {
             "latest_msg_id": self.latest_msg_id,
+            "latest_start_time": self.latest_start_time,
+            "latest_end_time": self.latest_end_time,
+            "tl_scheme_layer": self.tl_scheme_layer,
         }
 
     @classmethod
-    def from_json(cls, data: Dict) -> "TargetState":
+    def from_json(cls, data: Optional[Dict]) -> "TargetState":
+        if not data:
+            return cls(None, None, None, None)
         return cls(
-            data["latest_msg_id"]
+            data["latest_msg_id"],
+            data["latest_start_time"],
+            data["latest_end_time"],
+            data["tl_scheme_layer"],
         )
 
 
@@ -68,11 +79,13 @@ class MetadataLocationConfig(LocationConfig):
 
     def load_state(self) -> TargetState:
         os.makedirs(self.folder, exist_ok=True)
+        data = None
         try:
             with open(f"{self.folder}/state.json", "r") as f:
-                return TargetState.from_json(json.load(f))
+                data = json.load(f)
         except FileNotFoundError:
-            return TargetState(None)
+            pass
+        return TargetState.from_json(data)
 
     def save_state(self, state: TargetState) -> None:
         os.makedirs(self.folder, exist_ok=True)

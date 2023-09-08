@@ -1,6 +1,8 @@
+import datetime
 import logging
 from typing import Dict, Set, Type
 
+import telethon
 from telethon import TelegramClient
 from tqdm import tqdm
 
@@ -20,6 +22,9 @@ class BackupTask:
     async def run(self, client: TelegramClient) -> None:
         chat_id = self.config.chat_id
         last_message_id = self.state.latest_msg_id
+        self.state.latest_start_time = datetime.datetime.now(datetime.timezone.utc)
+        # noinspection PyUnresolvedReferences
+        self.state.scheme_layer = telethon.tl.alltlobjects.LAYER
 
         entity = await client.get_entity(chat_id)
         count = await get_message_count(client, entity, last_message_id or 0)
@@ -54,5 +59,6 @@ class BackupTask:
                 print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
                 print(f"Done {bar.n} messages")
                 bar.update(1)
+        self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
 
         self.config.output.metadata.save_state(self.state)
