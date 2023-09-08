@@ -25,9 +25,9 @@ class BackupTask:
         last_message_id = self.state.latest_msg_id
         self.state.latest_start_time = datetime.datetime.now(datetime.timezone.utc)
         # noinspection PyUnresolvedReferences
-        scheme_layer = telethon.tl.alltlobjects.LAYER
-        self.state.scheme_layer = scheme_layer
+        self.state.scheme_layer = telethon.tl.alltlobjects.LAYER
 
+        # Setup chat info
         entity = await client.get_entity(chat_id)
         count = await get_message_count(client, entity, last_message_id or 0)
         chat_name = get_chat_name(entity)
@@ -52,7 +52,7 @@ class BackupTask:
                 # Encode message
                 encoded_msg = encode_message(message)
                 # Save message
-                msg_metadata = StorableData(encoded_msg.raw_data, scheme_layer)
+                msg_metadata = StorableData(encoded_msg.raw_data)
                 self.config.output.metadata.save_message(msg_id, msg_metadata)
                 logger.info("Saved message ID %s, date: %s. %s processed", msg_id, message.date, processed_count)
                 # Handle downloadable resources  # TODO

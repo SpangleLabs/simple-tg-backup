@@ -5,6 +5,11 @@ import json
 import os
 from typing import Dict, List, Optional
 
+import telethon
+
+# noinspection PyUnresolvedReferences
+SCHEME_LAYER = telethon.tl.alltlobjects.LAYER
+
 
 def encode_json_extra(value: object) -> str:
     if isinstance(value, bytes):
@@ -18,7 +23,7 @@ def encode_json_extra(value: object) -> str:
 @dataclasses.dataclass
 class StorableData:
     raw_data: Dict
-    tl_scheme_layer: int
+    tl_scheme_layer: int = SCHEME_LAYER
     dl_date: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     def to_json(self) -> Dict:
