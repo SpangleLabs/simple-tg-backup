@@ -6,7 +6,7 @@ import telethon
 from telethon import TelegramClient
 from tqdm import tqdm
 
-from tg_backup.config import TargetConfig, MessageMetadata
+from tg_backup.config import TargetConfig, OutputConfig, StorableData
 from tg_backup.encoding import encode_message
 from tg_backup.dl_resource import DLResource
 from tg_backup.tg_utils import get_message_count, get_chat_name
@@ -52,7 +52,7 @@ class BackupTask:
                 # Encode message
                 encoded_msg = encode_message(message)
                 # Save message
-                msg_metadata = MessageMetadata(encoded_msg.raw_data, scheme_layer)
+                msg_metadata = StorableData(encoded_msg.raw_data, scheme_layer)
                 self.config.output.metadata.save_message(msg_id, msg_metadata)
                 logger.info("Saved message ID %s, date: %s. %s processed", msg_id, message.date, processed_count)
                 # Handle downloadable resources  # TODO

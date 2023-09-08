@@ -16,6 +16,20 @@ def encode_json_extra(value: object) -> str:
 
 
 @dataclasses.dataclass
+class StorableData:
+    raw_data: Dict
+    tl_scheme_layer: int
+    dl_date: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    def to_json(self) -> Dict:
+        return {
+            "dl_date": self.dl_date,
+            "tl_scheme_layer": self.tl_scheme_layer,
+            "raw_data": self.raw_data,
+        }
+
+
+@dataclasses.dataclass
 class ClientConfig:
     api_id: int
     api_hash: str
@@ -74,19 +88,6 @@ class LocationConfig:
         raise ValueError("Location has not been configured")
 
 
-@dataclasses.dataclass
-class MessageMetadata:
-    raw_msg: Dict
-    tl_scheme_layer: int
-    dl_date: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
-
-    def to_json(self) -> Dict:
-        return {
-            "dl_date": self.dl_date,
-            "tl_scheme_layer": self.tl_scheme_layer,
-            "raw_msg": self.raw_msg,
-        }
-
 
 @dataclasses.dataclass
 class MetadataLocationConfig(LocationConfig):
@@ -106,7 +107,7 @@ class MetadataLocationConfig(LocationConfig):
         with open(f"{self.folder}/state.json", "w") as f:
             json.dump(state.to_json(), f)
 
-    def save_message(self, msg_id: int, msg_data: MessageMetadata) -> None:
+    def save_message(self, msg_id: int, msg_data: StorableData) -> None:
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/{msg_id}.json", "w") as f:
             json.dump(msg_data.to_json(), f, default=encode_json_extra)
