@@ -34,9 +34,11 @@ class BackupTask:
         print(f"- Updating {chat_name} logs")
         total_resources: Dict[Type, Set[DLResource]] = {}
 
+        processed_count = 0
         with tqdm(total=count) as bar:
             async for message in client.iter_messages(entity):
                 msg_id = message.id
+                processed_count += 1
                 # Update latest ID with the first message
                 if not updated_latest:
                     self.state.latest_msg_id = msg_id
@@ -48,16 +50,20 @@ class BackupTask:
                 # Handle message
                 encoded_msg = encode_message(message)
                 self.config.output.metadata.save_message(msg_id, encoded_msg.raw_data)
-                # Handle downloadable resources
+                # Handle downloadable resources  # TODO
                 for resource in encoded_msg.downloadable_resources:
                     if type(resource) not in total_resources:
                         total_resources[type(resource)] = set()
                     total_resources[type(resource)].add(resource)
                 # Report progress
-                logger.debug("Saved message ID %s, date: %s", msg_id, message.date)
+                logger.info(
+                    "Saved message ID %s, date: %s. Processed %s messages",
+                    msg_id,
+                    message.date,
+                    processed_count
+                )
                 total_resource_count = sum([len(x) for x in total_resources.values()])
                 print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
-                print(f"Done {bar.n} messages")
                 bar.update(1)
         self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
 
