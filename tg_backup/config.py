@@ -33,6 +33,14 @@ class StorableData:
             "raw_data": self.raw_data,
         }
 
+    @classmethod
+    def from_json(cls, data: Dict) -> "StorableData":
+        return cls(
+            data["raw_data"],
+            data["tl_scheme_layer"],
+            data["dl_date"],
+        )
+
 
 @dataclasses.dataclass
 class ClientConfig:
@@ -93,6 +101,21 @@ class LocationConfig:
         raise ValueError("Location has not been configured")
 
 
+@dataclasses.dataclass
+class ChatsLocationConfig(LocationConfig):
+
+    def load_chat(self, peer_id: int) -> Optional[StorableData]:
+        try:
+            with open(f"{self.folder}/{peer_id}.json", "r") as f:
+                return StorableData.from_json(json.load(f))
+        except FileNotFoundError:
+            return None
+
+    def save_chat(self, peer_id: int, peer_data: StorableData) -> None:
+        os.makedirs(self.folder, exist_ok=True)
+        with open(f"{self.folder}/{peer_id}.json", "w") as f:
+            json.dump(peer_data.to_json(), f, default=encode_json_extra)
+
 
 @dataclasses.dataclass
 class MetadataLocationConfig(LocationConfig):
@@ -120,7 +143,7 @@ class MetadataLocationConfig(LocationConfig):
 @dataclasses.dataclass
 class OutputConfig:
     metadata: MetadataLocationConfig
-    chats: LocationConfig
+    chats: ChatsLocationConfig
     photos: LocationConfig
     documents: LocationConfig
 
@@ -130,7 +153,7 @@ class OutputConfig:
             data.get("metadata"),
             default.metadata if default else None
         )
-        chats = LocationConfig.from_json_or_default(data.get("chats"), default.chats if default else None)
+        chats = ChatsLocationConfig.from_json_or_default(data.get("chats"), default.chats if default else None)
         photos = LocationConfig.from_json_or_default(data.get("photos"), default.photos if default else None)
         documents = LocationConfig.from_json_or_default(data.get("documents"), default.documents if default else None)
         return cls(
