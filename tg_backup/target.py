@@ -1,5 +1,7 @@
+import asyncio
 import datetime
 import logging
+from asyncio import Queue, QueueEmpty
 from typing import Dict, Set, Type
 
 import telethon
@@ -15,10 +17,45 @@ from tg_backup.tg_utils import get_message_count, get_chat_name
 logger = logging.getLogger(__name__)
 
 
+class ResourceDownloader:
+    def __init__(self, output: OutputConfig) -> None:
+        self.output = output
+        self.running = False
+        self.dl_queue: Queue[DLResource] = Queue()
+        self.completed_resources: Set[DLResource] = set()
+
+    async def run(self, client: TelegramClient) -> None:
+        self.running = True
+        while True:
+            try:
+                next_resource = await self.dl_queue.get()
+            except QueueEmpty:
+                if not self.running:
+                    return
+                await asyncio.sleep(0.3)
+                continue
+            if next_resource in self.completed_resources:
+                continue
+            logger.info("Downloading resource: %s", next_resource)
+            await next_resource.download(client, self.output)
+            self.completed_resources.add(next_resource)
+            logger.info("Resource downloaded. Total downloaded: %s", len(self.completed_resources))
+
+    async def add_resource(self, resource: DLResource) -> None:
+        if resource in self.completed_resources:
+            return
+        await self.dl_queue.put(resource)
+
+    async def stop(self) -> None:
+        self.running = False
+        await self.dl_queue.join()
+
+
 class BackupTask:
     def __init__(self, config: TargetConfig) -> None:
         self.config = config
         self.state = self.config.output.metadata.load_state()
+        self.resource_downloader = ResourceDownloader(config.output)
 
     async def run(self, client: TelegramClient) -> None:
         chat_id = self.config.chat_id
@@ -36,6 +73,10 @@ class BackupTask:
         print(f"- Updating {chat_name} logs")
         total_resources: Dict[Type, Set[DLResource]] = {}
 
+        # Start resource downloader
+        asyncio.get_event_loop().create_task(self.resource_downloader.run(client))
+
+        # Process messages
         processed_count = 0
         with tqdm(total=count) as bar:
             async for message in client.iter_messages(entity):
@@ -55,14 +96,17 @@ class BackupTask:
                 msg_metadata = StorableData(encoded_msg.raw_data)
                 self.config.output.metadata.save_message(msg_id, msg_metadata)
                 logger.info("Saved message ID %s, date: %s. %s processed", msg_id, message.date, processed_count)
-                # Handle downloadable resources  # TODO
+                # Handle downloadable resources
                 for resource in encoded_msg.downloadable_resources:
+                    await self.resource_downloader.add_resource(resource)
                     if type(resource) not in total_resources:
                         total_resources[type(resource)] = set()
                     total_resources[type(resource)].add(resource)
                 total_resource_count = sum([len(x) for x in total_resources.values()])
                 print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
                 bar.update(1)
-        self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
 
+        # Finish up
+        await self.resource_downloader.stop()
+        self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
         self.config.output.metadata.save_state(self.state)
