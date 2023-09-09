@@ -1,11 +1,26 @@
 import dataclasses
+from abc import abstractmethod
 from typing import Dict, Any, Optional, List
+
+from telethon import TelegramClient
+from telethon.tl.functions.users import GetFullUserRequest
+from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUser
+
+from tg_backup.config import OutputConfig, StorableData
 
 
 @dataclasses.dataclass
 class DLResource:
     json_path: str
     raw_data: Dict
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        raise NotImplementedError
 
 
 @dataclasses.dataclass
@@ -22,6 +37,15 @@ class DLResourcePeerUser(DLResource):
 
     def __hash__(self) -> int:
         return hash(("peer_user", self.user_id))
+
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        chat_data = output.chats.load_chat(self.user_id)
+        if chat_data:
+            return
+        user_request = GetFullUserRequest(self.user_id)
+        user_full = await client(user_request)
+        user_full_data = user_full.to_dict()
+        output.chats.save_chat(self.user_id, StorableData(user_full_data))
 
 
 @dataclasses.dataclass
