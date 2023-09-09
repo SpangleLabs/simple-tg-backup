@@ -109,7 +109,7 @@ class MetadataLocationConfig(LocationConfig):
     def save_state(self, state: TargetState) -> None:
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/state.json", "w") as f:
-            json.dump(state.to_json(), f)
+            json.dump(state.to_json(), f, default=encode_json_extra)
 
     def save_message(self, msg_id: int, msg_data: StorableData) -> None:
         os.makedirs(self.folder, exist_ok=True)
