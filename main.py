@@ -7,6 +7,7 @@ from tg_backup.config import load_config
 from tg_backup.target import BackupTask
 
 logger = logging.getLogger(__name__)
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 def main() -> None:
