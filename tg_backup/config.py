@@ -98,7 +98,6 @@ class LocationConfig:
 class MetadataLocationConfig(LocationConfig):
 
     def load_state(self) -> TargetState:
-        os.makedirs(self.folder, exist_ok=True)
         data = None
         try:
             with open(f"{self.folder}/state.json", "r") as f:
