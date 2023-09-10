@@ -102,22 +102,6 @@ class LocationConfig:
 
 
 @dataclasses.dataclass
-class ChatsLocationConfig(LocationConfig):
-
-    def load_chat(self, peer_id: int) -> Optional[StorableData]:
-        try:
-            with open(f"{self.folder}/{peer_id}.json", "r") as f:
-                return StorableData.from_json(json.load(f))
-        except FileNotFoundError:
-            return None
-
-    def save_chat(self, peer_id: int, peer_data: StorableData) -> None:
-        os.makedirs(self.folder, exist_ok=True)
-        with open(f"{self.folder}/{peer_id}.json", "w") as f:
-            json.dump(peer_data.to_json(), f, default=encode_json_extra)
-
-
-@dataclasses.dataclass
 class MetadataLocationConfig(LocationConfig):
 
     def load_state(self) -> TargetState:
@@ -138,6 +122,22 @@ class MetadataLocationConfig(LocationConfig):
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/{msg_id}.json", "w") as f:
             json.dump(msg_data.to_json(), f, default=encode_json_extra)
+
+
+@dataclasses.dataclass
+class ChatsLocationConfig(LocationConfig):
+
+    def load_chat(self, peer_id: int) -> Optional[StorableData]:
+        try:
+            with open(f"{self.folder}/{peer_id}.json", "r") as f:
+                return StorableData.from_json(json.load(f))
+        except FileNotFoundError:
+            return None
+
+    def save_chat(self, peer_id: int, peer_data: StorableData) -> None:
+        os.makedirs(self.folder, exist_ok=True)
+        with open(f"{self.folder}/{peer_id}.json", "w") as f:
+            json.dump(peer_data.to_json(), f, default=encode_json_extra)
 
 
 @dataclasses.dataclass
