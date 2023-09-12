@@ -102,7 +102,7 @@ class DLResourcePhoto(DLResourceMedia):
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         if output.photos.photo_exists(self.media_id):
             return
-        with output.photos.open_file(self.media_id) as f:
+        with output.photos.open_photo(self.media_id) as f:
             input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
             await client.download_file(input_photo, f)
         output.photos.save_metadata(self.media_id, StorableData(self.raw_data))
