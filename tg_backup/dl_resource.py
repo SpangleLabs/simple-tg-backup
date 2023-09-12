@@ -3,8 +3,11 @@ from abc import abstractmethod
 from typing import Dict, Any, Optional, List
 
 from telethon import TelegramClient
+from telethon.tl.functions.channels import GetFullChannelRequest
+from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUser
+from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUser, InputFile, InputDocument, \
+    InputDocumentFileLocation
 
 from tg_backup.config import OutputConfig, StorableData
 
@@ -55,6 +58,15 @@ class DLResourcePeerChat(DLResource):
     def __hash__(self) -> int:
         return hash(("peer_chat", self.chat_id))
 
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        chat_data = output.chats.load_chat(self.chat_id)
+        if chat_data:
+            return
+        chat_request = GetFullChatRequest(self.chat_id)
+        chat_full = await client(chat_request)
+        chat_full_data = chat_full.to_dict()
+        output.chats.save_chat(self.chat_id, StorableData(chat_full_data))
+
 
 @dataclasses.dataclass
 class DLResourcePeerChannel(DLResource):
@@ -62,6 +74,15 @@ class DLResourcePeerChannel(DLResource):
 
     def __hash__(self) -> int:
         return hash(("peer_channel", self.channel_id))
+
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        chat_data = output.chats.load_chat(self.channel_id)
+        if chat_data:
+            return
+        chat_request = GetFullChannelRequest(self.channel_id)
+        chat_full = await client(chat_request)
+        chat_full_data = chat_full.to_dict()
+        output.chats.save_chat(self.channel_id, StorableData(chat_full_data))
 
 
 @dataclasses.dataclass
@@ -73,9 +94,18 @@ class DLResourceMedia(DLResource):
 
 @dataclasses.dataclass
 class DLResourcePhoto(DLResourceMedia):
+    photo_size_type: str
 
     def __hash__(self) -> int:
         return hash(("photo", self.media_id))
+
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        if output.photos.photo_exists(self.media_id):
+            return
+        with output.photos.open_file(self.media_id) as f:
+            input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
+            await client.download_file(input_photo, f)
+        output.photos.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
 @dataclasses.dataclass
@@ -83,6 +113,25 @@ class DLResourceDocument(DLResourceMedia):
 
     def __hash__(self) -> int:
         return hash(("document", self.media_id))
+
+    def file_ext(self) -> str:
+        for attr in self.raw_data["attributes"]:
+            if attr["_"] == "DocumentAttributeFilename":
+                return attr["file_name"].split(".")[-1]
+        if self.raw_data["mime_type"]:
+            return self.raw_data["mime_type"].split("/")[-1]
+        return "unknown"
+
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        file_ext = self.file_ext()  # TODO You know, maybe just use the message object? It might refresh the file ref
+        if output.documents.file_exists(self.media_id, file_ext):
+            return
+        with output.documents.open_file(self.media_id, file_ext) as f:
+            # input_doc = InputDocument(self.media_id, self.access_hash, self.file_reference)
+            input_doc = InputDocumentFileLocation(self.media_id, self.access_hash, self.file_reference, "")
+            await client.download_file(input_doc, f)
+            # await client.download_media(input_doc, f)
+        output.documents.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
 @dataclasses.dataclass
@@ -115,7 +164,8 @@ def search_for_resources(raw_data: Any, json_path: str) -> Optional[List[DLResou
     file_ref = raw_data.get("file_reference")
     if maybe_id and access_hash and file_ref:
         if raw_data["_"] == "Photo":
-            resources.append(DLResourcePhoto(json_path, raw_data, maybe_id, access_hash, file_ref))
+            photo_size = raw_data["sizes"][-1]["type"]
+            resources.append(DLResourcePhoto(json_path, raw_data, maybe_id, access_hash, file_ref, photo_size))
         elif raw_data["_"] == "Document":
             resources.append(DLResourceDocument(json_path, raw_data, maybe_id, access_hash, file_ref))
         else:
