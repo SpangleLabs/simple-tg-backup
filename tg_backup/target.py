@@ -70,8 +70,6 @@ class BackupTask:
         chat_name = get_chat_name(entity)
         updated_latest = False
         logger.info("Backing up target chat: %s", chat_name)
-        print(f"- Updating {chat_name} logs")
-        total_resources: Dict[Type, Set[DLResource]] = {}
 
         # Start resource downloader
         asyncio.get_event_loop().create_task(self.resource_downloader.run(client))
@@ -99,11 +97,6 @@ class BackupTask:
                 # Handle downloadable resources
                 for resource in encoded_msg.downloadable_resources:
                     await self.resource_downloader.add_resource(resource)
-                    if type(resource) not in total_resources:
-                        total_resources[type(resource)] = set()
-                    total_resources[type(resource)].add(resource)
-                total_resource_count = sum([len(x) for x in total_resources.values()])
-                print(f"Gathered {total_resource_count} unique resources: " + ", ".join(f"{key.__name__}: {len(val)}" for key, val in total_resources.items()))
                 bar.update(1)
 
         # Finish up

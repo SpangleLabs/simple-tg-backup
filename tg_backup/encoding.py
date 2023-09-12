@@ -18,9 +18,8 @@ class EncodedMessage:
 def encode_message(msg: Message) -> EncodedMessage:
     msg_data = msg.to_dict()
     resources = resources_in_msg(msg_data)
-    print(resources)
     resource_types = [type(r).__name__ for r in resources]
-    print(f"Found {len(resources)} resources: {resource_types}")
+    logger.debug("Found %s resources in message ID %s: %s", len(resources), msg.id, resource_types)
     if "DLResourceMediaUnknown" in resource_types:
         raise ValueError(f"Found unknown media: {resources}")
     return EncodedMessage(
