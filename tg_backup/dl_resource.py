@@ -127,10 +127,8 @@ class DLResourceDocument(DLResourceMedia):
         if output.documents.file_exists(self.media_id, file_ext):
             return
         with output.documents.open_file(self.media_id, file_ext) as f:
-            # input_doc = InputDocument(self.media_id, self.access_hash, self.file_reference)
             input_doc = InputDocumentFileLocation(self.media_id, self.access_hash, self.file_reference, "")
             await client.download_file(input_doc, f)
-            # await client.download_media(input_doc, f)
         output.documents.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
