@@ -3,7 +3,8 @@ import dataclasses
 import datetime
 import json
 import os
-from typing import Dict, List, Optional
+from io import BufferedIOBase
+from typing import Dict, List, Optional, BinaryIO
 
 import telethon
 
@@ -141,11 +142,37 @@ class ChatsLocationConfig(LocationConfig):
 
 
 @dataclasses.dataclass
+class DocumentLocationConfig(LocationConfig):
+
+    def open_file(self, media_id: int, file_ext: str) -> BinaryIO:
+        os.makedirs(self.folder, exist_ok=True)
+        return open(f"{self.folder}/{media_id}.{file_ext}", "wb")
+
+    def save_metadata(self, media_id: int, data: StorableData) -> None:
+        os.makedirs(self.folder, exist_ok=True)
+        with open(f"{self.folder}/{media_id}_meta.json", "w") as f:
+            json.dump(data.to_json(), f, default=encode_json_extra)
+
+    def file_exists(self, media_id: int, file_ext: str) -> bool:
+        return os.path.exists(f"{self.folder}/{media_id}.{file_ext}")
+
+
+@dataclasses.dataclass
+class PhotosLocationConfig(DocumentLocationConfig):
+
+    def open_photo(self, media_id: int) -> BinaryIO:
+        return super().open_file(media_id, "jpg")
+
+    def photo_exists(self, media_id: int) -> bool:
+        return super().file_exists(media_id, "jpg")
+
+
+@dataclasses.dataclass
 class OutputConfig:
     metadata: MetadataLocationConfig
     chats: ChatsLocationConfig
-    photos: LocationConfig
-    documents: LocationConfig
+    photos: PhotosLocationConfig
+    documents: DocumentLocationConfig
 
     @classmethod
     def from_json(cls, data: Dict, default: Optional["OutputConfig"] = None) -> "OutputConfig":
@@ -154,8 +181,8 @@ class OutputConfig:
             default.metadata if default else None
         )
         chats = ChatsLocationConfig.from_json_or_default(data.get("chats"), default.chats if default else None)
-        photos = LocationConfig.from_json_or_default(data.get("photos"), default.photos if default else None)
-        documents = LocationConfig.from_json_or_default(data.get("documents"), default.documents if default else None)
+        photos = PhotosLocationConfig.from_json_or_default(data.get("photos"), default.photos if default else None)
+        documents = DocumentLocationConfig.from_json_or_default(data.get("documents"), default.documents if default else None)
         return cls(
             metadata,
             chats,
