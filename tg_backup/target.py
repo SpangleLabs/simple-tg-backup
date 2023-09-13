@@ -43,7 +43,11 @@ class ResourceDownloader:
             except Exception:
                 sys.exit(1)
             self.completed_resources.add(next_resource)
-            logger.info("Resource downloaded. Total downloaded: %s", len(self.completed_resources))
+            logger.info(
+                "Resource downloaded. Total downloaded: %s. Resources in queue: %s",
+                len(self.completed_resources),
+                self.dl_queue.qsize()
+            )
 
     async def add_resource(self, resource: DLResource) -> None:
         if resource in self.completed_resources:
