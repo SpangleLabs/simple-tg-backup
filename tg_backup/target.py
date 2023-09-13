@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import sys
 from asyncio import Queue, QueueEmpty
 from typing import Dict, Set, Type
 
@@ -37,7 +38,10 @@ class ResourceDownloader:
             if next_resource in self.completed_resources:
                 continue
             logger.info("Downloading resource: %s", next_resource)
-            await next_resource.download(client, self.output)
+            try:
+                await next_resource.download(client, self.output)
+            except Exception:
+                sys.exit(1)
             self.completed_resources.add(next_resource)
             logger.info("Resource downloaded. Total downloaded: %s", len(self.completed_resources))
 
