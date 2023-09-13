@@ -7,13 +7,14 @@ from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUser, InputFile, InputDocument, \
-    InputDocumentFileLocation
+    InputDocumentFileLocation, Message
 
 from tg_backup.config import OutputConfig, StorableData
 
 
 @dataclasses.dataclass
 class DLResource:
+    msg: Message
     json_path: str
     raw_data: Dict
 
@@ -137,11 +138,11 @@ class DLResourceMediaUnknown(DLResourceMedia):
     pass
 
 
-def search_for_resources(raw_data: Any, json_path: str) -> Optional[List[DLResource]]:
+def search_for_resources(msg: Message, raw_data: Any, json_path: str) -> Optional[List[DLResource]]:
     if isinstance(raw_data, List):
         resources = []
         for n, item in enumerate(raw_data):
-            item_resources = search_for_resources(item, f"{json_path}[{n}]")
+            item_resources = search_for_resources(msg, item, f"{json_path}[{n}]")
             if item_resources:
                 resources.extend(item_resources)
         return resources
@@ -150,38 +151,38 @@ def search_for_resources(raw_data: Any, json_path: str) -> Optional[List[DLResou
     resources = []
     user_id = raw_data.get("user_id")
     if user_id:
-        resources.append(DLResourcePeerUser(json_path, raw_data, user_id))
+        resources.append(DLResourcePeerUser(msg, json_path, raw_data, user_id))
     chat_id = raw_data.get("chat_id")
     if chat_id:
-        resources.append(DLResourcePeerChat(json_path, raw_data, chat_id))
+        resources.append(DLResourcePeerChat(msg, json_path, raw_data, chat_id))
     channel_id = raw_data.get("channel_id")
     if channel_id:
-        resources.append(DLResourcePeerChannel(json_path, raw_data, channel_id))
+        resources.append(DLResourcePeerChannel(msg, json_path, raw_data, channel_id))
     maybe_id = raw_data.get("id")
     access_hash = raw_data.get("access_hash")
     file_ref = raw_data.get("file_reference")
     if maybe_id and access_hash and file_ref:
         if raw_data["_"] == "Photo":
             photo_size = raw_data["sizes"][-1]["type"]
-            resources.append(DLResourcePhoto(json_path, raw_data, maybe_id, access_hash, file_ref, photo_size))
+            resources.append(DLResourcePhoto(msg, json_path, raw_data, maybe_id, access_hash, file_ref, photo_size))
         elif raw_data["_"] == "Document":
-            resources.append(DLResourceDocument(json_path, raw_data, maybe_id, access_hash, file_ref))
+            resources.append(DLResourceDocument(msg, json_path, raw_data, maybe_id, access_hash, file_ref))
         else:
-            resources.append(DLResourceMediaUnknown(json_path, raw_data, maybe_id, access_hash, file_ref))
+            resources.append(DLResourceMediaUnknown(msg, json_path, raw_data, maybe_id, access_hash, file_ref))
     # Check for nested resources
     for key, value in raw_data.items():
-        item_resources = search_for_resources(value, f"{json_path}.{key}")
+        item_resources = search_for_resources(msg, value, f"{json_path}.{key}")
         if item_resources:
             resources.extend(item_resources)
     return resources
 
 
-def resources_in_msg(msg_data: Dict) -> List[DLResource]:
+def resources_in_msg(msg: Message, msg_data: Dict) -> List[DLResource]:
     resources = []
     # Handle "via_bot_id" key
     via_bot_id = msg_data.get("via_bot_id")
     if via_bot_id:
-        resources.append(DLResourcePeerID(".via_bot_id", msg_data, via_bot_id))
+        resources.append(DLResourcePeerID(msg, ".via_bot_id", msg_data, via_bot_id))
     # Search for others
-    resources += search_for_resources(msg_data, "")
+    resources += search_for_resources(msg, msg_data, "")
     return resources
