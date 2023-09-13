@@ -90,10 +90,20 @@ class BackupTask:
                     break
                 # Encode message
                 encoded_msg = encode_message(message)
-                # Save message
-                msg_metadata = StorableData(encoded_msg.raw_data)
-                self.config.output.metadata.save_message(msg_id, msg_metadata)
-                logger.info("Saved message ID %s, date: %s. %s processed", msg_id, message.date, processed_count)
+                # Save message if new
+                new_msg = False
+                if not self.config.output.metadata.message_exists(msg_id):
+                    msg_metadata = StorableData(encoded_msg.raw_data)
+                    self.config.output.metadata.save_message(msg_id, msg_metadata)
+                    new_msg = True
+                logger.info(
+                    "%s message ID %s, date: %s. %s processed. Resources in queue: %s",
+                    "Saved" if new_msg else "Skipped",
+                    msg_id,
+                    message.date,
+                    processed_count,
+                    self.resource_downloader.dl_queue.qsize(),
+                )
                 # Handle downloadable resources
                 for resource in encoded_msg.downloadable_resources:
                     await self.resource_downloader.add_resource(resource)

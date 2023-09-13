@@ -119,6 +119,9 @@ class MetadataLocationConfig(LocationConfig):
         with open(f"{self.folder}/state.json", "w") as f:
             json.dump(state.to_json(), f, default=encode_json_extra)
 
+    def message_exists(self, msg_id: int) -> bool:
+        return os.path.exists(f"{self.folder}/{msg_id}.json")
+
     def save_message(self, msg_id: int, msg_data: StorableData) -> None:
         os.makedirs(self.folder, exist_ok=True)
         with open(f"{self.folder}/{msg_id}.json", "w") as f:
