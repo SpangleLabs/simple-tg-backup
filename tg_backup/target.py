@@ -110,6 +110,7 @@ class BackupTask:
                 bar.update(1)
 
         # Finish up
+        logger.info("Finished scraping messages")
         await self.resource_downloader.stop()
         self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
         self.config.output.metadata.save_state(self.state)
