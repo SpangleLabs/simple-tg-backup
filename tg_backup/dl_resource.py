@@ -104,8 +104,10 @@ class DLResourcePhoto(DLResourceMedia):
         if output.photos.photo_exists(self.media_id):
             return
         with output.photos.open_photo(self.media_id) as f:
-            input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
-            await client.download_file(input_photo, f)
+            out_path = await client.download_media(self.msg, f, )
+            if not out_path:
+                input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
+                await client.download_file(input_photo, f)
         output.photos.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
@@ -128,8 +130,9 @@ class DLResourceDocument(DLResourceMedia):
         if output.documents.file_exists(self.media_id, file_ext):
             return
         with output.documents.open_file(self.media_id, file_ext) as f:
-            input_doc = InputDocumentFileLocation(self.media_id, self.access_hash, self.file_reference, "")
-            await client.download_file(input_doc, f)
+            out_path = await client.download_media(self.msg, f)
+            if not out_path:
+                raise ValueError(f"Failed to download document from message: {self.msg.id}")
         output.documents.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
