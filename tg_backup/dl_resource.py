@@ -1,8 +1,10 @@
 import dataclasses
+import logging
 from abc import abstractmethod
 from typing import Dict, Any, Optional, List
 
 from telethon import TelegramClient
+from telethon.errors import ChannelPrivateError
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
@@ -10,6 +12,9 @@ from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUs
     InputDocumentFileLocation, Message
 
 from tg_backup.config import OutputConfig, StorableData
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -90,7 +95,15 @@ class DLResourcePeerChannel(DLResource):
         if chat_data:
             return
         chat_request = GetFullChannelRequest(self.channel_id)
-        chat_full = await client(chat_request)
+        try:
+            chat_full = await client(chat_request)
+        except ChannelPrivateError:
+            logger.warning(
+                "Could not download channel %s referenced in message %s. Channel is private.",
+                self.channel_id,
+                self.msg.id,
+            )
+            return
         chat_full_data = chat_full.to_dict()
         output.chats.save_chat(self.channel_id, StorableData(chat_full_data))
 
