@@ -78,7 +78,7 @@ class BackupTask:
         logger.info("Backing up target chat: %s", chat_name)
 
         # Start resource downloader
-        asyncio.get_event_loop().create_task(self.resource_downloader.run(client))
+        resource_dl_task = asyncio.get_event_loop().create_task(self.resource_downloader.run(client))
 
         # Process messages
         processed_count = 0
@@ -116,5 +116,7 @@ class BackupTask:
         # Finish up
         logger.info("Finished scraping messages")
         await self.resource_downloader.stop()
+        await resource_dl_task
+        logger.info("Finished downloading resources")
         self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
         self.config.output.metadata.save_state(self.state)
