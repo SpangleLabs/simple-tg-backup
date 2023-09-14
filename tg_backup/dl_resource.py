@@ -38,6 +38,7 @@ class DLResource:
 
 @dataclasses.dataclass
 class DLResourcePeerID(DLResource):
+    """This seems to be just for bot IDs really"""
     peer_id: int
 
     def __hash__(self) -> int:
