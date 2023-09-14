@@ -61,7 +61,7 @@ class ResourceDownloader:
 class BackupTask:
     def __init__(self, config: TargetConfig) -> None:
         self.config = config
-        self.state = self.config.output.messages.load_state()
+        self.state = self.config.output.messages.load_state(self.config.chat_id)
         self.resource_downloader = ResourceDownloader(config.output)
 
     async def run(self, client: TelegramClient) -> None:
@@ -97,9 +97,9 @@ class BackupTask:
             encoded_msg = encode_message(message)
             # Save message if new
             new_msg = False
-            if not self.config.output.messages.message_exists(msg_id):  # TODO: Maybe save history of messages?
+            if not self.config.output.messages.message_exists(chat_id, msg_id):  # TODO: Maybe save history of messages?
                 msg_metadata = StorableData(encoded_msg.raw_data)
-                self.config.output.messages.save_message(msg_id, msg_metadata)  # TODO: What about chat ID?
+                self.config.output.messages.save_message(chat_id, msg_id, msg_metadata)
                 new_msg = True
             logger.info(
                 "%s message ID %s, date: %s. %s processed. Resources in queue: %s",
@@ -119,4 +119,4 @@ class BackupTask:
         await resource_dl_task
         logger.info("Finished downloading resources")
         self.state.latest_end_time = datetime.datetime.now(datetime.timezone.utc)
-        self.config.output.messages.save_state(self.state)
+        self.config.output.messages.save_state(chat_id, self.state)

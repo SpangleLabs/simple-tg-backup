@@ -104,26 +104,28 @@ class LocationConfig:
 @dataclasses.dataclass
 class MessageLocationConfig(LocationConfig):
 
-    def load_state(self) -> TargetState:
+    def load_state(self, chat_id: int) -> TargetState:
         data = None
         try:
-            with open(f"{self.folder}/state.json", "r") as f:
+            with open(f"{self.folder}/{chat_id}/state.json", "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
             pass
         return TargetState.from_json(data)
 
-    def save_state(self, state: TargetState) -> None:
-        os.makedirs(self.folder, exist_ok=True)
-        with open(f"{self.folder}/state.json", "w") as f:
+    def save_state(self, chat_id: int, state: TargetState) -> None:
+        chat_folder = f"{self.folder}/{chat_id}"
+        os.makedirs(chat_folder, exist_ok=True)
+        with open(f"{chat_folder}/state.json", "w") as f:
             json.dump(state.to_json(), f, default=encode_json_extra)
 
-    def message_exists(self, msg_id: int) -> bool:
-        return os.path.exists(f"{self.folder}/{msg_id}.json")
+    def message_exists(self, chat_id: int, msg_id: int) -> bool:
+        return os.path.exists(f"{self.folder}/{chat_id}/{msg_id}.json")
 
-    def save_message(self, msg_id: int, msg_data: StorableData) -> None:
-        os.makedirs(self.folder, exist_ok=True)
-        with open(f"{self.folder}/{msg_id}.json", "w") as f:
+    def save_message(self, chat_id: int, msg_id: int, msg_data: StorableData) -> None:
+        chat_folder = f"{self.folder}/{chat_id}"
+        os.makedirs(chat_folder, exist_ok=True)
+        with open(f"{chat_folder}/{msg_id}.json", "w") as f:
             json.dump(msg_data.to_json(), f, default=encode_json_extra)
 
 
