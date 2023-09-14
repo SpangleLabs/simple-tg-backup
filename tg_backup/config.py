@@ -102,7 +102,7 @@ class LocationConfig:
 
 
 @dataclasses.dataclass
-class MetadataLocationConfig(LocationConfig):
+class MessageLocationConfig(LocationConfig):
 
     def load_state(self) -> TargetState:
         data = None
@@ -171,22 +171,22 @@ class PhotosLocationConfig(DocumentLocationConfig):
 
 @dataclasses.dataclass
 class OutputConfig:
-    metadata: MetadataLocationConfig
+    messages: MessageLocationConfig
     chats: ChatsLocationConfig
     photos: PhotosLocationConfig
     documents: DocumentLocationConfig
 
     @classmethod
     def from_json(cls, data: Dict, default: Optional["OutputConfig"] = None) -> "OutputConfig":
-        metadata = MetadataLocationConfig.from_json_or_default(
+        messages = MessageLocationConfig.from_json_or_default(
             data.get("metadata"),
-            default.metadata if default else None
+            default.messages if default else None
         )
         chats = ChatsLocationConfig.from_json_or_default(data.get("chats"), default.chats if default else None)
         photos = PhotosLocationConfig.from_json_or_default(data.get("photos"), default.photos if default else None)
         documents = DocumentLocationConfig.from_json_or_default(data.get("documents"), default.documents if default else None)
         return cls(
-            metadata,
+            messages,
             chats,
             photos,
             documents,
