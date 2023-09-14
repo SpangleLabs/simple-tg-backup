@@ -3,7 +3,6 @@ import dataclasses
 import datetime
 import json
 import os
-from io import BufferedIOBase
 from typing import Dict, List, Optional, BinaryIO
 
 import telethon
