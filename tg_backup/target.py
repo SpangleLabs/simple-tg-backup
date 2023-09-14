@@ -28,13 +28,14 @@ class ResourceDownloader:
         self.running = True
         while True:
             try:
-                next_resource = await self.dl_queue.get()
+                next_resource = self.dl_queue.get_nowait()
             except QueueEmpty:
                 if not self.running:
                     return
                 await asyncio.sleep(0.3)
                 continue
             if next_resource in self.completed_resources:
+                self.dl_queue.task_done()
                 continue
             logger.info("Downloading resource: %s", next_resource)
             try:
@@ -42,6 +43,7 @@ class ResourceDownloader:
             except Exception:
                 sys.exit(1)
             self.completed_resources.add(next_resource)
+            self.dl_queue.task_done()
             logger.info(
                 "Resource downloaded. Total downloaded: %s. Resources in queue: %s",
                 len(self.completed_resources),
@@ -56,6 +58,7 @@ class ResourceDownloader:
     async def stop(self) -> None:
         self.running = False
         await self.dl_queue.join()
+        logger.info("Stopped resource downloader")
 
 
 class BackupTask:
