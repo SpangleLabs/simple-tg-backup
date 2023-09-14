@@ -139,7 +139,7 @@ class DLResourceMedia(DLResource):
 
 @dataclasses.dataclass
 class DLResourcePhoto(DLResourceMedia):
-    photo_size_type: str
+    photo_size_type: str  # TODO: separate folders for photos and web previews?
 
     def __hash__(self) -> int:
         return hash(("photo", self.media_id))
