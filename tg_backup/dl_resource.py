@@ -148,7 +148,7 @@ class DLResourceDocument(DLResourceMedia):
         return "unknown"
 
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
-        file_ext = self.file_ext()  # TODO You know, maybe just use the message object? It might refresh the file ref
+        file_ext = self.file_ext()
         if output.documents.file_exists(self.media_id, file_ext):
             return
         with output.documents.open_file(self.media_id, file_ext) as f:
