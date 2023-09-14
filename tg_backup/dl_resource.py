@@ -28,6 +28,10 @@ class DLResource:
         raise NotImplementedError
 
     @abstractmethod
+    def __eq__(self, other) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         raise NotImplementedError
 
@@ -38,6 +42,14 @@ class DLResourcePeerID(DLResource):
 
     def __hash__(self) -> int:
         return hash(("peer_id", self.peer_id))
+
+    def __eq__(self, other) -> bool:
+        return any([
+            isinstance(other, DLResourcePeerID) and self.peer_id == other.peer_id,
+            isinstance(other, DLResourcePeerUser) and self.peer_id == other.user_id,
+            isinstance(other, DLResourcePeerChat) and self.peer_id == other.chat_id,
+            isinstance(other, DLResourcePeerChannel) and self.peer_id == other.channel_id,
+        ])
 
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         chat_data = output.chats.load_chat(self.peer_id)
@@ -56,6 +68,9 @@ class DLResourcePeerUser(DLResource):
     def __hash__(self) -> int:
         return hash(("peer_user", self.user_id))
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DLResourcePeerUser) and self.user_id == other.user_id
+
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         chat_data = output.chats.load_chat(self.user_id)
         if chat_data:
@@ -73,6 +88,9 @@ class DLResourcePeerChat(DLResource):
     def __hash__(self) -> int:
         return hash(("peer_chat", self.chat_id))
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DLResourcePeerChat) and self.chat_id == other.chat_id
+
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         chat_data = output.chats.load_chat(self.chat_id)
         if chat_data:
@@ -89,6 +107,9 @@ class DLResourcePeerChannel(DLResource):
 
     def __hash__(self) -> int:
         return hash(("peer_channel", self.channel_id))
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DLResourcePeerChannel) and self.channel_id == other.channel_id
 
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         chat_data = output.chats.load_chat(self.channel_id)
@@ -122,6 +143,9 @@ class DLResourcePhoto(DLResourceMedia):
     def __hash__(self) -> int:
         return hash(("photo", self.media_id))
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DLResourcePhoto) and self.media_id == other.media_id
+
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         if output.photos.photo_exists(self.media_id):
             return
@@ -138,6 +162,9 @@ class DLResourceDocument(DLResourceMedia):
 
     def __hash__(self) -> int:
         return hash(("document", self.media_id))
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, DLResourceDocument) and self.media_id == other.media_id
 
     def file_ext(self) -> str:
         for attr in self.raw_data["attributes"]:
