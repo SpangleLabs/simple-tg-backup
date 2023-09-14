@@ -4,15 +4,15 @@ from abc import abstractmethod
 from typing import Dict, Any, Optional, List
 
 from telethon import TelegramClient
-from telethon.errors import ChannelPrivateError
+from telethon.errors import ChannelPrivateError, FileReferenceExpiredError
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import InputPhoto, Photo, InputPhotoFileLocation, InputUser, InputFile, InputDocument, \
-    InputDocumentFileLocation, Message
+from telethon.tl.patched import Message
+from telethon.tl.types import InputPhotoFileLocation
 
 from tg_backup.config import OutputConfig, StorableData
-
+from tg_backup.tg_utils import get_from_obj_by_path
 
 logger = logging.getLogger(__name__)
 
@@ -150,10 +150,22 @@ class DLResourcePhoto(DLResourceMedia):
         if output.photos.photo_exists(self.media_id):
             return
         with output.photos.open_photo(self.media_id) as f:
-            out_path = await client.download_media(self.msg, f, )
+            out_path = None
+            try:
+                out_path = await client.download_media(self.msg, f)
+            except FileReferenceExpiredError:
+                pass
             if not out_path:
-                input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
-                await client.download_file(input_photo, f)
+                msg_data = (self.msg.input_chat, self.msg.id) if self.msg.input_chat else None
+                try:
+                    input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, self.file_reference, self.photo_size_type)
+                    await client._download_file(input_photo, f, msg_data=msg_data)
+                except FileReferenceExpiredError:
+                    logger.debug("File reference expired, re-fetching message")
+                    new_msg = client.get_messages(self.msg.input_chat, ids=self.msg.id)
+                    new_file_ref = get_from_obj_by_path(new_msg, f"{self.json_path}.file_reference")
+                    input_photo = InputPhotoFileLocation(self.media_id, self.access_hash, new_file_ref, self.photo_size_type)
+                    await client._download_file(input_photo, f, msg_data=msg_data)
         output.photos.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
@@ -176,7 +188,7 @@ class DLResourceDocument(DLResourceMedia):
 
     async def download(self, client: TelegramClient, output: OutputConfig) -> None:
         file_ext = self.file_ext()
-        if output.documents.file_exists(self.media_id, file_ext):
+        if output.documents.file_exists(self.media_id):
             return
         with output.documents.open_file(self.media_id, file_ext) as f:
             out_path = await client.download_media(self.msg, f)
