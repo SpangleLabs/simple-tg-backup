@@ -156,8 +156,8 @@ class DocumentLocationConfig(LocationConfig):
         with open(f"{self.folder}/{media_id}_meta.json", "w") as f:
             json.dump(data.to_json(), f, default=encode_json_extra)
 
-    def file_exists(self, media_id: int, file_ext: str) -> bool:
-        return os.path.exists(f"{self.folder}/{media_id}.{file_ext}")
+    def file_exists(self, media_id: int) -> bool:
+        return os.path.exists(f"{self.folder}/{media_id}_meta.json")
 
 
 @dataclasses.dataclass
@@ -167,7 +167,7 @@ class PhotosLocationConfig(DocumentLocationConfig):
         return super().open_file(media_id, "jpg")
 
     def photo_exists(self, media_id: int) -> bool:
-        return super().file_exists(media_id, "jpg")
+        return super().file_exists(media_id)
 
 
 @dataclasses.dataclass
