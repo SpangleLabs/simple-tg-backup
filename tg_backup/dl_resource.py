@@ -34,6 +34,15 @@ class DLResourcePeerID(DLResource):
     def __hash__(self) -> int:
         return hash(("peer_id", self.peer_id))
 
+    async def download(self, client: TelegramClient, output: OutputConfig) -> None:
+        chat_data = output.chats.load_chat(self.peer_id)
+        if chat_data:
+            return
+        user_request = GetFullUserRequest(self.peer_id)
+        user_full = await client(user_request)
+        user_full_data = user_full.to_dict()
+        output.chats.save_chat(self.peer_id, StorableData(user_full_data))
+
 
 @dataclasses.dataclass
 class DLResourcePeerUser(DLResource):
