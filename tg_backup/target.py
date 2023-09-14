@@ -3,16 +3,15 @@ import datetime
 import logging
 import sys
 from asyncio import Queue, QueueEmpty
-from typing import Dict, Set, Type
+from typing import Set
 
 import telethon
 from telethon import TelegramClient
-from tqdm import tqdm
 
 from tg_backup.config import TargetConfig, OutputConfig, StorableData
 from tg_backup.encoding import encode_message
 from tg_backup.dl_resource import DLResource
-from tg_backup.tg_utils import get_message_count, get_chat_name
+from tg_backup.tg_utils import get_chat_name
 
 
 logger = logging.getLogger(__name__)
@@ -74,7 +73,6 @@ class BackupTask:
 
         # Setup chat info
         entity = await client.get_entity(chat_id)
-        count = await get_message_count(client, entity, last_message_id or 0)
         chat_name = get_chat_name(entity)
         updated_latest = False
         logger.info("Backing up target chat: %s", chat_name)
@@ -84,38 +82,36 @@ class BackupTask:
 
         # Process messages
         processed_count = 0
-        with tqdm(total=count) as bar:
-            async for message in client.iter_messages(entity):
-                msg_id = message.id
-                processed_count += 1
-                # Update latest ID with the first message
-                if not updated_latest:
-                    self.state.latest_msg_id = msg_id
-                    updated_latest = True
-                # Check if we've caught up
-                if last_message_id is not None and msg_id <= last_message_id:
-                    logger.info(f"- Caught up on %s", chat_name)
-                    break
-                # Encode message
-                encoded_msg = encode_message(message)
-                # Save message if new
-                new_msg = False
-                if not self.config.output.metadata.message_exists(msg_id):
-                    msg_metadata = StorableData(encoded_msg.raw_data)
-                    self.config.output.metadata.save_message(msg_id, msg_metadata)
-                    new_msg = True
-                logger.info(
-                    "%s message ID %s, date: %s. %s processed. Resources in queue: %s",
-                    "Saved" if new_msg else "Skipped",
-                    msg_id,
-                    message.date,
-                    processed_count,
-                    self.resource_downloader.dl_queue.qsize(),
-                )
-                # Handle downloadable resources
-                for resource in encoded_msg.downloadable_resources:
-                    await self.resource_downloader.add_resource(resource)
-                bar.update(1)
+        async for message in client.iter_messages(entity):
+            msg_id = message.id
+            processed_count += 1
+            # Update latest ID with the first message
+            if not updated_latest:
+                self.state.latest_msg_id = msg_id
+                updated_latest = True
+            # Check if we've caught up
+            if last_message_id is not None and msg_id <= last_message_id:
+                logger.info(f"- Caught up on %s", chat_name)
+                break
+            # Encode message
+            encoded_msg = encode_message(message)
+            # Save message if new
+            new_msg = False
+            if not self.config.output.metadata.message_exists(msg_id):  # TODO: Maybe save history of messages?
+                msg_metadata = StorableData(encoded_msg.raw_data)
+                self.config.output.metadata.save_message(msg_id, msg_metadata)  # TODO: What about chat ID?
+                new_msg = True
+            logger.info(
+                "%s message ID %s, date: %s. %s processed. Resources in queue: %s",
+                "Saved" if new_msg else "Skipped",
+                msg_id,
+                message.date,
+                processed_count,
+                self.resource_downloader.dl_queue.qsize(),
+            )
+            # Handle downloadable resources
+            for resource in encoded_msg.downloadable_resources:
+                await self.resource_downloader.add_resource(resource)
 
         # Finish up
         logger.info("Finished scraping messages")
