@@ -2,8 +2,8 @@ import asyncio
 import datetime
 import logging
 import sys
-from asyncio import Queue, QueueEmpty
-from typing import Set
+from asyncio import Queue, QueueEmpty, Task
+from typing import Set, List
 
 import telethon
 from telethon import TelegramClient
@@ -18,14 +18,27 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceDownloader:
+    NUM_PROCESSORS = 2
+
     def __init__(self, output: OutputConfig) -> None:
         self.output = output
         self.running = False
         self.dl_queue: Queue[DLResource] = Queue()
         self.completed_resources: Set[DLResource] = set()
+        self.processors: List[Task] = []
 
     async def run(self, client: TelegramClient) -> None:
         self.running = True
+        loop = asyncio.get_event_loop()
+        for _ in range(self.NUM_PROCESSORS):
+            processor_task = loop.create_task(self.process_queue(client))
+            self.processors.append(processor_task)
+        logger.debug("Started up %s resource download processors", len(self.processors))
+        for task in self.processors:
+            await task
+        logger.debug("All resource download processors complete")
+
+    async def process_queue(self, client: TelegramClient) -> None:
         while True:
             try:
                 next_resource = self.dl_queue.get_nowait()
