@@ -35,7 +35,7 @@ def main() -> None:
     client.start()
     loop = asyncio.get_event_loop()
     tasks = [BackupTask(target_conf) for target_conf in conf.targets]
-    for task in tasks:
+    for task in tasks:  # TODO: run all tasks at once, and resource downloaders independently
         loop.run_until_complete(task.run(client))
     logger.info("All backups complete")
 

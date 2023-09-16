@@ -41,7 +41,7 @@ class ResourceDownloader:
     async def process_queue(self, client: TelegramClient) -> None:
         while True:
             try:
-                next_resource = self.dl_queue.get_nowait()
+                next_resource = self.dl_queue.get_nowait()  # TODO: ability to prioritise small downloads first
             except QueueEmpty:
                 if not self.running:
                     return
@@ -49,7 +49,7 @@ class ResourceDownloader:
                 continue
             if next_resource in self.completed_resources:
                 self.dl_queue.task_done()
-                continue
+                continue  # TODO: have file size limits for download
             logger.info("Downloading resource: %s", next_resource)
             try:
                 await next_resource.download(client, self.output)
