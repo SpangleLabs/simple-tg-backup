@@ -9,7 +9,7 @@ from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.patched import Message
-from telethon.tl.types import InputPhotoFileLocation
+from telethon.tl.types import InputPhotoFileLocation, InputDocumentFileLocation
 
 from tg_backup.config import OutputConfig, StorableData
 from tg_backup.tg_utils import get_from_obj_by_path
@@ -194,7 +194,16 @@ class DLResourceDocument(DLResourceMedia):
         with output.documents.open_file(self.media_id, file_ext) as f:
             out_path = await client.download_media(self.msg, f)
             if not out_path:
-                raise ValueError(f"Failed to download document from message: {self.msg.id}")
+                msg_data = (self.msg.input_chat, self.msg.id) if self.msg.input_chat else None
+                try:
+                    input_photo = InputDocumentFileLocation(self.media_id, self.access_hash, self.file_reference, "")
+                    await client._download_file(input_photo, f, msg_data=msg_data)
+                except FileReferenceExpiredError:
+                    logger.debug("File reference expired, re-fetching message")
+                    new_msg = client.get_messages(self.msg.input_chat, ids=self.msg.id)
+                    new_file_ref = get_from_obj_by_path(new_msg, f"{self.json_path}.file_reference")
+                    input_doc = InputDocumentFileLocation(self.media_id, self.access_hash, new_file_ref, "")
+                    await client._download_file(input_doc, f, msg_data=msg_data)
         output.documents.save_metadata(self.media_id, StorableData(self.raw_data))
 
 
