@@ -35,9 +35,11 @@ def main() -> None:
     client.start()
     loop = asyncio.get_event_loop()
     tasks = [BackupTask(target_conf) for target_conf in conf.targets]
-    for task in tasks:  # TODO: run all tasks at once, and resource downloaders independently
+    for task in tasks:  # TODO: run all tasks at once, and resource downloaders independently. (But then how to know when one is done)
         loop.run_until_complete(task.run(client))
     logger.info("All backups complete")
+    # TODO: build some formatting stuff too, processing logs into usable html files
+    # TODO: Some gallery to view all the photos from a chat?
 
 
 if __name__ == '__main__':

@@ -104,7 +104,7 @@ class LocationConfig:
 @dataclasses.dataclass
 class MessageLocationConfig(LocationConfig):
 
-    def load_state(self, chat_id: int) -> TargetState:
+    def load_state(self, chat_id: int) -> TargetState:  # TODO: database storage
         data = None
         try:
             with open(f"{self.folder}/{chat_id}/state.json", "r") as f:
