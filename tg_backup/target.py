@@ -53,7 +53,8 @@ class ResourceDownloader:
             logger.info("Downloading resource: %s", next_resource)
             try:
                 await next_resource.download(client, self.output)
-            except Exception:
+            except Exception as e:
+                logger.critical("Failed to download resource %s, shutting down", next_resource, exc_info=e)
                 sys.exit(1)
             self.completed_resources.add(next_resource)
             self.dl_queue.task_done()
