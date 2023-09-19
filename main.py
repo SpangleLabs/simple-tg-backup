@@ -28,6 +28,7 @@ def setup_logging() -> None:
     file_handler = TimedRotatingFileHandler("logs/tg_backup.log", when="midnight")
     file_handler.setFormatter(formatter)
     backup_logger.addHandler(file_handler)
+    logger.addHandler(file_handler)
 
 
 async def run_tasks_once(client: TelegramClient, tasks: List[BackupTask]) -> None:
