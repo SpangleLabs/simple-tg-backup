@@ -19,7 +19,7 @@ def setup_logging() -> None:
     formatter = logging.Formatter("{asctime}:{levelname}:{name}:{message}", style="{")
 
     base_logger = logging.getLogger()
-    base_logger.setLevel(logging.INFO)
+    base_logger.setLevel(logging.DEBUG)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     base_logger.addHandler(console_handler)
