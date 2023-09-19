@@ -3,9 +3,12 @@ import dataclasses
 import datetime
 import json
 import os
+from abc import ABC
 from typing import Dict, List, Optional, BinaryIO
 
+import isodate
 import telethon
+from croniter import croniter
 
 # noinspection PyUnresolvedReferences
 SCHEME_LAYER = telethon.tl.alltlobjects.LAYER
@@ -195,22 +198,58 @@ class OutputConfig:
         )
 
 
+class ScheduleConfig(ABC):
+    run_once = False
+
+    @classmethod
+    def from_json(cls, data: Optional[Dict]) -> "ScheduleConfig":
+        if not data:
+            return ScheduleConfigOnce()
+        if period_str := data.get("period"):
+            return ScheduleConfigPeriod(isodate.parse_duration(period_str))
+        if cron_str := data.get("cron"):
+            return ScheduleConfigCron(croniter(cron_str))
+        # TODO: Add a live schedule, that keeps track of a chat and updates it as messages come in
+        raise ValueError("Schedule is not defined")
+
+    def next_run_time(self, latest_run: datetime.datetime) -> datetime.datetime:
+        raise NotImplementedError
+
+
+class ScheduleConfigOnce(ScheduleConfig):
+    run_once = True
+
+
+class ScheduleConfigPeriod(ScheduleConfig):
+    def __init__(self, period: datetime.timedelta) -> None:
+        self.period = period
+
+    def next_run_time(self, latest_run: datetime.datetime) -> datetime.datetime:
+        return latest_run + self.period
+
+
+class ScheduleConfigCron(ScheduleConfig):
+    def __init__(self, cron: croniter) -> None:
+        self.cron = cron
+
+    def next_run_time(self, latest_run: datetime.datetime) -> datetime.datetime:
+        return self.cron.get_next(datetime.datetime, latest_run)
+
+
 @dataclasses.dataclass
 class TargetConfig:
     chat_id: int
     output: OutputConfig
+    schedule: ScheduleConfig
 
     @classmethod
-    def from_json(cls, data: Dict, default_output: OutputConfig) -> "TargetConfig":
+    def from_json(cls, data: Dict, default_output: OutputConfig, default_schedule: ScheduleConfig) -> "TargetConfig":
         chat_id = data["chat_id"]
         output = OutputConfig.from_json(data.get("output", {}), default=default_output)
-        # TODO: Add update frequency:
-        # - unset: run once
-        # - iso8601 period: run then wait until period since last run started
-        # - cron: run on cron schedule
-        # - live: run once, then keep up with live messages
-        # Maybe allow the above to be a global or have a defualt
-        return cls(chat_id, output)
+        schedule = default_schedule
+        if schedule_conf := data.get("schedule"):
+            schedule = ScheduleConfig.from_json(schedule_conf)
+        return cls(chat_id, output, schedule)
 
 
 @dataclasses.dataclass
@@ -218,15 +257,17 @@ class BackupConfig:
     client: ClientConfig
     targets: List[TargetConfig]
     output: OutputConfig
+    schedule: ScheduleConfig
 
     @classmethod
     def from_json(cls, data: Dict) -> "BackupConfig":
         client = ClientConfig.from_json(data["client"])
         output = OutputConfig.from_json(data["output"])
+        schedule = ScheduleConfig.from_json(data.get("schedule"))
         targets = [
-            TargetConfig.from_json(target_data, output) for target_data in data["backup_targets"]
+            TargetConfig.from_json(target_data, output, schedule) for target_data in data["backup_targets"]
         ]
-        return cls(client, targets, output)
+        return cls(client, targets, output, schedule)
 
 
 def load_config() -> BackupConfig:
