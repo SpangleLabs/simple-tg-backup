@@ -36,6 +36,7 @@ class ResourceDownloader:
         logger.debug("Started up %s resource download processors", len(self.processors))
         for task in self.processors:
             await task
+        self.processors.clear()
         logger.debug("All resource download processors complete")
 
     async def process_queue(self, client: TelegramClient) -> None:
