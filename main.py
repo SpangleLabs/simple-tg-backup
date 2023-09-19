@@ -42,19 +42,22 @@ async def run_tasks_schedule(client: TelegramClient, tasks: List[BackupTask]) ->
     if all([task.config.schedule.run_once for task in tasks]):
         logger.debug("No tasks have schedules set, skipping scheduler")
         return
-    for task in tasks:
-        if task.config.schedule.run_once:
-            continue
-        last_run = task.state.latest_start_time
-        if not last_run:
-            await task.run(client)
-            continue
-        next_run = task.config.schedule.next_run_time(last_run)
-        now_time = datetime.datetime.now(datetime.timezone.utc)
-        if now_time > next_run:
-            logger.info("Triggering scheduled backup for task. Scheduled time: %s. Actual time: %s", next_run, now_time)
-            await task.run(client)
-            continue
+    while True:
+        for task in tasks:
+            if task.config.schedule.run_once:
+                continue
+            last_run = task.state.latest_start_time
+            if not last_run:
+                await task.run(client)
+                continue
+            next_run = task.config.schedule.next_run_time(last_run)
+            now_time = datetime.datetime.now(datetime.timezone.utc)
+            if now_time > next_run:
+                logger.info("Triggering scheduled backup for task. Scheduled time: %s. Actual time: %s", next_run, now_time)
+                await task.run(client)
+                continue
+        logger.debug("Waiting for next scheduled backup")
+        await asyncio.sleep(60)
 
 
 def main() -> None:
