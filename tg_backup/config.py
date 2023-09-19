@@ -6,6 +6,7 @@ import os
 from abc import ABC
 from typing import Dict, List, Optional, BinaryIO
 
+import dateutil.parser
 import isodate
 import telethon
 from croniter import croniter
@@ -77,10 +78,15 @@ class TargetState:
     def from_json(cls, data: Optional[Dict]) -> "TargetState":
         if not data:
             return cls(None, None, None, None)
+        latest_start_time, latest_end_time = None, None
+        if latest_start_str := data["latest_start_time"]:
+            latest_start_time = dateutil.parser.parse(latest_start_str)
+        if latest_end_str := data["latest_end_time"]:
+            latest_end_time = dateutil.parser.parse(latest_end_str)
         return cls(
             data["latest_msg_id"],
-            data["latest_start_time"],
-            data["latest_end_time"],
+            latest_start_time,
+            latest_end_time,
             data["tl_scheme_layer"],
         )
 
