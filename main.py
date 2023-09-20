@@ -10,7 +10,7 @@ from prometheus_client import start_http_server, Gauge
 from telethon import TelegramClient
 
 from tg_backup.config import load_config
-from tg_backup.target import BackupTask
+from tg_backup.backup_target import BackupTarget
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def setup_logging() -> None:
     logger.addHandler(file_handler)
 
 
-async def run_tasks_once(client: TelegramClient, tasks: List[BackupTask]) -> None:
+async def run_tasks_once(client: TelegramClient, tasks: List[BackupTarget]) -> None:
     # Run all tasks once which don't have schedules
     for task in tasks:
         if task.config.schedule.run_once:
@@ -47,7 +47,7 @@ async def run_tasks_once(client: TelegramClient, tasks: List[BackupTask]) -> Non
             last_backup_ended.set_to_current_time()
 
 
-async def run_tasks_schedule(client: TelegramClient, tasks: List[BackupTask]) -> None:
+async def run_tasks_schedule(client: TelegramClient, tasks: List[BackupTarget]) -> None:
     if all([task.config.schedule.run_once for task in tasks]):
         logger.debug("No tasks have schedules set, skipping scheduler")
         return
@@ -82,7 +82,7 @@ def main() -> None:
     client = TelegramClient('simple_backup', conf.client.api_id, conf.client.api_hash)
     client.start()
     loop = asyncio.get_event_loop()
-    tasks = [BackupTask(target_conf) for target_conf in conf.targets]
+    tasks = [BackupTarget(target_conf) for target_conf in conf.targets]
     task_count.set(len(tasks))
     # TODO: run all tasks at once, and resource downloaders independently. (But then how to know when one is done)
     # Run all the run_once tasks once.

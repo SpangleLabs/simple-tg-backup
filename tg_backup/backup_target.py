@@ -31,7 +31,7 @@ time_taken_saving_message = backup_time_taken.labels(task="saving message")
 time_taken_waiting_for_resource_dl = backup_time_taken.labels(task="waiting for resource downloader to complete")
 
 
-class BackupTask:
+class BackupTarget:
     def __init__(self, config: TargetConfig) -> None:
         self.config = config
         self.state = self.config.output.messages.load_state(self.config.chat_id)

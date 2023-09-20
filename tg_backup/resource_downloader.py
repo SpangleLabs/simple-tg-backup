@@ -8,7 +8,7 @@ from telethon import TelegramClient
 
 from tg_backup.config import OutputConfig
 from tg_backup.dl_resource import DLResource
-from tg_backup.target import logger
+from tg_backup.backup_target import logger
 
 resources_in_queue = Gauge(
     "tgbackup_resource_downloader_queue_length",
