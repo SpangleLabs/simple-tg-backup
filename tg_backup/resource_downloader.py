@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from asyncio import Queue, Task, QueueEmpty
 from typing import Type, Set, List
@@ -8,7 +9,10 @@ from telethon import TelegramClient
 
 from tg_backup.config import OutputConfig
 from tg_backup.dl_resource import DLResource
-from tg_backup.backup_target import logger
+
+
+logger = logging.getLogger(__name__)
+
 
 resources_in_queue = Gauge(
     "tgbackup_resource_downloader_queue_length",
