@@ -57,6 +57,7 @@ class Config:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
+        default_behaviour = DEFAULT_BEHAVIOUR
         if behaviour_config := data.get("default_behaviour"):
             default_behaviour = BehaviourConfig.merge(
                 BehaviourConfig.from_dict(behaviour_config),
