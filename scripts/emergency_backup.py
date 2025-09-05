@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
+from typing import Optional
 
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, DocumentAttributeFilename
 
@@ -95,58 +96,64 @@ def encode_json_extra(value: object) -> str:
         raise ValueError(f"Unrecognised type to encode: {value}")
 
 
-async def storable_object(obj: object, media_dl: MediaDownloader, **kwargs) -> dict:
-    # TODO: move this into a class, so media_dl doesn't need passing
-    data = {
-        "type": type(obj).__name__,
-        "id": obj.id if hasattr(obj, "id") else None,
-        "str": str(obj),
-        "dict": obj.to_dict() if hasattr(obj, "to_dict") else None,
-    }
-    if hasattr(obj, "date"):
-        data["date"] = obj.date.isoformat()
-    if hasattr(obj, "text"):
-        data["text"] = obj.text
-    if hasattr(obj, "media"):
-        data["media"] = await storable_object(obj.media, media_dl)
-        await media_dl.queue_media(obj.media)
-    return data | kwargs
+class Archiver:
+    def __init__(self, conf_data: dict) -> None:
+        self.client = TelegramClient("simple_backup", conf_data["client"]["api_id"], conf_data["client"]["api_hash"])
+        self.started = False
+        self.media_dl = MediaDownloader(self.client)
+        self.media_dl_task: Optional[asyncio.Task] = None
 
+    async def start(self) -> None:
+        await self.client.start()
+        asyncio.create_task(self.media_dl.run())
+        self.started = True
 
-async def archive_chat(conf_data: dict, chat_id: int) -> None:
-    tg_client = TelegramClient("simple_backup", conf_data["client"]["api_id"], conf_data["client"]["api_hash"])
-    await tg_client.start()
-    # Create the media downloader
-    media_dl = MediaDownloader(tg_client)
-    media_dl_task = asyncio.create_task(media_dl.run())
-    # Get chat data
-    chat = await tg_client.get_entity(chat_id)
-    basic_data = {
-        "chat": await storable_object(chat, media_dl),
-        "admin_events": [],
-        "messages": [],
-    }
-    logger.info("Got chat data: %s", chat)
-    # Gather data from admin log
-    async for evt in tg_client.iter_admin_log(chat):
-        logger.info("Processing admin event ID: %s", evt.id)
-        basic_data["admin_events"].append(await storable_object(evt, media_dl))
-        evt_type = type(evt.action)
-        if evt_type == ChannelAdminLogEventActionDeleteMessage:
-            msg = evt.action.message
-            basic_data["messages"].append(await storable_object(msg, media_dl, deleted=True))
-    # Gather messages from chat
-    async for msg in tg_client.iter_messages(chat):
-        logger.info("Processing message ID: %s", msg.id)
-        basic_data["messages"].append(await storable_object(msg, media_dl))
-    # Store the message data
-    os.makedirs("store", exist_ok=True)
-    with open(f"store/{chat_id}.json", "w") as f:
-        json.dump(basic_data, f, indent=2, default=encode_json_extra)
-    # Wait for media downloader to complete
-    logger.info("Awaiting completion of media downloader")
-    media_dl.mark_as_filled()
-    await media_dl_task
+    async def storable_object(self, obj: object, **kwargs) -> dict:
+        data = {
+            "type": type(obj).__name__,
+            "id": obj.id if hasattr(obj, "id") else None,
+            "str": str(obj),
+            "dict": obj.to_dict() if hasattr(obj, "to_dict") else None,
+        }
+        if hasattr(obj, "date"):
+            data["date"] = obj.date.isoformat()
+        if hasattr(obj, "text"):
+            data["text"] = obj.text
+        if hasattr(obj, "media"):
+            data["media"] = await self.storable_object(obj.media)
+            await self.media_dl.queue_media(obj.media)
+        return data | kwargs
+
+    async def archive_chat(self, chat_id: int) -> None:
+        await self.start()
+        # Get chat data
+        chat = await self.client.get_entity(chat_id)
+        basic_data = {
+            "chat": await storable_object(chat, media_dl),
+            "admin_events": [],
+            "messages": [],
+        }
+        logger.info("Got chat data: %s", chat)
+        # Gather data from admin log
+        async for evt in self.client.iter_admin_log(chat):
+            logger.info("Processing admin event ID: %s", evt.id)
+            basic_data["admin_events"].append(await self.storable_object(evt))
+            evt_type = type(evt.action)
+            if evt_type == ChannelAdminLogEventActionDeleteMessage:
+                msg = evt.action.message
+                basic_data["messages"].append(await self.storable_object(msg, deleted=True))
+        # Gather messages from chat
+        async for msg in self.client.iter_messages(chat):
+            logger.info("Processing message ID: %s", msg.id)
+            basic_data["messages"].append(await self.storable_object(msg))
+        # Store the message data
+        os.makedirs("store", exist_ok=True)
+        with open(f"store/{chat_id}.json", "w") as f:
+            json.dump(basic_data, f, indent=2, default=encode_json_extra)
+        # Wait for media downloader to complete
+        logger.info("Awaiting completion of media downloader")
+        self.media_dl.mark_as_filled()
+        await self.media_dl_task
 
 
 @click.command()
@@ -156,7 +163,8 @@ def main(log_level: str, chat_id: int) -> None:
     setup_logging(log_level)
     with open("config.json") as f:
         conf_data = json.load(f)
-    asyncio.run(archive_chat(conf_data, chat_id))
+    archiver = Archiver(conf_data)
+    asyncio.run(archiver.archive_chat(chat_id))
 
 
 if __name__ == "__main__":
