@@ -25,6 +25,7 @@ class MediaDownloader:
             except asyncio.QueueEmpty:
                 if self.stop_when_empty:
                     logger.info("Queue is empty, shutting down media downloader")
+                    self.running = False
                     return
                 await asyncio.sleep(1)
                 continue
@@ -53,7 +54,7 @@ class MediaDownloader:
             logger.info("Media download complete, type: %s, ID: %s", media_type, media_id)
             logger.info("There are %s remaining items in the media queue", self.queue.qsize())
 
-    def stop(self) -> None:
+    def abort(self) -> None:
         self.running = False
 
     def mark_as_filled(self) -> None:
