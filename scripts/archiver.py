@@ -9,7 +9,7 @@ from typing import Optional
 from telethon import TelegramClient
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 
-from scripts.config import Config
+from scripts.config import Config, BehaviourConfig
 from scripts.media_downloader import MediaDownloader
 
 
@@ -27,6 +27,7 @@ def encode_json_extra(value: object) -> str:
 
 class Archiver:
     def __init__(self, conf: Config) -> None:
+        self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.started = False
         self.media_dl = MediaDownloader(self.client)
@@ -37,7 +38,7 @@ class Archiver:
         asyncio.create_task(self.media_dl.run())
         self.started = True
 
-    async def storable_object(self, obj: object, **kwargs) -> dict:
+    async def storable_object(self, obj: object, behaviour: BehaviourConfig, **kwargs) -> dict:
         data = {
             "type": type(obj).__name__,
             "id": obj.id if hasattr(obj, "id") else None,
@@ -49,37 +50,42 @@ class Archiver:
         if hasattr(obj, "text"):
             data["text"] = obj.text
         if hasattr(obj, "media"):
-            data["media"] = await self.storable_object(obj.media)
-            await self.media_dl.queue_media(obj.media)
+            data["media"] = await self.storable_object(obj.media, behaviour)
+            if behaviour.download_media:
+                await self.media_dl.queue_media(obj.media)
         return data | kwargs
 
-    async def archive_chat(self, chat_id: int) -> None:
+    async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:
+        behaviour = BehaviourConfig.merge(archive_behaviour, self.config.default_behaviour)
         await self.start()
         # Get chat data
         chat = await self.client.get_entity(chat_id)
         basic_data = {
-            "chat": await self.storable_object(chat),
+            "chat": await self.storable_object(chat, behaviour),
             "admin_events": [],
             "messages": [],
         }
         logger.info("Got chat data: %s", chat)
         # Gather data from admin log
-        async for evt in self.client.iter_admin_log(chat):
-            logger.info("Processing admin event ID: %s", evt.id)
-            basic_data["admin_events"].append(await self.storable_object(evt))
-            evt_type = type(evt.action)
-            if evt_type == ChannelAdminLogEventActionDeleteMessage:
-                msg = evt.action.message
-                basic_data["messages"].append(await self.storable_object(msg, deleted=True))
+        if behaviour.check_admin_log:
+            async for evt in self.client.iter_admin_log(chat):
+                logger.info("Processing admin event ID: %s", evt.id)
+                basic_data["admin_events"].append(await self.storable_object(evt, behaviour))
+                evt_type = type(evt.action)
+                if evt_type == ChannelAdminLogEventActionDeleteMessage:
+                    msg = evt.action.message
+                    basic_data["messages"].append(await self.storable_object(msg, behaviour, deleted=True))
         # Gather messages from chat
-        async for msg in self.client.iter_messages(chat):
-            logger.info("Processing message ID: %s", msg.id)
-            basic_data["messages"].append(await self.storable_object(msg))
+        if behaviour.archive_history:
+            async for msg in self.client.iter_messages(chat):
+                logger.info("Processing message ID: %s", msg.id)
+                basic_data["messages"].append(await self.storable_object(msg, behaviour))
         # Store the message data
         os.makedirs("store", exist_ok=True)
         with open(f"store/{chat_id}.json", "w") as f:
             json.dump(basic_data, f, indent=2, default=encode_json_extra)
         # Wait for media downloader to complete
-        logger.info("Awaiting completion of media downloader")
-        self.media_dl.mark_as_filled()
-        await self.media_dl_task
+        if behaviour.download_media:
+            logger.info("Awaiting completion of media downloader")
+            self.media_dl.mark_as_filled()
+            await self.media_dl_task
