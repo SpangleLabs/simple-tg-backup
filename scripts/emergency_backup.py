@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import datetime
 import json
 import logging
 import os
@@ -84,6 +86,14 @@ class MediaDownloader:
         await self.queue.put(media)
 
 
+def encode_json_extra(value: object) -> str:
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode('ascii')
+    elif isinstance(value, datetime.datetime):
+        return value.isoformat()
+    else:
+        raise ValueError(f"Unrecognised type to encode: {value}")
+
 
 async def storable_object(obj: object, media_dl: MediaDownloader, **kwargs) -> dict:
     # TODO: move this into a class, so media_dl doesn't need passing
@@ -132,7 +142,7 @@ async def archive_chat(conf_data: dict, chat_id: int) -> None:
     # Store the message data
     os.makedirs("store", exist_ok=True)
     with open(f"store/{chat_id}.json", "w") as f:
-        json.dump(basic_data, f, indent=2)
+        json.dump(basic_data, f, indent=2, default=encode_json_extra)
     # Wait for media downloader to complete
     logger.info("Awaiting completion of media downloader")
     media_dl.mark_as_filled()
