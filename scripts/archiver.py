@@ -9,6 +9,7 @@ from telethon import TelegramClient
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 
 from scripts.emergency_backup import logger
+from scripts.config import Config
 from scripts.media_downloader import MediaDownloader
 
 
@@ -22,8 +23,8 @@ def encode_json_extra(value: object) -> str:
 
 
 class Archiver:
-    def __init__(self, conf_data: dict) -> None:
-        self.client = TelegramClient("simple_backup", conf_data["client"]["api_id"], conf_data["client"]["api_hash"])
+    def __init__(self, conf: Config) -> None:
+        self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.started = False
         self.media_dl = MediaDownloader(self.client)
         self.media_dl_task: Optional[asyncio.Task] = None
