@@ -42,6 +42,14 @@ class BehaviourConfig:
         )
 
 
+DEFAULT_BEHAVIOUR = BehaviourConfig(
+    download_media=True,
+    check_admin_log=True,
+    follow_live=False,
+    archive_history=True,
+)
+
+
 @dataclasses.dataclass
 class Config:
     client: TelegramClientConfig
@@ -49,16 +57,10 @@ class Config:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
-        default_behaviour = BehaviourConfig(
-            download_media=True,
-            check_admin_log=True,
-            follow_live=False,
-            archive_history=True,
-        )
         if behaviour_config := data.get("default_behaviour"):
             default_behaviour = BehaviourConfig.merge(
                 BehaviourConfig.from_dict(behaviour_config),
-                default_behaviour,
+                DEFAULT_BEHAVIOUR,
             )
         return cls(
             client=TelegramClientConfig.from_dict(data["client"]),
