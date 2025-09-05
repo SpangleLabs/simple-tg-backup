@@ -7,6 +7,7 @@ from telethon import TelegramClient
 
 from scripts.archive_target import ArchiveTarget
 from scripts.config import Config, BehaviourConfig
+from scripts.database.core_database import CoreDatabase
 from scripts.media_downloader import MediaDownloader
 
 
@@ -20,13 +21,30 @@ class Archiver:
         self.started = False
         self.media_dl = MediaDownloader(self.client)
         self.media_dl_task: Optional[asyncio.Task] = None
+        self.core_db = CoreDatabase()
 
     async def start(self) -> None:
+        logger.info("Starting Archiver core database")
+        self.core_db.start()
+        logger.info("Connecting to telegram")
+        # noinspection PyUnresolvedReferences
         await self.client.start()
+        logger.info("Starting media downloader")
         asyncio.create_task(self.media_dl.run())
         self.started = True
 
     async def stop(self, fast: bool = False) -> None:
+        # Shut down media downloader
+        await self._stop_media_dl(fast=fast)
+        # Disconnect from telegram
+        logger.info("Disconnecting from telegram")
+        await self.client.disconnect()
+        # Disconnect database
+        logger.info("Disconnecting from core database")
+        self.core_db.stop()
+
+    async def _stop_media_dl(self, fast: bool = False) -> None:
+        # Shut down media downloader
         if not self.media_dl.running:
             return
         logging.info("Awaiting shutdown of media downloader")
