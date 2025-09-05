@@ -1,10 +1,12 @@
 import asyncio
+import logging
 import os
 
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename
 
-from scripts.emergency_backup import logger
+
+logger = logging.getLogger(__name__)
 
 
 class MediaDownloader:

@@ -2,15 +2,18 @@ import asyncio
 import base64
 import datetime
 import json
+import logging
 import os
 from typing import Optional
 
 from telethon import TelegramClient
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 
-from scripts.emergency_backup import logger
 from scripts.config import Config
 from scripts.media_downloader import MediaDownloader
+
+
+logger = logging.getLogger(__name__)
 
 
 def encode_json_extra(value: object) -> str:
