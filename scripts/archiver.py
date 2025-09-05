@@ -58,7 +58,7 @@ class Archiver:
         # Get chat data
         chat = await self.client.get_entity(chat_id)
         basic_data = {
-            "chat": await storable_object(chat, media_dl),
+            "chat": await self.storable_object(chat),
             "admin_events": [],
             "messages": [],
         }
