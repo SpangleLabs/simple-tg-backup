@@ -3,8 +3,9 @@ import datetime
 import json
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
+from telethon import hints
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 
 from scripts.config import BehaviourConfig
@@ -29,6 +30,7 @@ def encode_json_extra(value: object) -> str:
 class ArchiveTarget:
     def __init__(self, chat_id: int, behaviour: BehaviourConfig, archiver: "Archiver") -> None:
         self.chat_id = chat_id
+        self._chat_entity: Optional[hints.Entity] = None
         self.behaviour = behaviour
         self.archiver = archiver
         self.client = archiver.client
@@ -50,29 +52,45 @@ class ArchiveTarget:
                 await self.archiver.media_dl.queue_media(obj.media)
         return data | kwargs
 
+    async def chat_entity(self) -> hints.Entity:
+        if self._chat_entity is None:
+            self._chat_entity = await self.client.get_entity(self.chat_id)
+        return self._chat_entity
+
+    async def _archive_chat_data(self) -> dict:
+        chat_entity = await self.chat_entity()
+        logger.info("Got chat data: %s", chat_entity)
+        return await self.storable_object(chat_entity)
+
+    async def _archive_admin_log(self, chat_data: dict) -> None:
+        chat_entity = await self.chat_entity()
+        async for evt in self.client.iter_admin_log(chat_entity):
+            logger.info("Processing admin event ID: %s", evt.id)
+            chat_data["admin_events"].append(await self.storable_object(evt))
+            evt_type = type(evt.action)
+            if evt_type == ChannelAdminLogEventActionDeleteMessage:
+                msg = evt.action.message
+                chat_data["messages"].append(await self.storable_object(msg, deleted=True))
+
+    async def _archive_history(self, chat_data: dict) -> None:
+        chat_entity = await self.chat_entity()
+        async for msg in self.client.iter_messages(chat_entity):
+            logger.info("Processing message ID: %s", msg.id)
+            chat_data["messages"].append(await self.storable_object(msg))
+
     async def archive_chat(self) -> None:
         # Get chat data
-        chat = await self.client.get_entity(self.chat_id)
         basic_data = {
-            "chat": await self.storable_object(chat),
+            "chat": await self._archive_chat_data(),
             "admin_events": [],
             "messages": [],
         }
-        logger.info("Got chat data: %s", chat)
         # Gather data from admin log
         if self.behaviour.check_admin_log:
-            async for evt in self.client.iter_admin_log(chat):
-                logger.info("Processing admin event ID: %s", evt.id)
-                basic_data["admin_events"].append(await self.storable_object(evt))
-                evt_type = type(evt.action)
-                if evt_type == ChannelAdminLogEventActionDeleteMessage:
-                    msg = evt.action.message
-                    basic_data["messages"].append(await self.storable_object(msg, deleted=True))
+            await self._archive_admin_log(basic_data)
         # Gather messages from chat
         if self.behaviour.archive_history:
-            async for msg in self.client.iter_messages(chat):
-                logger.info("Processing message ID: %s", msg.id)
-                basic_data["messages"].append(await self.storable_object(msg))
+            await self._archive_history(basic_data)
         # Store the message data
         os.makedirs("store", exist_ok=True)
         with open(f"store/{self.chat_id}.json", "w") as f:
