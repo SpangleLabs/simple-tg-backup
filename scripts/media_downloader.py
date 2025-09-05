@@ -18,7 +18,6 @@ class MediaDownloader:
         self.seen_media_ids = set()
 
     async def run(self) -> None:
-        return
         self.running = True
         while self.running:
             try:
