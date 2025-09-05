@@ -90,7 +90,8 @@ async def storable_object(obj: object, media_dl: MediaDownloader, **kwargs) -> d
     data = {
         "type": type(obj).__name__,
         "id": obj.id if hasattr(obj, "id") else None,
-        "str": str(obj)
+        "str": str(obj),
+        "dict": obj.to_dict() if hasattr(obj, "to_dict") else None,
     }
     if hasattr(obj, "date"):
         data["date"] = obj.date.isoformat()
