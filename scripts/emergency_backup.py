@@ -1,18 +1,13 @@
 import asyncio
-import base64
-import datetime
 import json
 import logging
 import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
-from typing import Optional
-
-from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, DocumentAttributeFilename
-
-from telethon import TelegramClient
 
 import click
+
+from scripts.archiver import Archiver
 
 logger = logging.getLogger(__name__)
 
@@ -29,131 +24,6 @@ def setup_logging(log_level: str = "INFO") -> None:
     file_handler = TimedRotatingFileHandler("logs/backups.log", when="midnight")
     file_handler.setFormatter(formatter)
     base_logger.addHandler(file_handler)
-
-
-class MediaDownloader:
-    def __init__(self, client: TelegramClient) -> None:
-        self.client = client
-        self.queue: asyncio.Queue[object] = asyncio.Queue()
-        self.running = False
-        self.stop_when_empty = False
-        self.seen_media_ids = set()
-
-    async def run(self) -> None:
-        self.running = True
-        while self.running:
-            try:
-                media = self.queue.get_nowait()
-            except asyncio.QueueEmpty:
-                if self.stop_when_empty:
-                    logger.info("Queue is empty, shutting down media downloader")
-                    return
-                await asyncio.sleep(1)
-                continue
-            media_type = type(media).__name__
-            media_ext = ".unknown_filetype"
-            if hasattr(media, "photo"):
-                media_id = media.photo.id
-                media_ext = ".jpg"
-            elif hasattr(media, "document"):
-                media_id = media.document.id
-                for attr in media.document.attributes:
-                    if type(attr) == DocumentAttributeFilename:
-                        media_ext = "." + attr.file_name.split(".")[-1]
-            elif hasattr(media, "webpage"):
-                continue  # TODO: download them, in the fullness of time.
-            else:
-                raise ValueError(f"Unrecognised media type: {media_type}")
-            target_path = f"store/media/{media_id}{media_ext}"
-            if os.path.exists(target_path):
-                # TODO: maybe not this?
-                logger.info("Skipping download of pre-existing file")
-                continue
-            # Download the media
-            logger.info("Downloading media, type: %s, ID: %s", media_type, media_id)
-            await self.client.download_media(media, target_path)
-            logger.info("Media download complete, type: %s, ID: %s", media_type, media_id)
-            logger.info("There are %s remaining items in the media queue", self.queue.qsize())
-
-    def stop(self) -> None:
-        self.running = False
-
-    def mark_as_filled(self) -> None:
-        self.stop_when_empty = True
-
-    async def queue_media(self, media: object) -> None:
-        if media is None:
-            return
-        await self.queue.put(media)
-
-
-def encode_json_extra(value: object) -> str:
-    if isinstance(value, bytes):
-        return base64.b64encode(value).decode('ascii')
-    elif isinstance(value, datetime.datetime):
-        return value.isoformat()
-    else:
-        raise ValueError(f"Unrecognised type to encode: {value}")
-
-
-class Archiver:
-    def __init__(self, conf_data: dict) -> None:
-        self.client = TelegramClient("simple_backup", conf_data["client"]["api_id"], conf_data["client"]["api_hash"])
-        self.started = False
-        self.media_dl = MediaDownloader(self.client)
-        self.media_dl_task: Optional[asyncio.Task] = None
-
-    async def start(self) -> None:
-        await self.client.start()
-        asyncio.create_task(self.media_dl.run())
-        self.started = True
-
-    async def storable_object(self, obj: object, **kwargs) -> dict:
-        data = {
-            "type": type(obj).__name__,
-            "id": obj.id if hasattr(obj, "id") else None,
-            "str": str(obj),
-            "dict": obj.to_dict() if hasattr(obj, "to_dict") else None,
-        }
-        if hasattr(obj, "date"):
-            data["date"] = obj.date.isoformat()
-        if hasattr(obj, "text"):
-            data["text"] = obj.text
-        if hasattr(obj, "media"):
-            data["media"] = await self.storable_object(obj.media)
-            await self.media_dl.queue_media(obj.media)
-        return data | kwargs
-
-    async def archive_chat(self, chat_id: int) -> None:
-        await self.start()
-        # Get chat data
-        chat = await self.client.get_entity(chat_id)
-        basic_data = {
-            "chat": await storable_object(chat, media_dl),
-            "admin_events": [],
-            "messages": [],
-        }
-        logger.info("Got chat data: %s", chat)
-        # Gather data from admin log
-        async for evt in self.client.iter_admin_log(chat):
-            logger.info("Processing admin event ID: %s", evt.id)
-            basic_data["admin_events"].append(await self.storable_object(evt))
-            evt_type = type(evt.action)
-            if evt_type == ChannelAdminLogEventActionDeleteMessage:
-                msg = evt.action.message
-                basic_data["messages"].append(await self.storable_object(msg, deleted=True))
-        # Gather messages from chat
-        async for msg in self.client.iter_messages(chat):
-            logger.info("Processing message ID: %s", msg.id)
-            basic_data["messages"].append(await self.storable_object(msg))
-        # Store the message data
-        os.makedirs("store", exist_ok=True)
-        with open(f"store/{chat_id}.json", "w") as f:
-            json.dump(basic_data, f, indent=2, default=encode_json_extra)
-        # Wait for media downloader to complete
-        logger.info("Awaiting completion of media downloader")
-        self.media_dl.mark_as_filled()
-        await self.media_dl_task
 
 
 @click.command()
