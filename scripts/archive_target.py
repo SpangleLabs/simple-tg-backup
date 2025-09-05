@@ -47,9 +47,12 @@ class ArchiveTarget:
         if hasattr(obj, "text"):
             data["text"] = obj.text
         if hasattr(obj, "media"):
-            data["media"] = await self.storable_object(obj.media, behaviour)
-            if self.behaviour.download_media:
-                await self.archiver.media_dl.queue_media(obj.media)
+            if obj.media is None:
+                data["media"] = None
+            else:
+                data["media"] = await self.storable_object(obj.media)
+                if self.behaviour.download_media:
+                    await self.archiver.media_dl.queue_media(obj.media)
         return data | kwargs
 
     async def chat_entity(self) -> hints.Entity:
