@@ -1,10 +1,14 @@
 import datetime
+import json
+import os
+import pathlib
 import sqlite3
 from abc import ABC, abstractmethod
 from contextlib import closing
 from typing import TYPE_CHECKING, Optional
 
 from scripts.models.chat import Chat
+from scripts.utils.json_encoder import encode_json_extra
 
 if TYPE_CHECKING:
     from scripts.database.migration import DBMigration
@@ -89,7 +93,6 @@ class AbstractDatabase(ABC):
                     "id": chat.resource_id,
                     "type": chat.resource_type,
                     "str_repr": chat.str_repr,
-                    "dict_repr": chat.dict_repr,
+                    "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
                 }
             )
-
