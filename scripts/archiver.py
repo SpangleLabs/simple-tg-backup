@@ -30,7 +30,7 @@ class Archiver:
         # noinspection PyUnresolvedReferences
         await self.client.start()
         logger.info("Starting media downloader")
-        asyncio.create_task(self.media_dl.run())
+        self.media_dl_task = asyncio.create_task(self.media_dl.run())
         self.started = True
 
     async def stop(self, fast: bool = False) -> None:
@@ -52,7 +52,8 @@ class Archiver:
             self.media_dl.abort()
         else:
             self.media_dl.mark_as_filled()
-        await self.media_dl_task
+        if self.media_dl_task is not None:
+            await self.media_dl_task
 
     @asynccontextmanager
     async def run(self) -> AsyncGenerator[None]:
