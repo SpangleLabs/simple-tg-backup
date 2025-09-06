@@ -1,5 +1,3 @@
-import base64
-import datetime
 import json
 import logging
 import os
@@ -11,22 +9,13 @@ from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 from scripts.config import BehaviourConfig
 from scripts.database.chat_database import ChatDatabase
 from scripts.models.chat import Chat
+from scripts.utils.json_encoder import encode_json_extra
 
 if TYPE_CHECKING:
     from scripts.archiver import Archiver
 
 
 logger = logging.getLogger(__name__)
-
-
-
-def encode_json_extra(value: object) -> str:
-    if isinstance(value, bytes):
-        return base64.b64encode(value).decode('ascii')
-    elif isinstance(value, datetime.datetime):
-        return value.isoformat()
-    else:
-        raise ValueError(f"Unrecognised type to encode: {value}")
 
 
 class ArchiveTarget:
