@@ -40,7 +40,7 @@ create table if not exists main.chats
     dict_repr               text
     /* Custom fields below */
 );
-create index chats_id_index
+create index if not exists chats_id_index
     on chats (id);
 
 create table if not exists main.users
@@ -53,5 +53,5 @@ create table if not exists main.users
     dict_repr               text
     /* Custom fields below */
 );
-create index users_id_index
+create index if not exists users_id_index
     on users (id);

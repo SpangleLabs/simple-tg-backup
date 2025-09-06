@@ -42,9 +42,9 @@ create table if not exists main.messages
     user_id                 integer,
     deleted                 boolean not null
 );
-create index messages_id_index
+create index if not exists messages_id_index
     on messages (id);
-create index messages_datetime_index
+create index if not exists messages_datetime_index
     on messages (datetime);
 
 create table if not exists main.chats
@@ -57,7 +57,7 @@ create table if not exists main.chats
     dict_repr               text
     /* Custom fields below */
 );
-create index chats_id_index
+create index if not exists chats_id_index
     on chats (id);
 
 create table if not exists main.users
@@ -70,7 +70,7 @@ create table if not exists main.users
     dict_repr               text
     /* Custom fields below */
 );
-create index users_id_index
+create index if not exists users_id_index
     on users (id);
 
 create table if not exists main.admin_events
@@ -85,9 +85,9 @@ create table if not exists main.admin_events
     datetime                text,
     message_id              integer
 );
-create index admin_events_id_index
+create index if not exists admin_events_id_index
     on admin_events (id);
-create index admin_events_datetime_index
+create index if not exists admin_events_datetime_index
     on admin_events (datetime);
 
 create table if not exists main.media
@@ -101,5 +101,5 @@ create table if not exists main.media
     /* Custom fields below */
     file_name               text
 );
-create index media_id_index
+create index if not exists media_id_index
     on media (id);
