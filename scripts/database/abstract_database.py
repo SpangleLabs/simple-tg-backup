@@ -33,7 +33,7 @@ class AbstractDatabase(ABC):
         self.conn.close()
 
     @abstractmethod
-    def list_migrations(self) -> list[DBMigration]:
+    def list_migrations(self) -> list["DBMigration"]:
         raise NotImplementedError()
 
     def get_migration_data(self, migration_id: int) -> Optional[sqlite3.Row]:
