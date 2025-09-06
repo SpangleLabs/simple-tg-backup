@@ -1,9 +1,6 @@
-from contextlib import closing
-
 from scripts.database.abstract_database import AbstractDatabase, storable_date
 from scripts.database.core_db_migrations import InitialCoreDatabase
 from scripts.database.migration import DBMigration
-from scripts.models.chat import Chat
 
 
 class CoreDatabase(AbstractDatabase):
