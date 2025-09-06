@@ -25,7 +25,9 @@ class AbstractDatabase(ABC):
         raise NotImplementedError()
 
     def start(self) -> None:
-        self.conn = sqlite3.connect(self.file_path())
+        file_path = self.file_path()
+        os.makedirs(pathlib.Path(file_path).parent, exist_ok=True)
+        self.conn = sqlite3.connect(file_path)
         self.conn.row_factory = sqlite3.Row
         self.apply_migrations()
 
