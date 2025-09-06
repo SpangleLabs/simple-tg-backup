@@ -8,6 +8,7 @@ from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage
 
 from scripts.config import BehaviourConfig
 from scripts.database.chat_database import ChatDatabase
+from scripts.models.admin_event import AdminEvent
 from scripts.models.chat import Chat
 from scripts.utils.json_encoder import encode_json_extra
 
@@ -52,21 +53,20 @@ class ArchiveTarget:
             self._chat_entity = await self.client.get_entity(self.chat_id)
         return self._chat_entity
 
-    async def _archive_chat_data(self) -> dict:
+    async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
         logger.info("Got chat data: %s", chat_entity)
         chat_obj = Chat.from_chat_entity(chat_entity)
         self.archiver.core_db.save_chat(chat_obj)
         self.chat_db.save_chat(chat_obj)
-        return await self.storable_object(chat_entity)
 
     async def _archive_admin_log(self, chat_data: dict) -> None:
         chat_entity = await self.chat_entity()
         async for evt in self.client.iter_admin_log(chat_entity):
             logger.info("Processing admin event ID: %s", evt.id)
-            chat_data["admin_events"].append(await self.storable_object(evt))
-            evt_type = type(evt.action)
-            if evt_type == ChannelAdminLogEventActionDeleteMessage:
+            evt_obj = AdminEvent.from_event(evt)
+            self.chat_db.save_admin_event(evt_obj)
+            if isinstance(evt.action, ChannelAdminLogEventActionDeleteMessage):
                 msg = evt.action.message
                 chat_data["messages"].append(await self.storable_object(msg, deleted=True))
 
