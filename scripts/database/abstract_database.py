@@ -39,9 +39,14 @@ class AbstractDatabase(ABC):
         raise NotImplementedError()
 
     def get_migration_data(self, migration_id: int) -> Optional[sqlite3.Row]:
-        with closing(self.conn.cursor()) as cursor:
-            resp = cursor.execute("SELECT * FROM db_migrations where migration_id = ?", (migration_id,))
-            return resp.fetchone()
+        try:
+            with closing(self.conn.cursor()) as cursor:
+                resp = cursor.execute("SELECT * FROM db_migrations where migration_id = ?", (migration_id,))
+                return resp.fetchone()
+        except sqlite3.OperationalError as e:
+            if "no such table: db_migrations" in str(e):
+                return None
+            raise e
 
     def save_migration_data(self, migration_id: int, migration_name: str, start_time: datetime.datetime, end_time: Optional[datetime.datetime]) -> None:
         with closing(self.conn.cursor()) as cursor:
