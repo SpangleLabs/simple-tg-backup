@@ -86,8 +86,8 @@ class AbstractDatabase(ABC):
     def save_chat(self, chat: Chat) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
-                "INSERT INTO chats (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr)"
-                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr)",
+                "INSERT INTO chats (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title)"
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :title)",
                 {
                     "archive_datetime": storable_date(chat.archive_datetime),
                     "archive_tl_scheme_layer": chat.archive_tl_schema_layer,
@@ -95,6 +95,7 @@ class AbstractDatabase(ABC):
                     "type": chat.resource_type,
                     "str_repr": chat.str_repr,
                     "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
+                    "title": chat.title,
                 }
             )
             self.conn.commit()

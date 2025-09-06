@@ -37,8 +37,9 @@ create table if not exists main.chats
     id                      integer not null,
     type                    text not null,
     str_repr                text not null,
-    dict_repr               text
+    dict_repr               text,
     /* Custom fields below */
+    title                   text
 );
 create index if not exists chats_id_index
     on chats (id);
