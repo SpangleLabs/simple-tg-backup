@@ -66,6 +66,7 @@ class AbstractDatabase(ABC):
                     "end_time": storable_date(end_time),
                 }
             )
+            self.conn.commit()
 
     def apply_migrations(self) -> None:
         migrations = sorted(self.list_migrations(), key=lambda m: m.migration_id)
@@ -96,3 +97,4 @@ class AbstractDatabase(ABC):
                     "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
                 }
             )
+            self.conn.commit()
