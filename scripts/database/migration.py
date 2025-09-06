@@ -2,9 +2,6 @@ import sqlite3
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from scripts.database.abstract_database import AbstractDatabase
-
 
 class DBMigration(ABC):
 
@@ -17,6 +14,10 @@ class DBMigration(ABC):
     @abstractmethod
     def migration_name(self) -> str:
         raise NotImplementedError()
+
+    @property
+    def is_initial_setup(self) -> bool:
+        return False
 
     @abstractmethod
     def execute(self, conn: sqlite3.Connection) -> None:

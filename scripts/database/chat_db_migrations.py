@@ -14,6 +14,10 @@ class InitialChatDatabase(DBMigration):
     def migration_name(self) -> str:
         return "initial_setup"
 
+    @property
+    def is_initial_setup(self) -> bool:
+        return True
+
     def execute(self, conn: sqlite3.Connection) -> None:
         with open(pathlib.Path(__file__).parent / "chat_schema.sql") as f:
             schema_str = f.read()

@@ -64,7 +64,8 @@ class AbstractDatabase(ABC):
             migration_row = self.get_migration_data(migration.migration_id)
             if migration_row is None or migration_row["start_time"] is None:
                 start_time = datetime.datetime.now(datetime.timezone.utc)
-                self.save_migration_data(migration.migration_id, migration.migration_name, start_time, None)
+                if not migration.is_initial_setup:
+                    self.save_migration_data(migration.migration_id, migration.migration_name, start_time, None)
                 migration.execute(self.conn)
                 end_time = datetime.datetime.now(datetime.timezone.utc)
                 self.save_migration_data(migration.migration_id, migration.migration_name, start_time, end_time)
