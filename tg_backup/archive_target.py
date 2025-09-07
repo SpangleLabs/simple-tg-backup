@@ -63,7 +63,6 @@ class ArchiveTarget:
             msg_obj = Message.from_msg(msg)
             self.chat_db.save_message(msg_obj)
             if hasattr(msg, "media") and msg.media is not None:
-                # TODO: tell the media downloader which chat this is
                 if self.behaviour.download_media:
                     await self.archiver.media_dl.queue_media(self.chat_id, msg)
 
