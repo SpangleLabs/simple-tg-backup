@@ -5,10 +5,10 @@ from telethon import hints
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
 
 from tg_backup.config import BehaviourConfig
-from tg_backup.database import ChatDatabase
+from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.admin_event import AdminEvent
-from tg_backup.models import Chat
-from tg_backup.models import Message
+from tg_backup.models.chat import Chat
+from tg_backup.models.message import Message
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
