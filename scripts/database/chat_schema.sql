@@ -90,17 +90,3 @@ create index if not exists admin_events_id_index
     on admin_events (id);
 create index if not exists admin_events_datetime_index
     on admin_events (datetime);
-
-create table if not exists main.media
-(
-    archive_datetime        text not null,
-    archive_tl_scheme_layer integer not null,
-    id                      integer not null,
-    type                    text not null,
-    str_repr                text not null,
-    dict_repr               text,
-    /* Custom fields below */
-    file_name               text
-);
-create index if not exists media_id_index
-    on media (id);
