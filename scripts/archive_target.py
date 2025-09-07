@@ -65,7 +65,7 @@ class ArchiveTarget:
             if hasattr(msg, "media") and msg.media is not None:
                 # TODO: tell the media downloader which chat this is
                 if self.behaviour.download_media:
-                    await self.archiver.media_dl.queue_media(msg.media)
+                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
 
     async def archive_chat(self) -> None:
         # Connect to chat database

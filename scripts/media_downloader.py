@@ -1,7 +1,10 @@
 import asyncio
+import dataclasses
 import logging
 import os
+from typing import Optional
 
+import telethon
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename
 
@@ -9,19 +12,57 @@ from telethon.tl.types import DocumentAttributeFilename
 logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
+class MediaQueueEntry:
+    chat_id: int
+    message: telethon.types.Message
+
+
+@dataclasses.dataclass
+class MediaInfo:
+    media_type: str
+    media_id: int
+    file_ext: str
+
+
 class MediaDownloader:
     def __init__(self, client: TelegramClient) -> None:
         self.client = client
-        self.queue: asyncio.Queue[object] = asyncio.Queue()
+        self.queue: asyncio.Queue[MediaQueueEntry] = asyncio.Queue()
         self.running = False
         self.stop_when_empty = False
         self.seen_media_ids = set()
+
+    def _parse_media_info(self, msg: object) -> Optional[MediaInfo]:
+        # Skip if not media
+        if not hasattr(msg, "media"):
+            return None
+        # Start checking media type
+        media_ext = "unknown_filetype"
+        if hasattr(msg, "media"):
+            media_type = type(msg.media).__name__
+            if hasattr(msg.media, "photo"):
+                media_id = msg.media.photo.id
+                media_ext = "jpg"
+                return MediaInfo(media_type, media_id, media_ext)
+            if hasattr(msg.media, "document"):
+                media_id = msg.media.document.id
+                for attr in msg.media.document.attributes:
+                    if type(attr) == DocumentAttributeFilename:
+                        media_ext = "." + attr.file_name.split(".")[-1]
+                return MediaInfo(media_type, media_id, media_ext)
+            if hasattr(msg.media, "webpage"):
+                logger.info("Downloading web page previews not currently supported")
+                return None
+            raise ValueError(f"Unrecognised media type: {media_type}")
+        return None
+
 
     async def run(self) -> None:
         self.running = True
         while self.running:
             try:
-                media = self.queue.get_nowait()
+                queue_entry = self.queue.get_nowait()
             except asyncio.QueueEmpty:
                 if self.stop_when_empty:
                     logger.info("Queue is empty, shutting down media downloader")
@@ -29,29 +70,23 @@ class MediaDownloader:
                     return
                 await asyncio.sleep(1)
                 continue
-            media_type = type(media).__name__
-            media_ext = ".unknown_filetype"
-            if hasattr(media, "photo"):
-                media_id = media.photo.id
-                media_ext = ".jpg"
-            elif hasattr(media, "document"):
-                media_id = media.document.id
-                for attr in media.document.attributes:
-                    if type(attr) == DocumentAttributeFilename:
-                        media_ext = "." + attr.file_name.split(".")[-1]
-            elif hasattr(media, "webpage"):
-                continue  # TODO: download them, in the fullness of time.
-            else:
-                raise ValueError(f"Unrecognised media type: {media_type}")
-            target_path = f"store/media/{media_id}{media_ext}"
+            # Determine media folder
+            chat_id = queue_entry.chat_id
+            media_dir = f"store/chats/{chat_id}/media/"
+            os.makedirs(media_dir, exist_ok=True)
+            # Determine media info
+            media_info = self._parse_media_info(queue_entry.message)
+            if media_info is None:
+                continue
+            # Construct file path
+            target_path = f"{media_dir}/{media_info.media_id}.{media_info.file_ext}"
             if os.path.exists(target_path):
-                # TODO: maybe not this?
                 logger.info("Skipping download of pre-existing file")
                 continue
             # Download the media
-            logger.info("Downloading media, type: %s, ID: %s", media_type, media_id)
-            await self.client.download_media(media, target_path)
-            logger.info("Media download complete, type: %s, ID: %s", media_type, media_id)
+            logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+            await self.client.download_media(queue_entry.message, target_path)
+            logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             logger.info("There are %s remaining items in the media queue", self.queue.qsize())
 
     def abort(self) -> None:
@@ -60,7 +95,7 @@ class MediaDownloader:
     def mark_as_filled(self) -> None:
         self.stop_when_empty = True
 
-    async def queue_media(self, media: object) -> None:
-        if media is None:
+    async def queue_media(self, chat_id: int, message: telethon.types.Message) -> None:
+        if message is None:
             return
-        await self.queue.put(media)
+        await self.queue.put(MediaQueueEntry(chat_id, message))
