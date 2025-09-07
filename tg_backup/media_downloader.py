@@ -49,7 +49,7 @@ class MediaDownloader:
                 media_id = msg.media.document.id
                 for attr in msg.media.document.attributes:
                     if type(attr) == DocumentAttributeFilename:
-                        media_ext = "." + attr.file_name.split(".")[-1]
+                        media_ext = attr.file_name.split(".")[-1]
                 return MediaInfo(media_type, media_id, media_ext)
             if hasattr(msg.media, "webpage"):
                 logger.info("Downloading web page previews not currently supported")
