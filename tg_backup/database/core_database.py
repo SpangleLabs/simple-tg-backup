@@ -1,6 +1,6 @@
-from scripts.database.abstract_database import AbstractDatabase
-from scripts.database.core_db_migrations import InitialCoreDatabase
-from scripts.database.migration import DBMigration
+from tg_backup.database.abstract_database import AbstractDatabase
+from tg_backup.database.core_db_migrations import InitialCoreDatabase
+from tg_backup.database.migration import DBMigration
 
 
 class CoreDatabase(AbstractDatabase):

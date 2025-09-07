@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional
 
-from scripts.models.abstract_resource import AbstractResource
+from tg_backup.models.abstract_resource import AbstractResource
 
 
 class Message(AbstractResource):

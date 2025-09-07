@@ -1,12 +1,12 @@
 import json
 from contextlib import closing
 
-from scripts.database.abstract_database import AbstractDatabase, storable_date
-from scripts.database.chat_db_migrations import InitialChatDatabase
-from scripts.database.migration import DBMigration
-from scripts.models.admin_event import AdminEvent
-from scripts.models.message import Message
-from scripts.utils.json_encoder import encode_json_extra
+from tg_backup.database.abstract_database import AbstractDatabase, storable_date
+from tg_backup.database.chat_db_migrations import InitialChatDatabase
+from tg_backup.database.migration import DBMigration
+from tg_backup.models.admin_event import AdminEvent
+from tg_backup.models.message import Message
+from tg_backup.utils.json_encoder import encode_json_extra
 
 
 class ChatDatabase(AbstractDatabase):

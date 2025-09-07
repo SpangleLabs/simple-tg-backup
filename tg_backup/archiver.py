@@ -5,10 +5,10 @@ from typing import Optional, AsyncGenerator
 
 from telethon import TelegramClient
 
-from scripts.archive_target import ArchiveTarget
-from scripts.config import Config, BehaviourConfig
-from scripts.database.core_database import CoreDatabase
-from scripts.media_downloader import MediaDownloader
+from tg_backup.archive_target import ArchiveTarget
+from tg_backup.config import Config, BehaviourConfig
+from tg_backup.database import CoreDatabase
+from tg_backup.media_downloader import MediaDownloader
 
 
 logger = logging.getLogger(__name__)

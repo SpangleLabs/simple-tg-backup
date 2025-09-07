@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING, Optional
 from telethon import hints
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
 
-from scripts.config import BehaviourConfig
-from scripts.database.chat_database import ChatDatabase
-from scripts.models.admin_event import AdminEvent
-from scripts.models.chat import Chat
-from scripts.models.message import Message
+from tg_backup.config import BehaviourConfig
+from tg_backup.database import ChatDatabase
+from tg_backup.models.admin_event import AdminEvent
+from tg_backup.models import Chat
+from tg_backup.models import Message
 
 if TYPE_CHECKING:
-    from scripts.archiver import Archiver
+    from tg_backup.archiver import Archiver
 
 
 logger = logging.getLogger(__name__)

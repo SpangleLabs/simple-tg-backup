@@ -7,11 +7,11 @@ from abc import ABC, abstractmethod
 from contextlib import closing
 from typing import TYPE_CHECKING, Optional
 
-from scripts.models.chat import Chat
-from scripts.utils.json_encoder import encode_json_extra
+from tg_backup.models.chat import Chat
+from tg_backup.utils.json_encoder import encode_json_extra
 
 if TYPE_CHECKING:
-    from scripts.database.migration import DBMigration
+    from tg_backup.database.migration import DBMigration
 
 
 def storable_date(date_val: Optional[datetime.date]) -> Optional[str]:
