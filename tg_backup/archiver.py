@@ -8,7 +8,7 @@ from telethon import TelegramClient
 from tg_backup.archive_target import ArchiveTarget
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
-from tg_backup.media_downloader import MediaDownloader
+from tg_backup.subsystems.media_downloader import MediaDownloader
 
 
 logger = logging.getLogger(__name__)
