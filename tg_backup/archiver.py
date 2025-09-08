@@ -1,7 +1,6 @@
-import asyncio
-import logging
+3import logging
 from contextlib import asynccontextmanager
-from typing import Optional, AsyncGenerator
+from typing import AsyncGenerator
 
 from telethon import TelegramClient
 
@@ -9,7 +8,7 @@ from tg_backup.archive_target import ArchiveTarget
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.subsystems.media_downloader import MediaDownloader
-
+from tg_backup.subsystems.user_data_fetcher import UserDataFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,9 @@ class Archiver:
         self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.started = False
-        self.media_dl = MediaDownloader(self.client)
-        self.media_dl_task: Optional[asyncio.Task] = None
         self.core_db = CoreDatabase()
+        self.media_dl = MediaDownloader(self.client)
+        self.user_fetcher = UserDataFetcher(self.client, self.core_db)
 
     async def start(self) -> None:
         logger.info("Starting Archiver core database")
@@ -30,30 +29,22 @@ class Archiver:
         # noinspection PyUnresolvedReferences
         await self.client.start()
         logger.info("Starting media downloader")
-        self.media_dl_task = asyncio.create_task(self.media_dl.run())
+        self.media_dl.start()
+        logger.info("Starting user fetcher")
+        self.user_fetcher.start()
         self.started = True
 
     async def stop(self, fast: bool = False) -> None:
         # Shut down media downloader
-        await self._stop_media_dl(fast=fast)
+        await self.media_dl.stop(fast=fast)
+        # Shut down user data fetcher
+        await self.user_fetcher.stop(fast=fast)
         # Disconnect from telegram
         logger.info("Disconnecting from telegram")
         await self.client.disconnect()
         # Disconnect database
         logger.info("Disconnecting from core database")
         self.core_db.stop()
-
-    async def _stop_media_dl(self, fast: bool = False) -> None:
-        # Shut down media downloader
-        if not self.media_dl.running:
-            return
-        logging.info("Awaiting shutdown of media downloader")
-        if fast:
-            self.media_dl.abort()
-        else:
-            self.media_dl.mark_as_filled()
-        if self.media_dl_task is not None:
-            await self.media_dl_task
 
     @asynccontextmanager
     async def run(self) -> AsyncGenerator[None]:
