@@ -8,6 +8,7 @@ import telethon
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename
 
+from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,10 @@ class MediaInfo:
     file_ext: str
 
 
-class MediaDownloader:
+class MediaDownloader(AbstractSubsystem):
     def __init__(self, client: TelegramClient) -> None:
-        self.client = client
+        super().__init__(client)
         self.queue: asyncio.Queue[MediaQueueEntry] = asyncio.Queue()
-        self.running = False
-        self.stop_when_empty = False
         self.seen_media_ids = set()
 
     def _parse_media_info(self, msg: object) -> Optional[MediaInfo]:
@@ -57,43 +56,26 @@ class MediaDownloader:
             raise ValueError(f"Unrecognised media type: {media_type}")
         return None
 
-
-    async def run(self) -> None:
-        self.running = True
-        while self.running:
-            try:
-                queue_entry = self.queue.get_nowait()
-            except asyncio.QueueEmpty:
-                if self.stop_when_empty:
-                    logger.info("Queue is empty, shutting down media downloader")
-                    self.running = False
-                    return
-                await asyncio.sleep(1)
-                continue
-            # Determine media folder
-            chat_id = queue_entry.chat_id
-            media_dir = f"store/chats/{chat_id}/media/"
-            os.makedirs(media_dir, exist_ok=True)
-            # Determine media info
-            media_info = self._parse_media_info(queue_entry.message)
-            if media_info is None:
-                continue
-            # Construct file path
-            target_path = f"{media_dir}/{media_info.media_id}.{media_info.file_ext}"
-            if os.path.exists(target_path):
-                logger.info("Skipping download of pre-existing file")
-                continue
-            # Download the media
-            logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-            await self.client.download_media(queue_entry.message, target_path)
-            logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-            logger.info("There are %s remaining items in the media queue", self.queue.qsize())
-
-    def abort(self) -> None:
-        self.running = False
-
-    def mark_as_filled(self) -> None:
-        self.stop_when_empty = True
+    async def _do_process(self) -> None:
+        queue_entry = self.queue.get_nowait()
+        # Determine media folder
+        chat_id = queue_entry.chat_id
+        media_dir = f"store/chats/{chat_id}/media/"
+        os.makedirs(media_dir, exist_ok=True)
+        # Determine media info
+        media_info = self._parse_media_info(queue_entry.message)
+        if media_info is None:
+            return
+        # Construct file path
+        target_path = f"{media_dir}/{media_info.media_id}.{media_info.file_ext}"
+        if os.path.exists(target_path):
+            logger.info("Skipping download of pre-existing file")
+            return
+        # Download the media
+        logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+        await self.client.download_media(queue_entry.message, target_path)
+        logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+        logger.info("There are %s remaining items in the media queue", self.queue.qsize())
 
     async def queue_media(self, chat_id: int, message: telethon.types.Message) -> None:
         if message is None:
