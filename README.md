@@ -11,6 +11,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
+- Store sticker packs
 - Store user information
   - This will need another resource handler tbh, to ensure we're not saving them all over and over
 - Prometheus metrics
@@ -18,7 +19,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
   - How many chats are being watched, what's the chat download queue? What's the total number of chats?
 - Allow following new updates in chats
   - Do this, while getting new chats
-- Archive seen sticker packs
 - Cache and know when to re-save messages and chats and such
   - If last archive date is over X age?
   - If the str_repr is different
