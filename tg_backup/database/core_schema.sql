@@ -51,8 +51,18 @@ create table if not exists main.users
     id                      integer not null,
     type                    text not null,
     str_repr                text not null,
-    dict_repr               text
+    dict_repr               text,
     /* Custom fields below */
+    bio                     text,
+    birthday                text,
+    is_bot                  boolean,
+    is_deleted              boolean,
+    first_name              text,
+    last_name               text,
+    phone_number            text,
+    has_premium             boolean,
+    username                text,
+    other_usernames         text
 );
 create index if not exists users_id_index
     on users (id);

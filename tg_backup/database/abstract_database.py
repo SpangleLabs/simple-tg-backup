@@ -8,6 +8,7 @@ from contextlib import closing
 from typing import TYPE_CHECKING, Optional
 
 from tg_backup.models.chat import Chat
+from tg_backup.models.user import User
 from tg_backup.utils.json_encoder import encode_json_extra
 
 if TYPE_CHECKING:
@@ -96,6 +97,32 @@ class AbstractDatabase(ABC):
                     "str_repr": chat.str_repr,
                     "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
                     "title": chat.title,
+                }
+            )
+            self.conn.commit()
+
+    def save_user(self, user: User) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "INSERT INTO users (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, bio, birthday, is_bot, is_deleted, first_name, last_name, phone_number, has_premium, username, other_usernames)"
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :bio, :birthday, :is_bot, :is_deleted, :first_name, :last_name, :phone_number, :has_premium, :username, :other_usernames)",
+                {
+                    "archive_datetime": storable_date(user.archive_datetime),
+                    "archive_tl_scheme_layer": user.archive_tl_schema_layer,
+                    "id": user.resource_id,
+                    "type": user.resource_type,
+                    "str_repr": user.str_repr,
+                    "dict_repr": json.dumps(user.dict_repr, default=encode_json_extra),
+                    "bio": user.bio,
+                    "birthday": storable_date(user.birthday),
+                    "is_bot": user.is_bot,
+                    "is_deleted": user.is_deleted,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "phone_number": user.phone_number,
+                    "has_premium": user.has_premium,
+                    "username": user.username,
+                    "other_usernames": json.dumps(user.other_usernames, default=encode_json_extra),
                 }
             )
             self.conn.commit()
