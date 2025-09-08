@@ -22,6 +22,7 @@ class Message(AbstractResource):
         self.media_id: Optional[int] = None
         self.user_id: Optional[int] = None
         self.deleted: bool = False
+        self.edit_datetime: Optional[datetime.datetime] = None
 
     @classmethod
     def from_msg(cls, msg: telethon.types.Message, deleted: bool = False) -> "Message":
@@ -41,4 +42,6 @@ class Message(AbstractResource):
             if hasattr(msg.from_id, "user_id"):
                 obj.user_id = msg.from_id.user_id
         obj.deleted = deleted
+        if hasattr(msg, "edit_date"):
+            obj.edit_datetime = msg.edit_date
         return obj

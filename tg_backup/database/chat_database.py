@@ -42,8 +42,8 @@ class ChatDatabase(AbstractDatabase):
     def save_message(self, message: Message) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
-                "INSERT INTO messages (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, deleted)"
-                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :datetime, :text, :media_id, :user_id, :deleted)",
+                "INSERT INTO messages (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, deleted, edit_datetime)"
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :datetime, :text, :media_id, :user_id, :deleted, :edit_datetime)",
                 {
                     "archive_datetime": storable_date(message.archive_datetime),
                     "archive_tl_scheme_layer": message.archive_tl_schema_layer,
@@ -56,6 +56,7 @@ class ChatDatabase(AbstractDatabase):
                     "media_id": message.media_id,
                     "user_id": message.user_id,
                     "deleted": message.deleted,
+                    "edit_datetime": storable_date(message.edit_datetime),
                 }
             )
             self.conn.commit()

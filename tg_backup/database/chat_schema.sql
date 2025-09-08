@@ -40,7 +40,8 @@ create table if not exists main.messages
     text                    text,
     media_id                integer,
     user_id                 integer,
-    deleted                 boolean not null
+    deleted                 boolean not null,
+    edit_datetime           text
 );
 create index if not exists messages_id_index
     on messages (id);
