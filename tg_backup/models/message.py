@@ -1,6 +1,8 @@
 import datetime
 from typing import Optional
 
+import telethon
+
 from tg_backup.models.abstract_resource import AbstractResource
 
 
@@ -22,7 +24,7 @@ class Message(AbstractResource):
         self.deleted: bool = False
 
     @classmethod
-    def from_msg(cls, msg: object, deleted: bool = False) -> "Message":
+    def from_msg(cls, msg: telethon.types.Message, deleted: bool = False) -> "Message":
         obj = cls.from_storable_object(msg)
         if hasattr(msg, "date"):
             obj.datetime = msg.date
