@@ -66,3 +66,36 @@ create table if not exists main.users
 );
 create index if not exists users_id_index
     on users (id);
+
+create table if not exists main.stickers
+(
+    archive_datetime        text not null,
+    archive_tl_scheme_layer integer not null,
+    id                      integer not null,
+    type                    text not null,
+    str_repr                text not null,
+    dict_repr               text,
+    /* Custom fields below */
+    sticker_set_id          int,
+    emoji                   text,
+    file_name               text,
+    sticker_upload_date     text
+);
+create index if not exists stickers_id_index
+    on stickers (id);
+
+create table if not exists main.sticker_sets
+(
+    archive_datetime        text not null,
+    archive_tl_scheme_layer integer not null,
+    id                      integer not null,
+    type                    text not null,
+    str_repr                text not null,
+    dict_repr               text,
+    /* Custom fields below */
+    handle                  text,
+    title                   text,
+    sticker_count           integer
+);
+create index if not exists sticker_sets_id_index
+    on sticker_sets (id);

@@ -8,6 +8,7 @@ from tg_backup.archive_target import ArchiveTarget
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.subsystems.media_downloader import MediaDownloader
+from tg_backup.subsystems.sticker_downloader import StickerDownloader
 from tg_backup.subsystems.user_data_fetcher import UserDataFetcher
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ class Archiver:
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.user_fetcher = UserDataFetcher(self.client, self.core_db)
+        self.sticker_downloader = StickerDownloader(self.client, self.core_db)
 
     async def start(self) -> None:
         logger.info("Starting Archiver core database")
@@ -32,6 +34,8 @@ class Archiver:
         self.media_dl.start()
         logger.info("Starting user fetcher")
         self.user_fetcher.start()
+        logger.info("Starting sticker downloader")
+        self.sticker_downloader.start()
         self.started = True
 
     async def stop(self, fast: bool = False) -> None:
@@ -39,6 +43,8 @@ class Archiver:
         await self.media_dl.stop(fast=fast)
         # Shut down user data fetcher
         await self.user_fetcher.stop(fast=fast)
+        # Shut down sticker downloader
+        await self.sticker_downloader.stop(fast=fast)
         # Disconnect from telegram
         logger.info("Disconnecting from telegram")
         await self.client.disconnect()

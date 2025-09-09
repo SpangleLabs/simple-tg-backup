@@ -70,6 +70,9 @@ class ArchiveTarget:
                         self.seen_user_ids.add(msg.from_id.user_id)
                 else:
                     await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
+            if hasattr(msg, "sticker") and msg.sticker is not None:
+                await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
+                continue
             if hasattr(msg, "media") and msg.media is not None:
                 if self.behaviour.download_media:
                     await self.archiver.media_dl.queue_media(self.chat_id, msg)

@@ -11,9 +11,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Store sticker packs
-- Store user information
-  - This will need another resource handler tbh, to ensure we're not saving them all over and over
 - Prometheus metrics
   - How big is the download queue
   - How many chats are being watched, what's the chat download queue? What's the total number of chats?
