@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import telethon
+from telethon.tl.types import DocumentAttributeSticker
 
 from tg_backup.models.abstract_resource import AbstractResource
 
@@ -21,6 +22,8 @@ class Message(AbstractResource):
         self.text: Optional[str] = None
         self.media_id: Optional[int] = None
         self.user_id: Optional[int] = None
+        self.sticker_id: Optional[int] = None
+        self.sticker_set_id: Optional[int] = None
         self.deleted: bool = False
         self.edit_datetime: Optional[datetime.datetime] = None
 
@@ -31,16 +34,30 @@ class Message(AbstractResource):
             obj.datetime = msg.date
         if hasattr(msg, "message"):
             obj.text = msg.message
-        if hasattr(msg, "media"):
+        # Handle stickers
+        if hasattr(msg, "sticker"):
+            if msg.sticker is not None:
+                if hasattr(msg.sticker, "id"):
+                    obj.sticker_id = msg.sticker.id
+                if hasattr(msg.sticker, "attributes"):
+                    for attr in msg.sticker.attributes:
+                        if isinstance(attr, DocumentAttributeSticker):
+                            if hasattr(attr, "stickerset"):
+                                if hasattr(attr.stickerset, "id"):
+                                    obj.sticker_set_id = attr.stickerset.id
+        # Handle non-sticker media
+        if hasattr(msg, "media") and obj.sticker_id is None:
             if hasattr(msg.media, "photo"):
                 if hasattr(msg.media.photo, "id"):
                     obj.media_id = msg.media.photo.id
             if hasattr(msg.media, "document"):
                 if hasattr(msg.media.document, "id"):
                     obj.media_id = msg.media.document.id
+        # Handle users
         if hasattr(msg, "from_id"):
             if hasattr(msg.from_id, "user_id"):
                 obj.user_id = msg.from_id.user_id
+        # Handle whether it was deleted or edited
         obj.deleted = deleted
         if hasattr(msg, "edit_date"):
             obj.edit_datetime = msg.edit_date

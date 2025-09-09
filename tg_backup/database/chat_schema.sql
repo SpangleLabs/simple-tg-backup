@@ -40,6 +40,8 @@ create table if not exists main.messages
     text                    text,
     media_id                integer,
     user_id                 integer,
+    sticker_id              integer,
+    sticker_set_id          integer,
     deleted                 boolean not null,
     edit_datetime           text
 );
