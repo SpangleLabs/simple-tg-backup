@@ -41,14 +41,19 @@ class AbstractSubsystem(ABC):
                 await self._do_process()
             except asyncio.QueueEmpty:
                 if self.stop_when_empty:
-                    logger.info("Queue is empty, shutting down %s", type(self).__name__)
+                    logger.info("Queue is empty, shutting down %s", self.name())
                     self.running = False
                     return
                 await asyncio.sleep(1)
                 continue
+            logger.info("There are %s remaining items in the %s queue", self.queue_size(), self.name())
 
     @abstractmethod
     async def _do_process(self) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def queue_size(self) -> int:
         raise NotImplementedError()
 
     def abort(self) -> None:

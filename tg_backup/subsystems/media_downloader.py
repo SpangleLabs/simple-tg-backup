@@ -75,7 +75,9 @@ class MediaDownloader(AbstractSubsystem):
         logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
         await self.client.download_media(queue_entry.message, target_path)
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-        logger.info("There are %s remaining items in the media queue", self.queue.qsize())
+
+    def queue_size(self) -> int:
+        return self.queue.qsize()
 
     async def queue_media(self, chat_id: int, message: telethon.types.Message) -> None:
         if message is None:

@@ -56,6 +56,9 @@ class UserDataFetcher(AbstractSubsystem):
             self.chat_seen_user_ids[chat_id] = set()
         self.chat_seen_user_ids[chat_id].add(user_id)
 
+    def queue_size(self) -> int:
+        return self.queue.qsize()
+
     async def queue_user(self, chat_id: int, chat_db: ChatDatabase, user: PeerUser) -> None:
         if user is None:
             return
