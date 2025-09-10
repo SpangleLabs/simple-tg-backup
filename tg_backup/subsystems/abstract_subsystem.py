@@ -3,10 +3,17 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from prometheus_client import Gauge
 from telethon import TelegramClient
 
 
 logger = logging.getLogger(__name__)
+
+subsystem_queue_size = Gauge(
+    "tgbackup_subsystem_queue_size",
+    "Total size of each subsystem's queue",
+    labelnames=["subsystem"],
+)
 
 
 class AbstractSubsystem(ABC):
@@ -15,6 +22,7 @@ class AbstractSubsystem(ABC):
         self.running = False
         self.stop_when_empty = False
         self.task: Optional[asyncio.Task] = None
+        subsystem_queue_size.labels(subsystem=self.name()).set_function(lambda: self.queue_size())
 
     def name(self) -> str:
         return type(self).__name__

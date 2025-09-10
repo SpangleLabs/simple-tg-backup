@@ -11,11 +11,12 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Prometheus metrics
-  - How big is the download queue
-  - How many chats are being watched, what's the chat download queue? What's the total number of chats?
+- Allow specifying multiple chats to backup
+  - Metrics on how many chats are being watched, what's the chat download queue? What's the total number of chats?
 - Allow following new updates in chats
   - Do this, while getting new chats
+  - How to handle edited messages?
+  - How to handle deleted messages?
 - Cache and know when to re-save messages and chats and such
   - If last archive date is over X age?
   - If the str_repr is different
@@ -23,7 +24,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ### TODO: full archiver
 - List how many chats there are
-- Allow specifying multiple chats to backup
 
 ### TODO: eventually
 - HTML view of chatting?

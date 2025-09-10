@@ -5,11 +5,15 @@ import sys
 from logging.handlers import TimedRotatingFileHandler
 
 import click
+from prometheus_client import Gauge, start_http_server
 
 from tg_backup.archiver import Archiver
 from tg_backup.config import load_config, BehaviourConfig
 
 logger = logging.getLogger(__name__)
+
+
+start_time = Gauge("tgbackup_startup_unixtime", "Last time TG backup was started")
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -28,6 +32,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 
 @click.command()
 @click.option("--log-level", type=str, help="Log level for the logger", default="INFO")
+@click.option("--prom-port", type=int, help="Port to expose prometheus metrics on", default=8384)
 @click.option("--chat-id", type=int, help="ID of the telegram chat to emergency save deleted messages", required=True)
 @click.option("--download-media/--no-media", default=None, help="Whether to download media or not")
 @click.option("--check-admin-log/--no-admin-log", default=None, help="Whether to check the admin log for recent events, such as deleted messages")
@@ -35,6 +40,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.option("--archive-history/--no-archive-history", default=None, help="Whether to archive the history of the chat before this point")
 def main(
         log_level: str,
+        prom_port: int,
         chat_id: int,
         download_media: bool,
         check_admin_log: bool,
@@ -42,6 +48,7 @@ def main(
         archive_history: bool,
 ) -> None:
     setup_logging(log_level)
+    start_http_server(prom_port)
     conf = load_config()
     archiver = Archiver(conf)
     chat_archive_behaviour = BehaviourConfig(

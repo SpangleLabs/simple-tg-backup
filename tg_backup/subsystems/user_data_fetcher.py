@@ -1,6 +1,7 @@
 import asyncio
 import dataclasses
 
+from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import PeerUser
@@ -9,6 +10,12 @@ from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.user import User
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
+
+
+users_processed = Counter(
+    "tgbackup_userdatadownloader_users_processed_count",
+    "Total number of users which have been picked from the queue by the UserDataFetcher",
+)
 
 
 @dataclasses.dataclass
@@ -35,6 +42,7 @@ class UserDataFetcher(AbstractSubsystem):
     async def _do_process(self) -> None:
         # Fetch item from queue
         queue_entry = self.queue.get_nowait()
+        users_processed.inc()
         # Check whether cache wants update
         chat_id = queue_entry.chat_id
         user_id = queue_entry.user.user_id

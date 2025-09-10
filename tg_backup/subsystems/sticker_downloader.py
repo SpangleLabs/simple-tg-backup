@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Optional
 
+from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.errors import StickersetInvalidError
 from telethon.tl.functions.messages import GetStickerSetRequest
@@ -16,6 +17,19 @@ from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
 
 logger = logging.getLogger(__name__)
+
+stickers_processed_count = Counter(
+    "tgbackup_stickerdownloader_stickers_processed_count",
+    "Total number of stickers which have been picked from the queue by the StickerDownloader",
+)
+sticker_sets_processed_count = Counter(
+    "tgbackup_stickerdownloader_sticker_sets_processed_count",
+    "Total number of sticker sets which have been processed and queued by the StickerDownloader",
+)
+sticker_set_data_failure_count = Counter(
+    "tgbackup_stickerdownloader_sticker_set_data_failure_count",
+    "Total number of sticker sets for which data failed to be fetched",
+)
 
 
 @dataclasses.dataclass
@@ -54,6 +68,7 @@ class StickerDownloader(AbstractSubsystem):
         sticker_set_id = input_sticker_set.id if hasattr(input_sticker_set, "id") else None
         if sticker_set_id in self.seen_sticker_set_ids:
             return
+        sticker_sets_processed_count.inc()
         # Fetch sticker set data
         try:
             sticker_set = await self.client(GetStickerSetRequest(
@@ -61,6 +76,7 @@ class StickerDownloader(AbstractSubsystem):
                 hash=0,
             ))
         except StickersetInvalidError:
+            sticker_set_data_failure_count.inc()
             logger.warning("Could not fetch sticker set: %s. Pack may have been deleted", sticker_set_id)
             return
         if sticker_set is None:
@@ -79,6 +95,7 @@ class StickerDownloader(AbstractSubsystem):
         if sticker_doc is None:
             return
         sticker_id = sticker_doc.id if hasattr(sticker_doc, "id") else None
+        stickers_processed_count.inc()
         # Check if sticker has been saved
         if sticker_id in self.seen_sticker_ids:
             return

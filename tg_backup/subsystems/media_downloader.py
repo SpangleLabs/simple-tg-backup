@@ -5,12 +5,22 @@ import os
 from typing import Optional
 
 import telethon
+from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename
 
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
 logger = logging.getLogger(__name__)
+
+media_processed_count = Counter(
+    "tgbackup_mediadownloader_media_processed_count",
+    "Total number of media-containing messages which have been picked from the queue by the MediaDownloader",
+)
+media_downloaded_count = Counter(
+    "tgbackup_mediadownloader_media_downloaded_count",
+    "Total number of media files which have been downloaded by the MediaDownloader",
+)
 
 
 @dataclasses.dataclass
@@ -58,6 +68,7 @@ class MediaDownloader(AbstractSubsystem):
 
     async def _do_process(self) -> None:
         queue_entry = self.queue.get_nowait()
+        media_processed_count.inc()
         # Determine media folder
         chat_id = queue_entry.chat_id
         media_dir = f"store/chats/{chat_id}/media/"
@@ -74,6 +85,7 @@ class MediaDownloader(AbstractSubsystem):
         # Download the media
         logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
         await self.client.download_media(queue_entry.message, target_path)
+        media_downloaded_count.inc()
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
 
     def queue_size(self) -> int:

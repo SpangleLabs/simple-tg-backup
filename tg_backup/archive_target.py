@@ -1,6 +1,7 @@
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from prometheus_client import Counter
 from telethon import hints
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
 
@@ -15,6 +16,16 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+messages_processed_count = Counter(
+    "tgbackup_messages_processed_count",
+    "Total number of messages which have been processed",
+)
+admin_log_events_processed = Counter(
+    "tgbackup_admin_log_events_processed_count",
+    "Total number of admin log events which have been processed",
+)
 
 
 class ArchiveTarget:
@@ -43,6 +54,7 @@ class ArchiveTarget:
         chat_entity = await self.chat_entity()
         async for evt in self.client.iter_admin_log(chat_entity):
             logger.info("Processing admin event ID: %s", evt.id)
+            admin_log_events_processed.inc()
             evt_obj = AdminEvent.from_event(evt)
             self.chat_db.save_admin_event(evt_obj)
             if isinstance(evt.action, ChannelAdminLogEventActionDeleteMessage):
@@ -61,6 +73,7 @@ class ArchiveTarget:
         chat_entity = await self.chat_entity()
         async for msg in self.client.iter_messages(chat_entity):
             logger.info("Processing message ID: %s", msg.id)
+            messages_processed_count.inc()
             msg_obj = Message.from_msg(msg)
             self.chat_db.save_message(msg_obj)
             if hasattr(msg, "from_id") and msg.from_id is not None:
