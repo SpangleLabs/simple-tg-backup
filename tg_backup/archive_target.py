@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Optional
 
@@ -103,12 +104,21 @@ class ArchiveTarget:
         self.chat_db.start()
         # Get chat data
         await self._archive_chat_data(),
+        # Start the chat watcher
+        watch_task: Optional[asyncio.Task] = None
+        if self.behaviour.follow_live:
+            logger.info("Following live chat")
+            watch_task = asyncio.create_task(self.watch_chat())
         # Gather data from admin log
         if self.behaviour.check_admin_log:
             await self._archive_admin_log()
         # Gather messages from chat
         if self.behaviour.archive_history:
             await self._archive_history()
+        # Continue watching if relevant
+        if self.behaviour.follow_live:
+            logger.info("Chat history archive complete, watching live updates")
+            await watch_task
         # Disconnect from chat DB
         self.chat_db.stop()
 
@@ -116,6 +126,7 @@ class ArchiveTarget:
         self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=self.chat_id))
         self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
+        await self.client.run_until_disconnected()
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")

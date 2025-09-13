@@ -13,10 +13,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 ### TODO: Would be good
 - Allow specifying multiple chats to backup
   - Metrics on how many chats are being watched, what's the chat download queue? What's the total number of chats?
-- Allow following new updates in chats
-  - Do this, while getting new chats
-  - How to handle edited messages?
-  - How to handle deleted messages?
 - Cache and know when to re-save messages and chats and such
   - If last archive date is over X age?
   - If the str_repr is different
