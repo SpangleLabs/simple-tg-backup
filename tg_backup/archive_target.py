@@ -2,7 +2,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 from prometheus_client import Counter
-from telethon import hints
+from telethon import hints, events
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
 import telethon.tl.types
 
@@ -43,6 +43,10 @@ class ArchiveTarget:
         if self._chat_entity is None:
             self._chat_entity = await self.client.get_entity(self.chat_id)
         return self._chat_entity
+
+    async def is_small_chat(self) -> bool:
+        """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
+        return isinstance(await self.chat_entity(), telethon.tl.types.Channel)
 
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
@@ -107,3 +111,31 @@ class ArchiveTarget:
             await self._archive_history()
         # Disconnect from chat DB
         self.chat_db.stop()
+
+    async def watch_chat(self) -> None:
+        self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=self.chat_id))
+        self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=self.chat_id))
+        self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
+
+    async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
+        await self._process_message(event.message)
+
+    async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
+        await self._process_message(event.message)
+
+    async def _watch_delete_message(self, event: events.MessageDeleted.Event) -> None:
+        # Telegram does not send information about where a message was deleted if it occurs in private conversations
+        # with other users or in small group chats, because message IDs are unique and you can identify the chat with
+        # the message ID alone if you saved it previously.
+        # TODO: figure out how to identify if this is a small group chat
+        logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
+        if event.chat_id == self.chat_id or (event.chat_id is None and self.is_small_chat()):
+            for msg_id in event.deleted_ids:
+                msg_objs = self.chat_db.get_messages(msg_id)
+                if not msg_objs:
+                    continue
+                logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
+                sorted_msg_objs = sorted(msg_objs, key=lambda m: m.sort_key_for_copies_of_message())
+                latest_msg_obj = sorted_msg_objs[-1]
+                deleted_msg = latest_msg_obj.mark_deleted()
+                self.chat_db.save_message(deleted_msg)

@@ -63,6 +63,11 @@ class Message(AbstractResource):
             obj.edit_datetime = msg.edit_date
         return obj
 
+    def mark_deleted(self) -> "Message":
+        self.deleted = True
+        self.archive_datetime = datetime.datetime.now(datetime.timezone.utc)
+        return self
+
     def refers_to_same_msg(self, other: "Message") -> bool:
         return self.resource_id == other.resource_id
 
