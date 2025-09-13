@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from prometheus_client import Counter
 from telethon import hints
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
+import telethon.tl.types
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.chat_database import ChatDatabase
@@ -69,26 +70,29 @@ class ArchiveTarget:
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
 
+    async def _process_message(self, msg: telethon.tl.types.Message) -> None:
+        logger.info("Processing message ID: %s", msg.id)
+        messages_processed_count.inc()
+        msg_obj = Message.from_msg(msg)
+        self.chat_db.save_message(msg_obj)
+        if hasattr(msg, "from_id") and msg.from_id is not None:
+            if hasattr(msg.from_id, "user_id"):
+                if msg.from_id.user_id not in self.seen_user_ids:
+                    await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
+                    self.seen_user_ids.add(msg.from_id.user_id)
+            else:
+                await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
+        if hasattr(msg, "sticker") and msg.sticker is not None:
+            await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
+            return
+        if hasattr(msg, "media") and msg.media is not None:
+                if self.behaviour.download_media:
+                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
+
     async def _archive_history(self) -> None:
         chat_entity = await self.chat_entity()
         async for msg in self.client.iter_messages(chat_entity):
-            logger.info("Processing message ID: %s", msg.id)
-            messages_processed_count.inc()
-            msg_obj = Message.from_msg(msg)
-            self.chat_db.save_message(msg_obj)
-            if hasattr(msg, "from_id") and msg.from_id is not None:
-                if hasattr(msg.from_id, "user_id"):
-                    if msg.from_id.user_id not in self.seen_user_ids:
-                        await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
-                        self.seen_user_ids.add(msg.from_id.user_id)
-                else:
-                    await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
-            if hasattr(msg, "sticker") and msg.sticker is not None:
-                await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
-                continue
-            if hasattr(msg, "media") and msg.media is not None:
-                if self.behaviour.download_media:
-                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
+            await self._process_message(msg)
 
     async def archive_chat(self) -> None:
         # Connect to chat database
