@@ -20,6 +20,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ### TODO: full archiver
 - List how many chats there are
+- Shared locations, with history
 
 ### TODO: eventually
 - HTML view of chatting?
