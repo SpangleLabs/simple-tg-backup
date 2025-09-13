@@ -62,3 +62,29 @@ class Message(AbstractResource):
         if hasattr(msg, "edit_date"):
             obj.edit_datetime = msg.edit_date
         return obj
+
+    def refers_to_same_msg(self, other: "Message") -> bool:
+        return self.resource_id == other.resource_id
+
+    def no_useful_difference(self, other: "Message") -> bool:
+        return all([
+            self.resource_id == other.resource_id,
+            self.deleted == other.deleted,
+            self.edit_datetime == other.edit_datetime,
+            self.str_repr == other.str_repr,
+            self.archive_tl_schema_layer == other.archive_tl_schema_layer,
+        ])
+
+    def sort_key_for_copies_of_message(self) -> tuple[bool, bool, datetime.datetime, int, datetime.datetime]:
+        """
+        This method returns a tuple which can be used as a sort key, for multiple saved copies of a message, to
+        understand the timeline of the individual message.
+        It should not be used to compare different messages.
+        """
+        return (
+            not self.deleted, # Deleted is newer than undeleted
+            self.edit_datetime is None, # Unedited is before edited
+            self.edit_datetime, # Sort by edit time
+            self.archive_tl_schema_layer, # Sort by schema layer
+            self.archive_datetime, # Sort by archive time, though probably they're identical
+        )
