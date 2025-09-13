@@ -39,11 +39,17 @@ class ArchiveTarget:
         self.client = archiver.client
         self.chat_db = ChatDatabase(chat_id)
         self.seen_user_ids: set[int] = set()
+        self._known_msg_ids: Optional[set[int]] = None
 
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
             self._chat_entity = await self.client.get_entity(self.chat_id)
         return self._chat_entity
+
+    def known_msg_ids(self) -> set[int]:
+        if self._known_msg_ids is None:
+            self._known_msg_ids = self.chat_db.list_message_ids()
+        return self._known_msg_ids
 
     async def is_small_chat(self) -> bool:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
@@ -79,6 +85,13 @@ class ArchiveTarget:
         logger.info("Processing message ID: %s", msg.id)
         messages_processed_count.inc()
         msg_obj = Message.from_msg(msg)
+        # Check if the message has already been identically archived
+        if msg.id in self.known_msg_ids():
+            old_msg_objs = self.chat_db.get_messages(msg.id)
+            latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
+            if msg_obj.no_useful_difference(latest_msg_obj):
+                logger.info("Already have message ID %s archived sufficiently", msg.id)
+                return
         self.chat_db.save_message(msg_obj)
         if hasattr(msg, "from_id") and msg.from_id is not None:
             if hasattr(msg.from_id, "user_id"):
@@ -147,7 +160,6 @@ class ArchiveTarget:
                 if not msg_objs:
                     continue
                 logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
-                sorted_msg_objs = sorted(msg_objs, key=lambda m: m.sort_key_for_copies_of_message())
-                latest_msg_obj = sorted_msg_objs[-1]
+                latest_msg_obj = Message.latest_copy_of_message(msg_objs)
                 deleted_msg = latest_msg_obj.mark_deleted()
                 self.chat_db.save_message(deleted_msg)

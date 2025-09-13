@@ -93,3 +93,24 @@ class Message(AbstractResource):
             self.archive_tl_schema_layer, # Sort by schema layer
             self.archive_datetime, # Sort by archive time, though probably they're identical
         )
+
+    @classmethod
+    def all_refer_to_same_message(cls, messages: list["Message"]) -> bool:
+        if len(messages) == 0:
+            raise ValueError("There are no messages, so they cannot all refer to the same event")
+        if len(messages) == 1:
+            return True
+        first = messages[0]
+        for msg in messages[1:]:
+            if not first.refers_to_same_msg(msg):
+                return False
+        return True
+
+    @classmethod
+    def latest_copy_of_message(cls, messages: list["Message"]) -> Optional["Message"]:
+        if len(messages) == 0:
+            return None
+        if not cls.refers_to_same_msg(messages):
+            raise ValueError("These events do not all refer to the same message")
+        sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
+        return sorted_messages[-1]
