@@ -1,7 +1,8 @@
+import datetime
 import json
 from contextlib import closing
 
-from tg_backup.database.abstract_database import AbstractDatabase, storable_date
+from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.chat_db_migrations import InitialChatDatabase
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
@@ -62,3 +63,34 @@ class ChatDatabase(AbstractDatabase):
                 }
             )
             self.conn.commit()
+
+    def get_messages(self, msg_id: int) -> list[Message]:
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT  archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime"
+                " FROM messages "
+                " WHERE id = :msg_id",
+                {
+                    "id": msg_id,
+                }
+            )
+            msgs = []
+            for row in resp.fetchall():
+                msg = Message(
+                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+                    resource_id=row["id"],
+                    resource_type=row["type"],
+                    str_repr=row["str_repr"],
+                    dict_repr=json.loads(row["dict_repr"]),
+                )
+                msg.datetime = parsable_date(row["datetime"])
+                msg.text = row["text"]
+                msg.media_id = row["media_id"]
+                msg.user_id = row["user_id"]
+                msg.sticker_id = row["sticker_id"]
+                msg.sticker_set_id = row["sticker_set_id"]
+                msg.deleted = row["deleted"]
+                msg.edit_datetime = parsable_date(row["edit_datetime"])
+                msgs.append(msg)
+        return msgs

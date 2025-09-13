@@ -21,6 +21,12 @@ def storable_date(date_val: Optional[datetime.date]) -> Optional[str]:
     return date_val.isoformat()
 
 
+def parsable_date(date_val: Optional[str]) -> Optional[datetime.date]:
+    if date_val is None:
+        return None
+    return datetime.datetime.fromisoformat(date_val)
+
+
 class AbstractDatabase(ABC):
     def __init__(self) -> None:
         self.conn: Optional[sqlite3.Connection] = None
