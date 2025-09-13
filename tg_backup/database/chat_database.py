@@ -65,6 +65,7 @@ class ChatDatabase(AbstractDatabase):
             self.conn.commit()
 
     def get_messages(self, msg_id: int) -> list[Message]:
+        msgs = []
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
                 "SELECT  archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime"
@@ -74,7 +75,6 @@ class ChatDatabase(AbstractDatabase):
                     "id": msg_id,
                 }
             )
-            msgs = []
             for row in resp.fetchall():
                 msg = Message(
                     archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
@@ -94,3 +94,11 @@ class ChatDatabase(AbstractDatabase):
                 msg.edit_datetime = parsable_date(row["edit_datetime"])
                 msgs.append(msg)
         return msgs
+
+    def list_message_ids(self) -> set[int]:
+        msg_ids = set()
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute("SELECT DISTINCT id FROM messages")
+            for row in resp.fetchall():
+                msg_ids.add(row["id"])
+        return msg_ids
