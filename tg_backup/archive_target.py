@@ -118,16 +118,17 @@ class ArchiveTarget:
         self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
+        logger.info("New message received")
         await self._process_message(event.message)
 
     async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
+        logger.info("Edited message received")
         await self._process_message(event.message)
 
     async def _watch_delete_message(self, event: events.MessageDeleted.Event) -> None:
         # Telegram does not send information about where a message was deleted if it occurs in private conversations
         # with other users or in small group chats, because message IDs are unique and you can identify the chat with
         # the message ID alone if you saved it previously.
-        # TODO: figure out how to identify if this is a small group chat
         logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
         if event.chat_id == self.chat_id or (event.chat_id is None and self.is_small_chat()):
             for msg_id in event.deleted_ids:
