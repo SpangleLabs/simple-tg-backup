@@ -51,6 +51,11 @@ class ArchiveTarget:
             self._known_msg_ids = self.chat_db.list_message_ids()
         return self._known_msg_ids
 
+    def add_known_msg_id(self, msg_id: int) -> None:
+        known_msg_ids = self.known_msg_ids()
+        known_msg_ids.add(msg_id)
+        self._known_msg_ids = known_msg_ids
+
     async def is_small_chat(self) -> bool:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
         return isinstance(await self.chat_entity(), telethon.tl.types.Channel)
@@ -93,6 +98,7 @@ class ArchiveTarget:
                 logger.info("Already have message ID %s archived sufficiently", msg.id)
                 return
         self.chat_db.save_message(msg_obj)
+        self.add_known_msg_id(msg.id)
         if hasattr(msg, "from_id") and msg.from_id is not None:
             if hasattr(msg.from_id, "user_id"):
                 if msg.from_id.user_id not in self.seen_user_ids:
