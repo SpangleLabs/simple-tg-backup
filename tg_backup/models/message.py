@@ -110,7 +110,7 @@ class Message(AbstractResource):
     def latest_copy_of_message(cls, messages: list["Message"]) -> Optional["Message"]:
         if len(messages) == 0:
             return None
-        if not cls.refers_to_same_msg(messages):
+        if not cls.all_refer_to_same_message(messages):
             raise ValueError("These events do not all refer to the same message")
         sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
         return sorted_messages[-1]
