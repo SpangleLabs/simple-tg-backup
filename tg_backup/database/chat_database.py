@@ -72,7 +72,7 @@ class ChatDatabase(AbstractDatabase):
                 " FROM messages "
                 " WHERE id = :msg_id",
                 {
-                    "id": msg_id,
+                    "msg_id": msg_id,
                 }
             )
             for row in resp.fetchall():
