@@ -88,10 +88,10 @@ class Message(AbstractResource):
         """
         return (
             not self.deleted, # Deleted is newer than undeleted
-            self.edit_datetime is None, # Unedited is before edited
+            self.edit_datetime is not None, # Unedited is before edited
             self.edit_datetime, # Sort by edit time
             self.archive_tl_schema_layer, # Sort by schema layer
-            self.archive_datetime, # Sort by archive time, though probably they're identical
+            self.archive_datetime, # Sort by archive time, though probably they're identical objects
         )
 
     @classmethod
