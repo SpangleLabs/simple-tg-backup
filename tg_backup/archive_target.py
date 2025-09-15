@@ -87,7 +87,7 @@ class ArchiveTarget:
                 self.chat_db.save_message(new_msg_obj)
 
     async def _process_message(self, msg: telethon.tl.types.Message) -> None:
-        logger.info("Processing message ID: %s", msg.id)
+        logger.debug("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
         messages_processed_count.inc()
         msg_obj = Message.from_msg(msg)
         # Check if the message has already been identically archived
@@ -95,8 +95,12 @@ class ArchiveTarget:
             old_msg_objs = self.chat_db.get_messages(msg.id)
             latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
-                logger.info("Already have message ID %s archived sufficiently", msg.id)
+                logger.debug("Already have message ID %s archived sufficiently", msg.id)
                 return
+            else:
+                logger.info("Message ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
+        else:
+            logger.debug("Processing new message ID: %s in chat ID: %s", msg.id, self.chat_id)
         self.chat_db.save_message(msg_obj)
         self.add_known_msg_id(msg.id)
         if hasattr(msg, "from_id") and msg.from_id is not None:
