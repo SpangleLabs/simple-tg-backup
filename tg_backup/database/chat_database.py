@@ -90,7 +90,7 @@ class ChatDatabase(AbstractDatabase):
                 msg.user_id = row["user_id"]
                 msg.sticker_id = row["sticker_id"]
                 msg.sticker_set_id = row["sticker_set_id"]
-                msg.deleted = row["deleted"]
+                msg.deleted = bool(row["deleted"])
                 msg.edit_datetime = parsable_date(row["edit_datetime"])
                 msgs.append(msg)
         return msgs
