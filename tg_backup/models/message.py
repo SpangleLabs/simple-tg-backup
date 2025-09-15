@@ -76,7 +76,10 @@ class Message(AbstractResource):
             self.resource_id == other.resource_id,
             self.deleted == other.deleted,
             self.edit_datetime == other.edit_datetime,
-            self.str_repr == other.str_repr,
+            # self.str_repr == other.str_repr, # Can't check the string reference, as file references and pts values will change
+            self.text == other.text,
+            self.media_id == other.media_id,
+            self.sticker_id == other.sticker_id,
             self.archive_tl_schema_layer == other.archive_tl_schema_layer,
         ])
 
