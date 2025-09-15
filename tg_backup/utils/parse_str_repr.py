@@ -1,0 +1,78 @@
+import datetime
+from typing import Union
+
+import pyparsing as pp
+from pyparsing import ParseResults
+
+StrReprValueType = Union[int, str, float, datetime.datetime, "StrReprObj"]
+
+
+class StrReprObj:
+    def __init__(
+            self,
+            class_name: str,
+            values_dict: dict[str, StrReprValueType],
+    ) -> None:
+        self.class_name = class_name
+        self.values_dict = values_dict
+
+    @classmethod
+    def parse_str_repr(cls, str_repr: str) -> "StrReprObj":
+        parser = str_repr_parser()
+        parsed = parser.parse_string(str_repr)
+        return parsed[0]
+
+    @classmethod
+    def from_parsed_token(cls, parsed: pp.ParseResults) -> "StrReprObj":
+        class_name = parsed["class_name"]
+        class_kv_list = parsed["key_value_list"][0]
+        class_dict = {}
+        for kv_pair in class_kv_list:
+            if kv_pair == ", ":
+                continue
+            key = kv_pair["key"]
+            value = kv_pair["value"][0]
+            if isinstance(value, ParseResults):
+                if "class" in value:
+                    value = value["class"]
+                elif "list" in value:
+                    value = value["list"][0][1:-1]
+            class_dict[key] = value
+        return cls(class_name, class_dict)
+
+
+def str_repr_parser() -> pp.ParserElement:
+    val_int_expr = pp.common.integer.set_name("value_integer")
+    val_float_expr = pp.common.fnumber.set_name("value_float")
+    val_none_expr = pp.Literal("None").set_parse_action(lambda x: [None]).set_name("value_none")
+    val_bool_expr = pp.Or([pp.Literal("True"), pp.Literal("False")]).set_parse_action(lambda x: [x[0] == "True"]).set_name("value_bool")
+    val_str_expr = pp.quoted_string.set_parse_action(lambda x: [x[0][1:-1]]).set_name("value_string")
+    val_datetime_expr = pp.Group(
+        "datetime.datetime("
+        + pp.common.integer.set_results_name("year").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.integer.set_results_name("month").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.integer.set_results_name("day").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.integer.set_results_name("hour").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.integer.set_results_name("minute").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.fnumber.set_results_name("second").set_parse_action(lambda x: int(x[0])) + ", "
+        + "tzinfo=datetime.timezone.utc)"
+    ).set_parse_action(lambda x: datetime.datetime(x[0].year, x[0].month, x[0].day, x[0].hour, x[0].minute, x[0].second, tzinfo=datetime.timezone.utc)).set_name("value_datetime")
+
+    class_expr = pp.Forward().set_results_name("class").set_parse_action(lambda x: StrReprObj.from_parsed_token(x[0]))
+    val_class_expr = pp.Group(class_expr).set_name("value_class")
+    list_expr = pp.Forward().set_results_name("list")
+    val_list_expr = pp.Group(list_expr).set_name("value_list")
+
+    val_expr = pp.Or([val_int_expr, val_float_expr, val_none_expr, val_bool_expr, val_str_expr, val_datetime_expr, val_class_expr, val_list_expr]).set_results_name("value")
+    list_expr <<= pp.Group("[" + pp.Opt(val_expr + pp.ZeroOrMore(", " + val_expr)) + "]")
+
+    key_expr = pp.Word(pp.alphanums + "_").set_results_name("key")
+    key_val_expr = pp.Group(key_expr + "=" + val_expr).set_results_name("key_value_pair", list_all_matches=True)
+
+    key_val_list_expr = pp.Group(key_val_expr + pp.ZeroOrMore(", " + key_val_expr)).set_results_name("key_value_list", list_all_matches=True)
+
+    class_name_expr = pp.Word(pp.alphanums+".").set_results_name("class_name")
+    class_expr <<= pp.Group(class_name_expr + "(" + key_val_list_expr + ")")
+
+    str_repr_expr = class_expr + pp.StringEnd()
+    return str_repr_expr
