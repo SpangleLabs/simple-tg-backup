@@ -117,3 +117,15 @@ class Message(AbstractResource):
             raise ValueError("These events do not all refer to the same message")
         sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
         return sorted_messages[-1]
+
+    @classmethod
+    def remove_redundant_copies(cls, messages: list["Message"]) -> list["Message"]:
+        sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
+        last_message = sorted_messages[0]
+        cleaned_messages = [last_message]
+        for msg in sorted_messages[1:]:
+            if msg.no_useful_difference(last_message):
+                continue
+            cleaned_messages.append(msg)
+            last_message = msg
+        return cleaned_messages

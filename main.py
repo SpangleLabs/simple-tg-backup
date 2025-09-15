@@ -38,6 +38,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.option("--check-admin-log/--no-admin-log", default=None, help="Whether to check the admin log for recent events, such as deleted messages")
 @click.option("--follow-live/--no-follow-live", default=None, help="Whether to follow live messages in the chat")
 @click.option("--archive-history/--no-archive-history", default=None, help="Whether to archive the history of the chat before this point")
+@click.option("--cleanup_duplicates/--no_cleanup_duplicates", default=None, help="Whether to clean up duplicate messages in the database")
 def main(
         log_level: str,
         prom_port: int,
@@ -46,6 +47,7 @@ def main(
         check_admin_log: bool,
         follow_live: bool,
         archive_history: bool,
+        cleanup_duplicates: bool,
 ) -> None:
     setup_logging(log_level)
     start_http_server(prom_port)
@@ -56,6 +58,7 @@ def main(
         check_admin_log=check_admin_log,
         follow_live=follow_live,
         archive_history=archive_history,
+        cleanup_duplicates=cleanup_duplicates,
     )
     asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
 

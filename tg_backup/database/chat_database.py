@@ -102,3 +102,13 @@ class ChatDatabase(AbstractDatabase):
             for row in resp.fetchall():
                 msg_ids.add(row["id"])
         return msg_ids
+
+    def delete_messages(self, msg_id: int) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "DELETE FROM messages WHERE id = :msg_id",
+                {
+                    "msg_id": msg_id,
+                }
+            )
+            self.conn.commit()

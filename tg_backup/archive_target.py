@@ -93,6 +93,17 @@ class ArchiveTarget:
         # Check if the message has already been identically archived
         if msg.id in self.known_msg_ids():
             old_msg_objs = self.chat_db.get_messages(msg.id)
+            if self.behaviour.cleanup_duplicates and len(old_msg_objs) >= 2:
+                cleaned_msg_objs = Message.remove_redundant_copies(old_msg_objs)
+                if len(cleaned_msg_objs) != len(old_msg_objs):
+                    logger.info(
+                        "Cleaning up redundant %s message copies for msg ID: %s",
+                        len(old_msg_objs) - len(cleaned_msg_objs),
+                        msg.id
+                    )
+                    self.chat_db.delete_messages(msg.id)
+                    for msg_obj in cleaned_msg_objs:
+                        self.chat_db.save_message(msg_obj)
             latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
                 logger.debug("Already have message ID %s archived sufficiently", msg.id)

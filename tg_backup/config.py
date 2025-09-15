@@ -22,6 +22,7 @@ class BehaviourConfig:
     check_admin_log: Optional[bool]
     follow_live: Optional[bool]
     archive_history: Optional[bool]
+    cleanup_duplicates: Optional[bool]
 
     @classmethod
     def merge(cls, b1: "BehaviourConfig", b2: "BehaviourConfig") -> "BehaviourConfig":
@@ -30,6 +31,7 @@ class BehaviourConfig:
             check_admin_log=b1.check_admin_log if b1.check_admin_log is not None else b2.check_admin_log,
             follow_live=b1.follow_live if b1.follow_live is not None else b2.follow_live,
             archive_history=b1.archive_history if b1.archive_history is not None else b2.archive_history,
+            cleanup_duplicates=b1.cleanup_duplicates if b1.cleanup_duplicates is not None else b2.cleanup_duplicates,
         )
 
     @classmethod
@@ -39,6 +41,7 @@ class BehaviourConfig:
             check_admin_log=data.get("check_admin_log"),
             follow_live=data.get("follow_live"),
             archive_history=data.get("archive_history"),
+            cleanup_duplicates=data.get("cleanup_duplicates"),
         )
 
 
@@ -47,6 +50,7 @@ DEFAULT_BEHAVIOUR = BehaviourConfig(
     check_admin_log=True,
     follow_live=False,
     archive_history=True,
+    cleanup_duplicates=False,
 )
 
 
