@@ -153,19 +153,18 @@ class Message(AbstractResource):
         if msg_str_obj.has("message"):
             obj.text = msg_str_obj.get("message")
         # Handle stickers
-        if msg_str_obj.has("sticker"):
-            if msg_str_obj.get("sticker") is not None:
-                if msg_str_obj.get("sticker").has("id"):
-                    obj.sticker_id = msg_str_obj.get("sticker").get("id")
-                if msg_str_obj.get("sticker").has("attributes"):
-                    for attr in msg_str_obj.get("sticker").get("attributes"):
-                        if attr.class_name == "DocumentAttributeSticker":
-                            if attr.has("stickerset"):
-                                if attr.get("stickerset").has("id"):
-                                    obj.sticker_set_id = attr.get("stickerset").get("id")
+        if msg_str_obj.has("sticker") and msg_str_obj.get("sticker") is not None:
+            if msg_str_obj.get("sticker").has("id"):
+                obj.sticker_id = msg_str_obj.get("sticker").get("id")
+            if msg_str_obj.get("sticker").has("attributes"):
+                for attr in msg_str_obj.get("sticker").get("attributes"):
+                    if attr.class_name == "DocumentAttributeSticker":
+                        if attr.has("stickerset"):
+                            if attr.get("stickerset").has("id"):
+                                obj.sticker_set_id = attr.get("stickerset").get("id")
         # Handle non-sticker media
-        if msg_str_obj.has("media") and obj.sticker_id is None:
-            if msg_str_obj.get("media").has("photo"):
+        if msg_str_obj.has("media") and msg_str_obj.get("media") is not None and obj.sticker_id is None:
+            if msg_str_obj.get("media").has("photo") and msg_str_obj.get("media").get("photo") is not None:
                 if msg_str_obj.get("media").get("photo").has("id"):
                     obj.media_id = msg_str_obj.get("media").get("photo").get("id")
             if msg_str_obj.get("media").has("document"):
