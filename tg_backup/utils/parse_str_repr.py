@@ -12,9 +12,70 @@ class StrReprObj:
             self,
             class_name: str,
             values_dict: dict[str, StrReprValueType],
+            key_order: list[str],
     ) -> None:
         self.class_name = class_name
         self.values_dict = values_dict
+        self.key_order = key_order
+
+    def has(self, key: str) -> bool:
+        return key in self.values_dict
+
+    def get(self, key: str) -> StrReprValueType:
+        return self.values_dict[key]
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def to_str(self) -> str:
+        result = f"{self.class_name}("
+        kv_list = [
+            f"{key}={StrReprObj.value_to_string(self.values_dict[key])}"
+            for key in self.key_order
+        ]
+        result += ", ".join(kv_list)
+        result += ")"
+        return result
+
+    @staticmethod
+    def value_to_string(val: StrReprValueType) -> str:
+        if val is None:
+            return "None"
+        if isinstance(val, StrReprObj):
+            return val.to_str()
+        elif isinstance(val, datetime.datetime):
+            return repr(val)
+        elif isinstance(val, str):
+            if "'" in val:
+                return f"\"{val}\""
+            return f"'{val}'"
+        elif isinstance(val, list):
+            sub_items = [StrReprObj.value_to_string(v) for v in val]
+            return "[" + ", ".join(sub_items) + "]"
+        return str(val)
+
+    def to_dict(self) -> dict:
+        result = {
+            "_": self.class_name,
+        }
+        for key, value in self.values_dict.items():
+            if isinstance(value, StrReprObj):
+                result[key] = value.to_dict()
+            elif isinstance(value, datetime.datetime):
+                result[key] = value.isoformat()
+            elif isinstance(value, list):
+                vals = []
+                for item in value:
+                    if isinstance(item, StrReprObj):
+                        vals.append(item.to_dict())
+                    elif isinstance(item, datetime.datetime):
+                        vals.append(item.isoformat())
+                    else:
+                        vals.append(item)
+                result[key] = vals
+            else:
+                result[key] = value
+        return result
 
     @classmethod
     def parse_str_repr(cls, str_repr: str) -> "StrReprObj":
@@ -27,10 +88,12 @@ class StrReprObj:
         class_name = parsed["class_name"]
         class_kv_list = parsed["key_value_list"][0]
         class_dict = {}
+        key_order = []
         for kv_pair in class_kv_list:
             if kv_pair == ", ":
                 continue
             key = kv_pair["key"]
+            key_order.append(key)
             value = kv_pair["value"][0]
             if isinstance(value, ParseResults):
                 if "class" in value:
@@ -38,7 +101,7 @@ class StrReprObj:
                 elif "list" in value:
                     value = value["list"][0][1:-1]
             class_dict[key] = value
-        return cls(class_name, class_dict)
+        return cls(class_name, class_dict, key_order)
 
 
 def str_repr_parser() -> pp.ParserElement:
