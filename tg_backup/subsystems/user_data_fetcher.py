@@ -71,5 +71,8 @@ class UserDataFetcher(AbstractSubsystem):
         if user is None:
             return
         if not isinstance(user, PeerUser):
-            raise ValueError(f"Unrecognised user type: {user}")
+            if isinstance(user, int):
+                user = PeerUser(user)
+            else:
+                raise ValueError(f"Unrecognised user type: {user}")
         await self.queue.put(UserQueueEntry(chat_id, chat_db, user))
