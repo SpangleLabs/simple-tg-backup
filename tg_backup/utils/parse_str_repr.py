@@ -102,7 +102,7 @@ class StrReprObj:
                 if "class" in value:
                     value = value["class"]
                 elif "list" in value:
-                    value = value["list"][0][1:-1]
+                    value = value["list"]
             class_dict[key] = value
         return cls(class_name, class_dict, key_order)
 
@@ -125,9 +125,9 @@ def str_repr_parser() -> pp.ParserElement:
     ).set_parse_action(lambda x: datetime.datetime(x[0].year, x[0].month, x[0].day, x[0].hour, x[0].minute, x[0].second, tzinfo=datetime.timezone.utc)).set_name("value_datetime")
 
     class_expr = pp.Forward().set_results_name("class").set_parse_action(lambda x: StrReprObj.from_parsed_token(x[0]))
-    val_class_expr = pp.Group(class_expr).set_name("value_class")
+    val_class_expr = pp.Group(class_expr).set_name("value_class").set_parse_action(lambda x: x[0])
     list_expr = pp.Forward().set_results_name("list")
-    val_list_expr = pp.Group(list_expr).set_name("value_list")
+    val_list_expr = pp.Group(list_expr).set_parse_action(lambda x: x[0]).set_name("value_list")
 
     val_expr = pp.Or([val_int_expr, val_float_expr, val_none_expr, val_bool_expr, val_str_expr, val_datetime_expr, val_class_expr, val_list_expr]).set_results_name("value")
     list_expr <<= pp.Group(pp.Suppress("[") + pp.Opt(val_expr + pp.ZeroOrMore(pp.Suppress(",") + val_expr)) + pp.Suppress("]")).set_parse_action(lambda x: x.as_list())
