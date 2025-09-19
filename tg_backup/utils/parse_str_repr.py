@@ -1,3 +1,4 @@
+import ast
 import datetime
 from typing import Union
 
@@ -112,7 +113,8 @@ def str_repr_parser() -> pp.ParserElement:
     val_float_expr = pp.common.fnumber.set_name("value_float")
     val_none_expr = pp.Literal("None").set_parse_action(lambda x: [None]).set_name("value_none")
     val_bool_expr = pp.Or([pp.Literal("True"), pp.Literal("False")]).set_parse_action(lambda x: [x[0] == "True"]).set_name("value_bool")
-    val_str_expr = pp.quoted_string.set_parse_action(lambda x: [x[0][1:-1]]).set_name("value_string")
+    val_bytes_expr = pp.Group(pp.Literal("b").suppress() + pp.quoted_string).set_parse_action(lambda x: ast.literal_eval("b'"+x[0][0]+"'")).set_name("value_bytes")
+    val_str_expr = pp.quoted_string.set_parse_action(pp.remove_quotes).set_name("value_string")
     val_datetime_expr = pp.Group(
         pp.Suppress("datetime.datetime(")
         + pp.common.integer.set_results_name("year").set_parse_action(lambda x: int(x[0])) + ", "
@@ -129,7 +131,7 @@ def str_repr_parser() -> pp.ParserElement:
     list_expr = pp.Forward().set_results_name("list")
     val_list_expr = pp.Group(list_expr).set_parse_action(lambda x: x[0]).set_name("value_list")
 
-    val_expr = pp.Or([val_int_expr, val_float_expr, val_none_expr, val_bool_expr, val_str_expr, val_datetime_expr, val_class_expr, val_list_expr]).set_results_name("value")
+    val_expr = pp.Or([val_int_expr, val_float_expr, val_none_expr, val_bool_expr, val_bytes_expr, val_str_expr, val_datetime_expr, val_class_expr, val_list_expr]).set_results_name("value")
     list_expr <<= pp.Group(pp.Suppress("[") + pp.Opt(val_expr + pp.ZeroOrMore(pp.Suppress(",") + val_expr)) + pp.Suppress("]")).set_parse_action(lambda x: x.as_list())
 
     key_expr = pp.Word(pp.alphanums + "_").set_results_name("key")
