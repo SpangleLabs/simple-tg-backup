@@ -66,6 +66,18 @@ def test_parse_obj_with_bytes() -> None:
     assert str_obj.values_dict["val"] == b"\xba\x06@\x02p&g\xba"
 
 
+def test_parse_obj_with_bytes_with_quote() -> None:
+    str_repr = "Class(val=b\"\\xba\\x06@'\\x02p&g\\xba\")"
+
+    str_obj = StrReprObj.parse_str_repr(str_repr)
+
+    assert str_obj.class_name == "Class"
+    assert len(str_obj.values_dict) == 1
+    assert "val" in str_obj.values_dict
+    assert isinstance(str_obj.values_dict["val"], bytes)
+    assert str_obj.values_dict["val"] == b"\xba\x06@'\x02p&g\xba"
+
+
 def test_parse_obj_with_list_of_stuff() -> None:
     str_repr = "Class(vals=[1, None, 'hey', [2], Nested(foo='bar')])"
 

@@ -108,12 +108,21 @@ class StrReprObj:
         return cls(class_name, class_dict, key_order)
 
 
+def _parse_bytes(x: pp.ParseResults) -> bytes:
+    bytes_str = x[0][0]
+    if "'" in bytes_str and "\\'" not in bytes_str:
+        bytes_str = "b\"" + bytes_str + "\""
+    else:
+        bytes_str = "b'" + bytes_str + "'"
+    return ast.literal_eval(bytes_str)
+
+
 def str_repr_parser() -> pp.ParserElement:
     val_int_expr = pp.common.signed_integer.set_name("value_integer")
     val_float_expr = pp.common.fnumber.set_name("value_float")
     val_none_expr = pp.Literal("None").set_parse_action(lambda x: [None]).set_name("value_none")
     val_bool_expr = pp.Or([pp.Literal("True"), pp.Literal("False")]).set_parse_action(lambda x: [x[0] == "True"]).set_name("value_bool")
-    val_bytes_expr = pp.Group(pp.Literal("b").suppress() + pp.quoted_string).set_parse_action(lambda x: ast.literal_eval("b'"+x[0][0]+"'")).set_name("value_bytes")
+    val_bytes_expr = pp.Group(pp.Literal("b").suppress() + pp.quoted_string).set_parse_action(_parse_bytes).set_name("value_bytes")
     val_str_expr = pp.quoted_string.set_parse_action(pp.remove_quotes).set_name("value_string")
     val_datetime_expr = pp.Group(
         pp.Suppress("datetime.datetime(")
