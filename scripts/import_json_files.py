@@ -27,12 +27,17 @@ class JSONFileImporter:
         self.file_datetime = datetime.datetime.fromtimestamp(os.path.getctime(self.file_path), tz=datetime.timezone.utc)
         self.seen_user_ids: set[int] = set()
         self.str_parser = str_repr_parser()
+        self.known_admin_event_ids: set[int] = set()
+        self.known_message_ids: set[int] = set()
 
     async def _process_admin_event(
             self,
             admin_event: dict,
     ) -> None:
         logger.info("Processing admin event ID: %s", admin_event["id"])
+        if admin_event["id"] in self.known_admin_event_ids:
+            logger.info("Already archived that one")
+            return
         evt_str = admin_event["str"]
         evt_str_obj: StrReprObj = self.str_parser.parse_string(evt_str)[0]
         if evt_str_obj.to_str() != evt_str:
@@ -50,12 +55,16 @@ class JSONFileImporter:
             new_msg_obj = Message.from_str_repr_obj(self.file_datetime, new_msg_str_obj)
             await self._save_message(prev_msg_obj)
             await self._save_message(new_msg_obj)
+        self.known_admin_event_ids.add(evt_obj.resource_id)
 
     async def _process_message(
             self,
             message: dict,
     ) -> None:
         logger.info("Processing message ID: %s", message["id"])
+        if message["id"] in self.known_message_ids:
+            logger.info("Already archived that one")
+            return
         # Parse the message from a string
         msg_str = message["str"]
         msg_str_obj = StrReprObj.parse_str_repr(msg_str)
@@ -63,6 +72,7 @@ class JSONFileImporter:
             raise ValueError("AAAAAA")
         msg_obj = Message.from_str_repr_obj(self.file_datetime, msg_str_obj)
         await self._save_message(msg_obj)
+        self.known_message_ids.add(msg_obj.resource_id)
 
     async def _save_message(self, msg_obj: Message) -> None:
         self.chat_db.save_message(msg_obj)
@@ -95,6 +105,8 @@ class JSONFileImporter:
                     # raise ValueError("AAAA Missing media file ID: %s for message ID: %s", msg_obj.media_id, msg_obj.resource_id)
 
     async def run(self) -> None:
+        self.known_admin_event_ids = self.chat_db.list_admin_event_ids_by_archive_datetime(self.file_datetime)
+        self.known_message_ids = self.chat_db.list_message_ids_by_archive_datetime(self.file_datetime)
         with open(self.file_path, "r") as f:
             json_data = json.load(f)
         for admin_event in json_data["admin_events"]:

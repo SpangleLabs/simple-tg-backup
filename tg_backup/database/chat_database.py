@@ -40,6 +40,19 @@ class ChatDatabase(AbstractDatabase):
             )
             self.conn.commit()
 
+    def list_admin_event_ids_by_archive_datetime(self, archive_datetime: datetime.datetime) -> set[int]:
+        evt_ids = set()
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT DISTINCT id FROM admin_events WHERE archive_datetime = :archive_datetime",
+                {
+                    "archive_datetime": archive_datetime.isoformat(),
+                }
+            )
+            for row in resp.fetchall():
+                evt_ids.add(row["id"])
+        return evt_ids
+
     def save_message(self, message: Message) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
@@ -99,6 +112,19 @@ class ChatDatabase(AbstractDatabase):
         msg_ids = set()
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute("SELECT DISTINCT id FROM messages")
+            for row in resp.fetchall():
+                msg_ids.add(row["id"])
+        return msg_ids
+
+    def list_message_ids_by_archive_datetime(self, archive_datetime: datetime.datetime) -> set[int]:
+        msg_ids = set()
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT DISTINCT id FROM messages WHERE archive_datetime = :archive_datetime",
+                {
+                    "archive_datetime": archive_datetime.isoformat(),
+                }
+            )
             for row in resp.fetchall():
                 msg_ids.add(row["id"])
         return msg_ids
