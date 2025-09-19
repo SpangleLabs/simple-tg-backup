@@ -105,7 +105,7 @@ class StrReprObj:
 
 
 def str_repr_parser() -> pp.ParserElement:
-    val_int_expr = pp.common.integer.set_name("value_integer")
+    val_int_expr = pp.common.signed_integer.set_name("value_integer")
     val_float_expr = pp.common.fnumber.set_name("value_float")
     val_none_expr = pp.Literal("None").set_parse_action(lambda x: [None]).set_name("value_none")
     val_bool_expr = pp.Or([pp.Literal("True"), pp.Literal("False")]).set_parse_action(lambda x: [x[0] == "True"]).set_name("value_bool")
