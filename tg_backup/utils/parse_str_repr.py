@@ -47,7 +47,7 @@ class StrReprObj:
         elif isinstance(val, datetime.datetime):
             return repr(val)
         elif isinstance(val, str):
-            if "'" in val:
+            if "'" in val and "\\'" not in val:
                 return f"\"{val}\""
             return f"'{val}'"
         elif isinstance(val, list):
