@@ -5,6 +5,7 @@ import telethon
 from telethon.tl.types import DocumentAttributeSticker
 
 from tg_backup.models.abstract_resource import AbstractResource
+from tg_backup.utils.parse_str_repr import StrReprObj
 
 
 class Message(AbstractResource):
@@ -129,3 +130,53 @@ class Message(AbstractResource):
             cleaned_messages.append(msg)
             last_message = msg
         return cleaned_messages
+
+    @classmethod
+    def from_str_repr_obj(
+            cls,
+            archive_datetime: datetime.datetime,
+            msg_str_obj: StrReprObj,
+            deleted: bool = False,
+    ) -> "Message":
+        # noinspection PyUnresolvedReferences
+        schema_layer = telethon.tl.alltlobjects.LAYER
+        obj = Message(
+            archive_datetime=archive_datetime,
+            archive_tl_schema_layer=schema_layer,
+            resource_id=msg_str_obj.values_dict["id"],
+            resource_type=msg_str_obj.class_name,
+            str_repr=msg_str_obj.to_str(),
+            dict_repr=msg_str_obj.to_dict(),
+        )
+        if msg_str_obj.has("date"):
+            obj.datetime = msg_str_obj.get("date")
+        if msg_str_obj.has("message"):
+            obj.text = msg_str_obj.get("message")
+        # Handle stickers
+        if msg_str_obj.has("sticker"):
+            if msg_str_obj.get("sticker") is not None:
+                if msg_str_obj.get("sticker").has("id"):
+                    obj.sticker_id = msg_str_obj.get("sticker").get("id")
+                if msg_str_obj.get("sticker").has("attributes"):
+                    for attr in msg_str_obj.get("sticker").get("attributes"):
+                        if attr.class_name == "DocumentAttributeSticker":
+                            if attr.has("stickerset"):
+                                if attr.get("stickerset").has("id"):
+                                    obj.sticker_set_id = attr.get("stickerset").get("id")
+        # Handle non-sticker media
+        if msg_str_obj.has("media") and obj.sticker_id is None:
+            if msg_str_obj.get("media").has("photo"):
+                if msg_str_obj.get("media").get("photo").has("id"):
+                    obj.media_id = msg_str_obj.get("media").get("photo").get("id")
+            if msg_str_obj.get("media").has("document"):
+                if msg_str_obj.get("media").get("document").has("id"):
+                    obj.media_id = msg_str_obj.get("media").get("document").get("id")
+        # Handle users
+        if msg_str_obj.has("from_id"):
+            if msg_str_obj.get("from_id").has("user_id"):
+                obj.user_id = msg_str_obj.get("from_id").get("user_id")
+        # Handle whether it was deleted or edited
+        obj.deleted = deleted
+        if msg_str_obj.has("edit_date"):
+            obj.edit_datetime = msg_str_obj.get("edit_date")
+        return obj
