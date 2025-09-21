@@ -126,14 +126,14 @@ def str_repr_parser() -> pp.ParserElement:
     val_str_expr = pp.quoted_string.set_parse_action(pp.remove_quotes).set_name("value_string")
     val_datetime_expr = pp.Group(
         pp.Suppress("datetime.datetime(")
-        + pp.common.integer.set_results_name("year").set_parse_action(lambda x: int(x[0])) + ", "
-        + pp.common.integer.set_results_name("month").set_parse_action(lambda x: int(x[0])) + ", "
-        + pp.common.integer.set_results_name("day").set_parse_action(lambda x: int(x[0])) + ", "
-        + pp.common.integer.set_results_name("hour").set_parse_action(lambda x: int(x[0])) + ", "
-        + pp.common.integer.set_results_name("minute").set_parse_action(lambda x: int(x[0])) + ", "
-        + pp.common.fnumber.set_results_name("second").set_parse_action(lambda x: int(x[0])) + ", "
+        + pp.common.integer.set_results_name("year").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", ")
+        + pp.common.integer.set_results_name("month").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", ")
+        + pp.common.integer.set_results_name("day").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", ")
+        + pp.common.integer.set_results_name("hour").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", ")
+        + pp.common.integer.set_results_name("minute").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", ")
+        + pp.Opt(pp.common.fnumber.set_results_name("second").set_parse_action(lambda x: int(x[0])) + pp.Suppress(", "))
         + pp.Suppress("tzinfo=datetime.timezone.utc)")
-    ).set_parse_action(lambda x: datetime.datetime(x[0].year, x[0].month, x[0].day, x[0].hour, x[0].minute, x[0].second, tzinfo=datetime.timezone.utc)).set_name("value_datetime")
+    ).set_parse_action(lambda x: datetime.datetime(x[0].year, x[0].month, x[0].day, x[0].hour, x[0].minute, x[0].get("second", 0), tzinfo=datetime.timezone.utc)).set_name("value_datetime")
 
     class_expr = pp.Forward().set_results_name("class").set_parse_action(lambda x: StrReprObj.from_parsed_token(x[0]))
     val_class_expr = pp.Group(class_expr).set_name("value_class").set_parse_action(lambda x: x[0])

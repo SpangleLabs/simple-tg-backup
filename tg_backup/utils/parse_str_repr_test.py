@@ -1,3 +1,4 @@
+import datetime
 from types import NoneType
 
 import pytest
@@ -76,6 +77,30 @@ def test_parse_obj_with_bytes_with_quote() -> None:
     assert "val" in str_obj.values_dict
     assert isinstance(str_obj.values_dict["val"], bytes)
     assert str_obj.values_dict["val"] == b"\xba\x06@'\x02p&g\xba"
+
+
+def test_parse_obj_with_date() -> None:
+    str_repr = "Class(date=datetime.datetime(2025, 9, 21, 23, 59, 12, tzinfo=datetime.timezone.utc))"
+
+    str_obj = StrReprObj.parse_str_repr(str_repr)
+
+    assert str_obj.class_name == "Class"
+    assert len(str_obj.values_dict) == 1
+    assert "date" in str_obj.values_dict
+    assert isinstance(str_obj.values_dict["date"], datetime.datetime)
+    assert str_obj.values_dict["date"] == datetime.datetime(2025, 9, 21, 23, 59, 12, tzinfo=datetime.timezone.utc)
+
+
+def test_parse_obj_with_date_without_seconds() -> None:
+    str_repr = "Class(date=datetime.datetime(2025, 9, 21, 23, 59, tzinfo=datetime.timezone.utc))"
+
+    str_obj = StrReprObj.parse_str_repr(str_repr)
+
+    assert str_obj.class_name == "Class"
+    assert len(str_obj.values_dict) == 1
+    assert "date" in str_obj.values_dict
+    assert isinstance(str_obj.values_dict["date"], datetime.datetime)
+    assert str_obj.values_dict["date"] == datetime.datetime(2025, 9, 21, 23, 59, 0, tzinfo=datetime.timezone.utc)
 
 
 def test_parse_obj_with_list_of_stuff() -> None:
