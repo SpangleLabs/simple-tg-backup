@@ -58,7 +58,7 @@ class ArchiveTarget:
 
     async def is_small_chat(self) -> bool:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
-        return isinstance(await self.chat_entity(), telethon.tl.types.Channel)
+        return not isinstance(await self.chat_entity(), telethon.tl.types.Channel)
 
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
