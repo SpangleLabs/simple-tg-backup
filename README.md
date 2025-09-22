@@ -11,16 +11,19 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
+- Ability to archive groups where you are not an admin
+- Ability to archive 1:1 chats, not just groups
+- Ability to archive channels
 - Allow specifying multiple chats to backup
   - Metrics on how many chats are being watched, what's the chat download queue? What's the total number of chats?
-- Cache and know when to re-save messages and chats and such
-  - If last archive date is over X age?
-  - If the str_repr is different
-  - If the scheme layer is different?
+- Deduplicate admin events in the same way messages are?
+- Deduplicate users in the same way messages are
+- Deduplicate chats in the same way messages are
+- Double check how sticker and sticker set deduplication is working
 
 ### TODO: full archiver
 - List how many chats there are
-- Shared locations, with history
+- Store shared locations, with history
 
 ### TODO: eventually
 - HTML view of chatting?
