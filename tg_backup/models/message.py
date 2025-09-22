@@ -171,7 +171,7 @@ class Message(AbstractResource):
                 if msg_str_obj.get("media").get("document").has("id"):
                     obj.media_id = msg_str_obj.get("media").get("document").get("id")
         # Handle users
-        if msg_str_obj.has("from_id"):
+        if msg_str_obj.has("from_id") and msg_str_obj.get("from_id") is not None:
             if msg_str_obj.get("from_id").has("user_id"):
                 obj.user_id = msg_str_obj.get("from_id").get("user_id")
         # Handle whether it was deleted or edited
