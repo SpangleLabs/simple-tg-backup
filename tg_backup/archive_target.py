@@ -90,7 +90,7 @@ class ArchiveTarget:
                 self.chat_db.save_message(new_msg_obj)
 
     async def _process_message(self, msg: telethon.tl.types.Message) -> None:
-        logger.debug("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
+        logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
         messages_processed_count.inc()
         msg_obj = Message.from_msg(msg)
         # Check if the message has already been identically archived
