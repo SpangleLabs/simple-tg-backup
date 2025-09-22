@@ -69,6 +69,9 @@ class ArchiveTarget:
 
     async def _archive_admin_log(self) -> None:
         chat_entity = await self.chat_entity()
+        if await self.is_small_chat():
+            logger.info("No admin log in small chats")
+            return
         async for evt in self.client.iter_admin_log(chat_entity):
             logger.info("Processing admin event ID: %s", evt.id)
             admin_log_events_processed.inc()
