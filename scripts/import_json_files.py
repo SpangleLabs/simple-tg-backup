@@ -111,7 +111,7 @@ class JSONFileImporter:
             json_data = json.load(f)
         for admin_event in json_data["admin_events"]:
             await self._process_admin_event(admin_event)
-        for message in json_data["messages"]:
+        for message in json_data.get("messages", []):
             await self._process_message(message)
 
 
