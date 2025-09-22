@@ -137,7 +137,7 @@ class ArchiveTarget:
         # Connect to chat database
         self.chat_db.start()
         # Get chat data
-        await self._archive_chat_data(),
+        await self._archive_chat_data()
         # Start the chat watcher
         watch_task: Optional[asyncio.Task] = None
         if self.behaviour.follow_live:
