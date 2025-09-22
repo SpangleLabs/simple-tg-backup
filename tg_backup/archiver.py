@@ -30,6 +30,9 @@ class Archiver:
         logger.info("Connecting to telegram")
         # noinspection PyUnresolvedReferences
         await self.client.start()
+        # List all dialogs
+        dialogs = await self.client.get_dialogs()
+        logger.info("Your telegram account has %s open dialogs", len(dialogs))
         logger.info("Starting media downloader")
         self.media_dl.start()
         logger.info("Starting user fetcher")
