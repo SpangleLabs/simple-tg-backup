@@ -151,7 +151,10 @@ class ArchiveTarget:
             watch_task = asyncio.create_task(self.watch_chat())
         # Gather data from admin log
         if self.behaviour.check_admin_log:
-            await self._archive_admin_log()
+            try:
+                await self._archive_admin_log()
+            except telethon.errors.rpcerrorlist.ChatAdminRequiredError as e:
+                logger.warning("Do not have sufficient permissions to archive admin log of chat.", exc_info=e)
         # Gather messages from chat
         if self.behaviour.archive_history:
             await self._archive_history()
