@@ -18,7 +18,7 @@ class User(AbstractResource):
     ) -> None:
         super().__init__(archive_datetime, archive_tl_schema_layer, resource_id, resource_type, str_repr, dict_repr)
         self.bio: Optional[str] = None
-        self.birthday: Optional[datetime.datetime] = None  # TODO: validate whether this type is correct
+        self.birthday: Optional[datetime.date] = None  # TODO: validate whether this type is correct
         self.is_bot: Optional[bool] = None
         self.is_deleted: Optional[bool] = None
         self.first_name: Optional[str] = None
@@ -43,8 +43,12 @@ class User(AbstractResource):
         # Parse everything from the users.UserFull object
         if hasattr(full_user, "about"):
             user_obj.bio = full_user.about
-        if hasattr(full_user, "birthday"):
-            user_obj.birthday = full_user.birthday
+        if hasattr(full_user, "birthday") and full_user.birthday is not None:
+            user_obj.birthday = datetime.date(
+                year=full_user.birthday.year or 1,
+                month=full_user.birthday.month,
+                day=full_user.birthday.day,
+            )
         # Parse everything from the User object
         if hasattr(user, "bot"):
             user_obj.is_bot = user.bot
