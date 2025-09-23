@@ -122,6 +122,9 @@ class ArchiveTarget:
                 if msg.from_id.user_id not in self.seen_user_ids:
                     await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
                     self.seen_user_ids.add(msg.from_id.user_id)
+            elif hasattr(msg.from_id, "channel_id"):
+                logger.info("Message %s was sent by a channel, ID %s", msg.id, msg.from_id.channel_id)
+                # TODO: Maybe archive these sometime?
             else:
                 await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
