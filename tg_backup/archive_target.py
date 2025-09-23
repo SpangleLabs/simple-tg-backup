@@ -156,6 +156,8 @@ class ArchiveTarget:
         if self.behaviour.follow_live:
             logger.info("Chat history archive complete, watching live updates")
             await watch_task
+        # Wait for user fetcher to be done before disconnecting database
+        await self.archiver.user_fetcher.wait_until_chat_empty(self.chat_id)
         # Disconnect from chat DB
         self.chat_db.stop()
 
