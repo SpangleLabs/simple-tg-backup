@@ -1,7 +1,10 @@
-import curses
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
+from tg_backup.cli_window import CLIWindow
 from tg_backup.menus.astract_menu import AbstractMenu
+
+if TYPE_CHECKING:
+    from tg_backup.cli import CLI
 
 
 class MainMenu(AbstractMenu):
@@ -9,17 +12,20 @@ class MainMenu(AbstractMenu):
         super().__init__()
         self.last_key: Optional[str] = None
         self.typing = ""
+        self.selected_option = 0
+        self.menu_options = [
+            "Specify a chat ID or username to download",
+            "Modify the default archive behaviour settings",
+            "Modify archive settings for known chats",
+            "Modify archive settings for new chats",
+        ]
 
-    def render(self, window: curses.window) -> None:
-        rows, cols = window.getmaxyx()
-        window.addstr("Hello world, this is the simple telegram archiver main menu.\n")
-        window.addstr(f"The window size is {rows} rows and {cols} columns.\n")
-        if self.last_key is None:
-            window.addstr("Try pressing a button I guess\n")
-        else:
-            window.addstr(f"Ah, you pressed {self.last_key}\n")
-        if self.typing:
-            window.addstr(f"In total you have typed: {self.typing}\n")
+    def render(self, window: CLIWindow) -> None:
+        window.write_title("Telegram Archiver")
+        window.write_line("Hello there, this is the simple telegram archiver main menu.")
+        window.write_line("What would you like to do?")
+        window.write_options(self.menu_options, self.selected_option)
+        window.write_final_line("Press [q] to quit")
 
     def handle_keypress(self, key: str) -> None:
         self.last_key = key

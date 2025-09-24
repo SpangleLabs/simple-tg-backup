@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 
 from tg_backup.archiver import Archiver
+from tg_backup.cli_window import CLIWindow
 from tg_backup.config import BehaviourConfig
 from tg_backup.menus.astract_menu import AbstractMenu
 from tg_backup.menus.main_menu import MainMenu
@@ -26,15 +27,10 @@ class CLI:
     def render(self, window: curses.window) -> None:
         if self.current_menu is None:
             self.current_menu = MainMenu()
+        cli_window = CLIWindow(window)
         while self.running:
-            try:
-                window.clear()
-                self.current_menu.render(window)
-                window.refresh()
-            except curses.error:
-                window.clear()
-                window.addstr("Terminal may be too small to render menu :(")
-                window.refresh()
+            with cli_window.prepare_for_render():
+                self.current_menu.render(cli_window)
             curses.halfdelay(10)
             try:
                 char = window.getkey()
