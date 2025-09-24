@@ -27,7 +27,10 @@ class MainMenu(AbstractMenu):
         window.write_options(self.menu_options, self.selected_option)
         window.write_final_line("Press [q] to quit")
 
-    def handle_keypress(self, key: str) -> None:
-        self.last_key = key
-        if len(key) == 1:
-            self.typing += key
+    def handle_keypress(self, cli: "CLI", key: str) -> None:
+        if key == "q":
+            cli.running = False
+        if key == "KEY_UP" and self.selected_option > 0:
+            self.selected_option -= 1
+        if key == "KEY_DOWN":
+            self.selected_option = min(self.selected_option + 1, len(self.menu_options) - 1)

@@ -37,7 +37,7 @@ class CLI:
             except curses.error:
                 pass
             else:
-                self.current_menu.handle_keypress(char)
+                self.current_menu.handle_keypress(self, char)
 
 
 
