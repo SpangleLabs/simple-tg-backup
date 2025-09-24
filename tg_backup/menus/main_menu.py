@@ -13,6 +13,7 @@ class MainMenu(AbstractMenu):
     def render(self, window: curses.window) -> None:
         rows, cols = window.getmaxyx()
         window.addstr("Hello world, this is the simple telegram archiver main menu.\n")
+        window.addstr(f"The window size is {rows} rows and {cols} columns.\n")
         if self.last_key is None:
             window.addstr("Try pressing a button I guess\n")
         else:
