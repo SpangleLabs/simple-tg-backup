@@ -3,11 +3,13 @@ import logging
 import os
 import sys
 from logging.handlers import TimedRotatingFileHandler
+from typing import Optional
 
 import click
 from prometheus_client import Gauge, start_http_server
 
 from tg_backup.archiver import Archiver
+from tg_backup.cli import CLI
 from tg_backup.config import load_config, BehaviourConfig
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.command()
 @click.option("--log-level", type=str, help="Log level for the logger", default="INFO")
 @click.option("--prom-port", type=int, help="Port to expose prometheus metrics on", default=8384)
-@click.option("--chat-id", type=int, help="ID of the telegram chat to emergency save deleted messages", required=True)
+@click.option("--chat-id", type=int, help="ID of the telegram chat to emergency save deleted messages")
 @click.option("--download-media/--no-media", default=None, help="Whether to download media or not")
 @click.option("--check-admin-log/--no-admin-log", default=None, help="Whether to check the admin log for recent events, such as deleted messages")
 @click.option("--follow-live/--no-follow-live", default=None, help="Whether to follow live messages in the chat")
@@ -42,7 +44,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 def main(
         log_level: str,
         prom_port: int,
-        chat_id: int,
+        chat_id: Optional[int],
         download_media: bool,
         check_admin_log: bool,
         follow_live: bool,
@@ -60,7 +62,11 @@ def main(
         archive_history=archive_history,
         cleanup_duplicates=cleanup_duplicates,
     )
-    asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
+    if chat_id is None:
+        cli = CLI(archiver, chat_archive_behaviour)
+        asyncio.run(cli.run())
+    else:
+        asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
 
 
 if __name__ == "__main__":
