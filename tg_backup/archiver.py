@@ -18,7 +18,7 @@ class Archiver:
     def __init__(self, conf: Config) -> None:
         self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
-        self.started = False
+        self.running = False
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.user_fetcher = UserDataFetcher(self.client, self.core_db)
@@ -31,17 +31,18 @@ class Archiver:
         # noinspection PyUnresolvedReferences
         await self.client.start()
         # List all dialogs
-        dialogs = await self.client.get_dialogs()
-        logger.info("Your telegram account has %s open dialogs", len(dialogs))
+        # dialogs = await self.client.get_dialogs()
+        # logger.info("Your telegram account has %s open dialogs", len(dialogs))
         logger.info("Starting media downloader")
         self.media_dl.start()
         logger.info("Starting user fetcher")
         self.user_fetcher.start()
         logger.info("Starting sticker downloader")
         self.sticker_downloader.start()
-        self.started = True
+        self.running = True
 
     async def stop(self, fast: bool = False) -> None:
+        self.running = False
         # Shut down media downloader
         await self.media_dl.stop(fast=fast)
         # Shut down user data fetcher
