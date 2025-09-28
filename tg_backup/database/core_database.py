@@ -55,3 +55,24 @@ class CoreDatabase(AbstractDatabase):
                 }
             )
             self.conn.commit()
+
+    def list_sticker_sets(self) -> list[StickerSet]:
+        sets: list[StickerSet] = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, handle, title, sticker_count FROM sticker_sets",
+            )
+            for row in resp.fetchall():
+                sticker_set = StickerSet(
+                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+                    resource_id=row["id"],
+                    resource_type=row["type"],
+                    str_repr=row["str_repr"],
+                    dict_repr=json.loads(row["dict_repr"]),
+                )
+                sticker_set.handle = row["handle"]
+                sticker_set.title = row["title"]
+                sticker_set.sticker_count = row["sticker_count"]
+                sets.append(sticker_set)
+        return sets

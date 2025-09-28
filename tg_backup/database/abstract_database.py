@@ -107,6 +107,25 @@ class AbstractDatabase(ABC):
             )
             self.conn.commit()
 
+    def list_chats(self) -> list[Chat]:
+        chats: list[Chat] = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title FROM chats",
+            )
+            for row in resp.fetchall():
+                chat = Chat(
+                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+                    resource_id=row["id"],
+                    resource_type=row["type"],
+                    str_repr=row["str_repr"],
+                    dict_repr=json.loads(row["dict_repr"]),
+                )
+                chat.title = row["title"]
+                chats.append(chat)
+        return chats
+
     def save_user(self, user: User) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
@@ -132,3 +151,31 @@ class AbstractDatabase(ABC):
                 }
             )
             self.conn.commit()
+
+    def list_users(self) -> list[User]:
+        users: list[User] = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, bio, birthday, is_bot, is_deleted, first_name, last_name, phone_number, has_premium, username, other_usernames FROM users",
+            )
+            for row in resp.fetchall():
+                user = User(
+                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+                    resource_id=row["id"],
+                    resource_type=row["type"],
+                    str_repr=row["str_repr"],
+                    dict_repr=json.loads(row["dict_repr"]),
+                )
+                user.bio = row["bio"]
+                user.birthday = parsable_date(row["birthday"])
+                user.is_bot = row["is_bot"]
+                user.is_deleted = row["is_deleted"]
+                user.first_name = row["first_name"]
+                user.last_name = row["last_name"]
+                user.phone_number = row["phone_number"]
+                user.has_premium = row["has_premium"]
+                user.username = row["username"]
+                user.other_usernames = json.loads(row["other_usernames"])
+                users.append(user)
+        return users
