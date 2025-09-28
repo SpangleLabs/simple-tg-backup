@@ -1,0 +1,22 @@
+<html>
+<head>
+    <title>Simple telegram archiver</title>
+</head>
+<body>
+<h1>Current archiver state</h1>
+<p><a href="/">Return to home</a></p>
+<p>The archiver is currently {% if running %}running!{% else %}not running{% endif %}</p>
+<h2>List of known chats</h2>
+<ul>
+    {% for chat in known_chats %}
+        <li>{{ chat.name }}</li>
+    {% endfor %}
+</ul>
+<h2>List of known users</h2>
+<ul>
+    {% for user in known_users %}
+        <li>{{ user.name }}</li>
+    {% endfor %}
+</ul>
+</body>
+</html>

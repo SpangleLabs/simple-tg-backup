@@ -16,10 +16,25 @@ class WebServer:
         self.jinja_env = aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(JINJA_TEMPLATE_DIR))
 
     def setup_routes(self) -> None:
-        self.app.add_routes([web.get('/', self.home_page)])
+        self.app.add_routes([
+            web.get("/", self.home_page),
+            web.get("/archiver_state/", self.archiver_state),
+        ])
 
-    async def home_page(self, req):
+    async def home_page(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template("home.html.jinja2", req, {})
+
+    async def archiver_state(self, req: web.Request) -> web.Response:
+        return aiohttp_jinja2.render_template(
+            "archiver_state.html.jinja2",
+            req,
+            {
+                "running": self.archiver.running,
+                "known_chats": self.archiver.core_db.list_chats(),
+                "known_users": self.archiver.core_db.list_users(),
+                "sticker_sets": self.archiver.core_db.list_sticker_sets(),
+            }
+        )
 
     def run(self) -> None:
         web.run_app(self.app, host='127.0.0.1', port=2000)
