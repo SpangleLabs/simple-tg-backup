@@ -9,8 +9,8 @@ import click
 from prometheus_client import Gauge, start_http_server
 
 from tg_backup.archiver import Archiver
-from tg_backup.cli import CLI
 from tg_backup.config import load_config, BehaviourConfig
+from tg_backup.web_server import WebServer
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,9 @@ def main(
         cleanup_duplicates=cleanup_duplicates,
     )
     if chat_id is None:
-        cli = CLI(archiver, chat_archive_behaviour)
-        asyncio.run(cli.run())
+        web_server = WebServer(archiver)
+        web_server.setup_routes()
+        web_server.run()
     else:
         asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
 

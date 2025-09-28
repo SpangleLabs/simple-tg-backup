@@ -17,6 +17,8 @@ python-dateutil = "^2.8.2"
 prometheus-client = "^0.17.1"
 click = "^8.2.1"
 pyparsing = {extras = ["diagrams"], version = "^3.2.4"}
+aiohttp = "^3.12.15"
+aiohttp-jinja2 = "^1.6"
 
 
 [tool.poetry.group.dev.dependencies]
