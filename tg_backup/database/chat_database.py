@@ -4,6 +4,7 @@ from contextlib import closing
 
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.chat_db_migrations import InitialChatDatabase
+from tg_backup.database.core_db_migrations import ExtraChatColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.message import Message
@@ -20,7 +21,10 @@ class ChatDatabase(AbstractDatabase):
         return f"store/chats/{self.chat_id}/chat_db.sqlite"
 
     def list_migrations(self) -> list[DBMigration]:
-        return [InitialChatDatabase()]
+        return [
+            InitialChatDatabase(),
+            ExtraChatColumns(),
+        ]
 
     def save_admin_event(self, admin_event: AdminEvent) -> None:
         with closing(self.conn.cursor()) as cursor:

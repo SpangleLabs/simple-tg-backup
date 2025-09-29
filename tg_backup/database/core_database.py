@@ -3,7 +3,7 @@ import json
 from contextlib import closing
 
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date
-from tg_backup.database.core_db_migrations import InitialCoreDatabase
+from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
@@ -16,7 +16,10 @@ class CoreDatabase(AbstractDatabase):
         return "store/core_db.sqlite"
 
     def list_migrations(self) -> list[DBMigration]:
-        return [InitialCoreDatabase()]
+        return [
+            InitialCoreDatabase(),
+            ExtraChatColumns(),
+        ]
 
     def save_sticker(self, sticker: Sticker) -> None:
         with closing(self.conn.cursor()) as cursor:

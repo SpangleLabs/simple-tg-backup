@@ -38,7 +38,6 @@ class ArchiveTarget:
         self.archiver = archiver
         self.client = archiver.client
         self.chat_db = ChatDatabase(chat_id)
-        self.seen_user_ids: set[int] = set()
         self._known_msg_ids: Optional[set[int]] = None
 
     async def chat_entity(self) -> hints.Entity:
@@ -62,10 +61,12 @@ class ArchiveTarget:
 
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
-        logger.info("Got chat data: %s", chat_entity)
+        logger.info("Got chat entity data: %s", chat_entity)
         chat_obj = Chat.from_chat_entity(chat_entity)
         self.archiver.core_db.save_chat(chat_obj)
         self.chat_db.save_chat(chat_obj)
+        peer = telethon.utils.get_peer(chat_entity)
+        await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
 
     async def _archive_admin_log(self) -> None:
         chat_entity = await self.chat_entity()
@@ -118,15 +119,7 @@ class ArchiveTarget:
         self.chat_db.save_message(msg_obj)
         self.add_known_msg_id(msg.id)
         if hasattr(msg, "from_id") and msg.from_id is not None:
-            if hasattr(msg.from_id, "user_id"):
-                if msg.from_id.user_id not in self.seen_user_ids:
-                    await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
-                    self.seen_user_ids.add(msg.from_id.user_id)
-            elif hasattr(msg.from_id, "channel_id"):
-                logger.info("Message %s was sent by a channel, ID %s", msg.id, msg.from_id.channel_id)
-                # TODO: Maybe archive these sometime?
-            else:
-                await self.archiver.user_fetcher.queue_user(self.chat_id, self.chat_db, msg.from_id)
+            await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
             await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
             return
@@ -163,7 +156,7 @@ class ArchiveTarget:
             logger.info("Chat history archive complete, watching live updates")
             await watch_task
         # Wait for user fetcher to be done before disconnecting database
-        await self.archiver.user_fetcher.wait_until_chat_empty(self.chat_id)
+        await self.archiver.peer_fetcher.wait_until_chat_empty(self.chat_id)
         # Disconnect from chat DB
         self.chat_db.stop()
 
