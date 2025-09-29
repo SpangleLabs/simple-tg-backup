@@ -62,9 +62,6 @@ class ArchiveTarget:
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
         logger.info("Got chat entity data: %s", chat_entity)
-        chat_obj = Chat.from_chat_entity(chat_entity)
-        self.archiver.core_db.save_chat(chat_obj)
-        self.chat_db.save_chat(chat_obj)
         peer = telethon.utils.get_peer(chat_entity)
         await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
 
