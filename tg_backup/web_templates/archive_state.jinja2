@@ -10,21 +10,21 @@
 <ul>
     {% for chat_id, chats in chats_by_id.items() %}
         {% set chat = chats[-1] %}
-        <li>{{ chat.title }} ({{ chat_id }})</li>
+        <li>{{ chat.title }} ({{ chat_id }}): {{ chats | length }} records</li>
     {% endfor %}
 </ul>
 <h2>List of known users ({{ users_by_id | length }})</h2>
 <ul>
     {% for user_id, users in users_by_id.items() %}
         {% set user = users[-1] %}
-        <li>{{ user.full_name }} ({{ user_id }})</li>
+        <li>{{ user.full_name }} ({{ user_id }}): {{ users | length }} records</li>
     {% endfor %}
 </ul>
 <h2>Downloaded sticker sets ({{ sticker_sets_by_id | length }})</h2>
 <ul>
     {% for set_id, sticker_sets in sticker_sets_by_id.items() %}
         {% set sticker_set = sticker_sets[-1] %}
-        <li>{{ sticker_set.title }} ({{ set_id }}) [{{ sticker_set.sticker_count }}]</li>
+        <li>{{ sticker_set.title }} ({{ set_id }}) [{{ sticker_set.sticker_count }}]: {{ sticker_sets | length }} records</li>
     {% endfor %}
 </ul>
 </body>
