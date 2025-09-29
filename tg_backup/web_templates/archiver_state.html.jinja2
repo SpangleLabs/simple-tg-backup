@@ -6,16 +6,22 @@
 <h1>Current archiver state</h1>
 <p><a href="/">Return to home</a></p>
 <p>The archiver is currently {% if running %}running!{% else %}not running{% endif %}</p>
-<h2>List of known chats</h2>
+<h2>List of known chats ({{ known_chats | length }})</h2>
 <ul>
     {% for chat in known_chats %}
-        <li>{{ chat.name }}</li>
+        <li>{{ chat }}</li>
     {% endfor %}
 </ul>
-<h2>List of known users</h2>
+<h2>List of known users ({{ known_users | length }})</h2>
 <ul>
     {% for user in known_users %}
-        <li>{{ user.name }}</li>
+        <li>{{ user }}</li>
+    {% endfor %}
+</ul>
+<h2>Downloaded sticker sets ({{ sticker_sets | length }})</h2>
+<ul>
+    {% for sticker_set in sticker_sets %}
+    <li>{{ sticker_set }}</li>
     {% endfor %}
 </ul>
 </body>
