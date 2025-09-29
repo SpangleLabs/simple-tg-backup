@@ -17,18 +17,12 @@ class WebServer:
         self.app = web.Application()
         self.jinja_env = aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(JINJA_TEMPLATE_DIR))
 
-    def _setup_routes(self) -> None:
-        self.app.add_routes([
-            web.get("/", self.home_page),
-            web.get("/archiver_state/", self.archiver_state),
-        ])
-
     async def home_page(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template("home.html.jinja2", req, {})
 
     async def archiver_state(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template(
-            "archiver_state.html.jinja2",
+            "archive_state.jinja2",
             req,
             {
                 "running": self.archiver.running,
@@ -37,6 +31,12 @@ class WebServer:
                 "sticker_sets": self.core_db.list_sticker_sets(),
             }
         )
+
+    def _setup_routes(self) -> None:
+        self.app.add_routes([
+            web.get("/", self.home_page),
+            web.get("/archive/", self.archiver_state),
+        ])
 
     def run(self) -> None:
         try:
