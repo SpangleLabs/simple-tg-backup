@@ -5,17 +5,19 @@ import jinja2
 from aiohttp import web
 
 from tg_backup.archiver import Archiver
+from tg_backup.database.core_database import CoreDatabase
 
 JINJA_TEMPLATE_DIR = pathlib.Path(__file__).parent / 'web_templates'
 
 class WebServer:
     def __init__(self, archiver: Archiver) -> None:
         self.archiver = archiver
+        self.core_db = CoreDatabase()
         self.counter = 0
         self.app = web.Application()
         self.jinja_env = aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(JINJA_TEMPLATE_DIR))
 
-    def setup_routes(self) -> None:
+    def _setup_routes(self) -> None:
         self.app.add_routes([
             web.get("/", self.home_page),
             web.get("/archiver_state/", self.archiver_state),
@@ -30,11 +32,16 @@ class WebServer:
             req,
             {
                 "running": self.archiver.running,
-                "known_chats": self.archiver.core_db.list_chats(),
-                "known_users": self.archiver.core_db.list_users(),
-                "sticker_sets": self.archiver.core_db.list_sticker_sets(),
+                "known_chats": self.core_db.list_chats(),
+                "known_users": self.core_db.list_users(),
+                "sticker_sets": self.core_db.list_sticker_sets(),
             }
         )
 
     def run(self) -> None:
-        web.run_app(self.app, host='127.0.0.1', port=2000)
+        try:
+            self.core_db.start()
+            self._setup_routes()
+            web.run_app(self.app, host='127.0.0.1', port=2000)
+        finally:
+            self.core_db.stop()

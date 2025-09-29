@@ -64,7 +64,6 @@ def main(
     )
     if chat_id is None:
         web_server = WebServer(archiver)
-        web_server.setup_routes()
         web_server.run()
     else:
         asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
