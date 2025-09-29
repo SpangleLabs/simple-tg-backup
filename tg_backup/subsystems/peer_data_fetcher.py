@@ -111,11 +111,9 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def _process_chat(self, chat_queue: ChatQueue, chat: PeerChat) -> None:
         chat_id = chat_queue.chat_id
-        # Get chat entity
-        entity = await self.client.get_entity(chat)
         # Get full chat info
         # noinspection PyTypeChecker
-        full = await self.client(GetFullChatRequest(entity))
+        full = await self.client(GetFullChatRequest(chat.chat_id))
         # Convert chat to storable object
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats

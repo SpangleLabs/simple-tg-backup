@@ -79,6 +79,7 @@ class Chat(AbstractResource):
             # TODO: this will probably fail tbh
             chat_obj.usernames = chat.usernames
         if hasattr(chat, "migrated_to"):
-            chat_obj.migrated_to_chat_id = chat.migrated_to.channel_id
+            if hasattr(chat.migrated_to, "channel_id"):
+                chat_obj.migrated_to_chat_id = chat.migrated_to.channel_id
         # TODO: profile photos?
         return chat_obj
