@@ -37,3 +37,13 @@ class AbstractResource(ABC):
             str_repr=str(obj),
             dict_repr=obj.to_dict() if hasattr(obj, 'to_dict') else None,
         )
+
+
+SpecificResource = TypeVar("SpecificResource", bound="AbstractResource")
+def group_by_id(objs: list[SpecificResource]) -> dict[int, list[SpecificResource]]:
+    result = {}
+    for obj in objs:
+        if obj.resource_id not in result:
+            result[obj.resource_id] = []
+        result[obj.resource_id].append(obj)
+    return result

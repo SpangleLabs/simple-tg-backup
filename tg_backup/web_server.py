@@ -6,6 +6,7 @@ from aiohttp import web
 
 from tg_backup.archiver import Archiver
 from tg_backup.database.core_database import CoreDatabase
+from tg_backup.models.abstract_resource import group_by_id
 
 JINJA_TEMPLATE_DIR = pathlib.Path(__file__).parent / 'web_templates'
 
@@ -21,14 +22,17 @@ class WebServer:
         return aiohttp_jinja2.render_template("home.html.jinja2", req, {})
 
     async def archiver_state(self, req: web.Request) -> web.Response:
+        chats_by_id = group_by_id(self.core_db.list_chats())
+        users_by_id = group_by_id(self.core_db.list_users())
+        sticker_sets_by_id = group_by_id(self.core_db.list_sticker_sets())
         return aiohttp_jinja2.render_template(
             "archive_state.jinja2",
             req,
             {
                 "running": self.archiver.running,
-                "known_chats": self.core_db.list_chats(),
-                "known_users": self.core_db.list_users(),
-                "sticker_sets": self.core_db.list_sticker_sets(),
+                "chats_by_id": chats_by_id,
+                "users_by_id": users_by_id,
+                "sticker_sets_by_id": sticker_sets_by_id,
             }
         )
 
