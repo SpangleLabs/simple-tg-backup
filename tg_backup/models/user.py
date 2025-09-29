@@ -68,3 +68,13 @@ class User(AbstractResource):
             user_obj.other_usernames = user.usernames
         # TODO: profile photos?
         return user_obj
+
+    @property
+    def full_name(self) -> Optional[str]:
+        if self.first_name is None:
+            if self.last_name is None:
+                return None
+            return self.last_name
+        if self.last_name is None:
+            return self.first_name
+        return self.first_name + " " + self.last_name
