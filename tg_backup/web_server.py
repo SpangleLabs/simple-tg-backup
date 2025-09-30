@@ -64,6 +64,7 @@ class WebServer:
 
     def _setup_routes(self) -> None:
         self.app.add_routes([
+            web.static("/static", str(JINJA_TEMPLATE_DIR / "static")),
             web.get("/", self.home_page),
             web.get("/archive/", self.archiver_state),
             web.get("/settings/behaviour", self.settings_behaviour),
