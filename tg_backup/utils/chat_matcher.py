@@ -19,6 +19,25 @@ class ChatData:
     title: Optional[str]
     member_count: Optional[int]
 
+    def to_dict(self) -> dict:
+        return {
+            "chat_id": self.chat_id,
+            "chat_type": self.chat_type.value,
+            "username": self.username,
+            "title": self.title,
+            "member_count": self.member_count,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ChatData":
+        return cls(
+            data["chat_id"],
+            ChatType(data["chat_type"]),
+            data["username"],
+            data["title"],
+            data["member_count"],
+        )
+
 
 class DelimFunctor(enum.Enum):
     EQUAL = "equal"

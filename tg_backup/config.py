@@ -34,6 +34,15 @@ class BehaviourConfig:
             cleanup_duplicates=b1.cleanup_duplicates if b1.cleanup_duplicates is not None else b2.cleanup_duplicates,
         )
 
+    def to_dict(self) -> dict:
+        return {
+            "download_media": self.download_media,
+            "check_admin_log": self.check_admin_log,
+            "follow_live": self.follow_live,
+            "archive_history": self.archive_history,
+            "cleanup_duplicates": self.cleanup_duplicates,
+        }
+
     @classmethod
     def from_dict(cls, data: dict) -> "BehaviourConfig":
         return cls(

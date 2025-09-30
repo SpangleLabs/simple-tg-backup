@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 from telethon import TelegramClient
 
 from tg_backup.archive_target import ArchiveTarget
+from tg_backup.chat_settings_store import ChatSettingsStore
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.subsystems.media_downloader import MediaDownloader
@@ -23,6 +24,7 @@ class Archiver:
         self.media_dl = MediaDownloader(self.client)
         self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
         self.sticker_downloader = StickerDownloader(self.client, self.core_db)
+        self.chat_settings = ChatSettingsStore.load_from_file()
 
     async def start(self) -> None:
         logger.info("Starting Archiver core database")
