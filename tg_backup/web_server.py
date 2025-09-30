@@ -26,7 +26,7 @@ class WebServer:
         users_by_id = group_by_id(self.core_db.list_users())
         sticker_sets_by_id = group_by_id(self.core_db.list_sticker_sets())
         return aiohttp_jinja2.render_template(
-            "archive_state.jinja2",
+            "archive_state.html.jinja2",
             req,
             {
                 "running": self.archiver.running,
