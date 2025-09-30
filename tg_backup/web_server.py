@@ -5,6 +5,7 @@ import jinja2
 from aiohttp import web
 
 from tg_backup.archiver import Archiver
+from tg_backup.config import BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.abstract_resource import group_by_id
 
@@ -36,10 +37,37 @@ class WebServer:
             }
         )
 
+    async def settings_behaviour(self, req: web.Request) -> web.Response:
+        return aiohttp_jinja2.render_template(
+            "settings_behaviour.html.jinja2",
+            req,
+            {
+                "settings": self.archiver.chat_settings
+            }
+        )
+
+    async def settings_behaviour_save(self, req: web.Request) -> web.Response:
+        data = await req.post()
+        settings = self.archiver.chat_settings
+        settings.default_archive = data.get("default_archive") == "on"
+        behaviour = BehaviourConfig(
+            download_media=data.get("download_media") == "on",
+            check_admin_log=data.get("check_admin_log") == "on",
+            follow_live=data.get("follow_live") == "on",
+            archive_history=data.get("archive_history") == "on",
+            cleanup_duplicates=data.get("cleanup_duplicates") == "on",
+        )
+        settings.default_behaviour = behaviour
+        self.archiver.chat_settings = settings
+        self.archiver.chat_settings.save_to_file()
+        return await self.settings_behaviour(req)
+
     def _setup_routes(self) -> None:
         self.app.add_routes([
             web.get("/", self.home_page),
             web.get("/archive/", self.archiver_state),
+            web.get("/settings/behaviour", self.settings_behaviour),
+            web.post("/settings/behaviour", self.settings_behaviour_save),
         ])
 
     def run(self) -> None:

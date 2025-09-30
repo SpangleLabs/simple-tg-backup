@@ -1,0 +1,54 @@
+<html>
+<head>
+    <title>Simple telegram archiver</title>
+</head>
+<body>
+<h1>Edit default archival behaviour</h1>
+<p><a href="/">Return to home</a></p>
+{% set behaviour = settings.default_behaviour %}
+<form method="post" action="/settings/behaviour">
+    <table>
+        <thead>
+            <tr>
+                <th>Setting</th>
+                <th>Value</th>
+                <th>Explanation</th>
+            </tr>
+        </thead>
+    <tbody>
+    <tr>
+        <td>Archive chats</td>
+        <td><input type="checkbox" name="archive" {{ "checked" if settings.default_archive else "" }}/></td>
+        <td>Whether to archive chats, by default</td>
+    </tr>
+    <tr>
+        <td>Download media</td>
+        <td><input type="checkbox" name="download_media" {{ "checked" if behaviour.download_media else "" }}/></td>
+        <td>Whether to download media encountered in chats, by default</td>
+    </tr>
+    <tr>
+        <td>Check admin log</td>
+        <td><input type="checkbox" name="check_admin_log" {{ "checked" if behaviour.check_admin_log else "" }}/></td>
+        <td>Whether to check the admin log for edits and deleted messages, and archive admin log events</td>
+    </tr>
+    <tr>
+        <td>Follow live</td>
+        <td><input type="checkbox" name="follow_live" {{ "checked" if behaviour.follow_live else "" }}/></td>
+        <td>Whether to watch for new events in this chat, and archive them as they arrive</td>
+    </tr>
+    <tr>
+        <td>Archive history</td>
+        <td><input type="checkbox" name="archive_history" {{ "checked" if behaviour.archive_history else "" }}/></td>
+        <td>Whether to archive the previous messages and history of the chat</td>
+    </tr>
+    <tr>
+        <td>Clean up duplicates</td>
+        <td><input type="checkbox" name="cleanup_duplicates" {{ "checked" if behaviour.cleanup_duplicates else "" }}/></td>
+        <td>Whether the archiver should attempt to cleanup duplicate objects in the database when saving new objects</td>
+    </tr>
+    </tbody>
+</table>
+    <input type="submit">
+</form>
+</body>
+</html>
