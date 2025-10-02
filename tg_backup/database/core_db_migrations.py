@@ -35,7 +35,7 @@ class ExtraChatColumns(DBMigration):
         return "extra_chat_columns"
 
     def execute(self, conn: sqlite3.Connection) -> None:
-        with open(pathlib.Path(__file__).parent / "core_migration_001_chat_columns.sql") as f:
+        with open(pathlib.Path(__file__).parent / "core_migration_002_chat_columns.sql") as f:
             schema_str = f.read()
         with closing(conn.cursor()) as cursor:
             cursor.executescript(schema_str)
