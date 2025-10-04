@@ -7,6 +7,12 @@
 <h1>Current archiver state</h1>
 <p><a href="/">Return to home</a></p>
 <p>The archiver is currently {% if running %}running!{% else %}not running{% endif %}</p>
+<h2>List of archive runs</h2>
+<ul>
+    {% for run in archive_records %}
+        <li>Archive run: {{ run.archive_run_id }}, {{ run.target_type.name }}: {{ run.target_id }} ({{ run.time_queued }})</li>
+    {% endfor %}
+</ul>
 <h2>List of known chats ({{ chats_by_id | length }})</h2>
 <ul>
     {% for chat_id, chats in chats_by_id.items() %}

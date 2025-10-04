@@ -51,6 +51,16 @@ class ArchiveRunStats:
             "admin_events_seen": self.admin_events_seen,
         }
 
+    @classmethod
+    def from_dict(cls, record: "ArchiveRunRecord", data: dict) -> "ArchiveRunStats":
+        return cls(
+            record=record,
+            messages_seen=data["messages_seen"],
+            messages_saved=data["messages_saved"],
+            media_seen=data["media_seen"],
+            admin_events_seen=data["admin_events_seen"],
+        )
+
 
 @dataclasses.dataclass
 class ArchiveRunTimer:

@@ -2,10 +2,11 @@ import datetime
 import json
 from contextlib import closing
 
-from tg_backup.database.abstract_database import AbstractDatabase, storable_date
+from tg_backup.config import BehaviourConfig
+from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable
 from tg_backup.database.migration import DBMigration
-from tg_backup.models.archive_run_record import ArchiveRunRecord
+from tg_backup.models.archive_run_record import ArchiveRunRecord, TargetType, ArchiveRunStats
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.utils.json_encoder import encode_json_extra
@@ -112,3 +113,31 @@ class CoreDatabase(AbstractDatabase):
                 )
             )
             self.conn.commit()
+
+    def list_archive_runs(self) -> list[ArchiveRunRecord]:
+        records = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_run_id, target_type, target_id, time_queued, history_time_start, history_time_latest, history_time_end, follow_time_start, follow_time_latest, follow_time_end, behaviour_config, completed, failure_reason, archive_stats "
+                " FROM archive_runs"
+            )
+            for row in resp.fetchall():
+                record = ArchiveRunRecord(
+                    target_type=TargetType(row["target_type"]),
+                    target_id=row["target_id"],
+                    core_db=self,
+                    time_queued=parsable_date(row["time_queued"]),
+                    history_time_start=parsable_date(row["history_time_start"]),
+                    history_time_latest=parsable_date(row["history_time_latest"]),
+                    history_time_end=parsable_date(row["history_time_end"]),
+                    follow_time_start=parsable_date(row["follow_time_start"]),
+                    follow_time_latest=parsable_date(row["follow_time_latest"]),
+                    follow_time_end=parsable_date(row["follow_time_end"]),
+                    behaviour_config=BehaviourConfig.from_dict(json.loads(row["behaviour_config"])),
+                    completed=row["completed"] == 1,
+                    failure_reason=row["failure_reason"],
+                    archive_run_id=row["archive_run_id"],
+                )
+                record.archive_stats = ArchiveRunStats.from_dict(record, json.loads(row["archive_stats"]))
+                records.append(record)
+        return records

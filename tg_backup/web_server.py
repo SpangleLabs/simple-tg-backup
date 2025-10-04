@@ -26,11 +26,13 @@ class WebServer:
         chats_by_id = group_by_id(self.core_db.list_chats())
         users_by_id = group_by_id(self.core_db.list_users())
         sticker_sets_by_id = group_by_id(self.core_db.list_sticker_sets())
+        archive_records = self.core_db.list_archive_runs()
         return aiohttp_jinja2.render_template(
             "archive_state.html.jinja2",
             req,
             {
                 "running": self.archiver.running,
+                "archive_records": archive_records,
                 "chats_by_id": chats_by_id,
                 "users_by_id": users_by_id,
                 "sticker_sets_by_id": sticker_sets_by_id,
