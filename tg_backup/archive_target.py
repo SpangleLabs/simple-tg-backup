@@ -10,6 +10,7 @@ import telethon.tl.types
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.admin_event import AdminEvent
+from tg_backup.models.archive_run_record import ArchiveRunRecord, TargetType
 from tg_backup.models.chat import Chat
 from tg_backup.models.message import Message
 
@@ -39,6 +40,7 @@ class ArchiveTarget:
         self.client = archiver.client
         self.chat_db = ChatDatabase(chat_id)
         self._known_msg_ids: Optional[set[int]] = None
+        self.run_record = ArchiveRunRecord(TargetType.UNKNOWN, chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
 
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
@@ -59,6 +61,9 @@ class ArchiveTarget:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
         return not isinstance(await self.chat_entity(), telethon.tl.types.Channel)
 
+    async def is_user(self) -> bool:
+        return isinstance(await self.chat_entity(), telethon.tl.types.User)
+
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
         logger.info("Got chat entity data: %s", chat_entity)
@@ -66,6 +71,7 @@ class ArchiveTarget:
         await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
 
     async def _archive_admin_log(self) -> None:
+        self.run_record.archive_history_timer.started()
         chat_entity = await self.chat_entity()
         if await self.is_small_chat():
             logger.info("No admin log in small chats")
@@ -75,6 +81,8 @@ class ArchiveTarget:
             admin_log_events_processed.inc()
             evt_obj = AdminEvent.from_event(evt)
             self.chat_db.save_admin_event(evt_obj)
+            self.run_record.archive_history_timer.latest_msg()
+            self.run_record.archive_stats.inc_admin_events_seen()
             if isinstance(evt.action, ChannelAdminLogEventActionDeleteMessage):
                 msg = evt.action.message
                 msg_obj = Message.from_msg(msg, deleted=True)
@@ -86,10 +94,12 @@ class ArchiveTarget:
                 new_msg_obj = Message.from_msg(new_msg)
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
+        self.run_record.archive_history_timer.ended()
 
     async def _process_message(self, msg: telethon.tl.types.Message) -> None:
         logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
         messages_processed_count.inc()
+        self.run_record.archive_stats.inc_messages_seen()
         msg_obj = Message.from_msg(msg)
         # Check if the message has already been identically archived
         if msg.id in self.known_msg_ids():
@@ -114,6 +124,7 @@ class ArchiveTarget:
         else:
             logger.debug("Processing new message ID: %s in chat ID: %s", msg.id, self.chat_id)
         self.chat_db.save_message(msg_obj)
+        self.run_record.archive_stats.inc_messages_saved()
         self.add_known_msg_id(msg.id)
         if hasattr(msg, "from_id") and msg.from_id is not None:
             await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, msg.from_id)
@@ -121,15 +132,21 @@ class ArchiveTarget:
             await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
             return
         if hasattr(msg, "media") and msg.media is not None:
-                if self.behaviour.download_media:
-                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
+            if self.behaviour.download_media:
+                await self.archiver.media_dl.queue_media(self.chat_id, msg)
+                self.run_record.archive_stats.inc_media_seen()
 
     async def _archive_history(self) -> None:
+        self.run_record.archive_history_timer.started()
         chat_entity = await self.chat_entity()
         async for msg in self.client.iter_messages(chat_entity):
+            self.run_record.archive_history_timer.latest_msg()
             await self._process_message(msg)
+        self.run_record.archive_history_timer.ended()
 
     async def archive_chat(self) -> None:
+        self.run_record.mark_queued()
+        self.run_record.target_type = TargetType.USER if await self.is_user() else TargetType.CHAT
         # Connect to chat database
         self.chat_db.start()
         # Get chat data
@@ -156,19 +173,26 @@ class ArchiveTarget:
         await self.archiver.peer_fetcher.wait_until_chat_empty(self.chat_id)
         # Disconnect from chat DB
         self.chat_db.stop()
+        self.run_record.mark_complete()
 
     async def watch_chat(self) -> None:
+        self.run_record.follow_live_timer.started()
         self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=self.chat_id))
         self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
-        await self.client.run_until_disconnected()
+        try:
+            await self.client.run_until_disconnected()
+        finally:
+            self.run_record.follow_live_timer.ended()
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")
+        self.run_record.follow_live_timer.latest_msg()
         await self._process_message(event.message)
 
     async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
         logger.info("Edited message received")
+        self.run_record.follow_live_timer.latest_msg()
         await self._process_message(event.message)
 
     async def _watch_delete_message(self, event: events.MessageDeleted.Event) -> None:
@@ -178,6 +202,7 @@ class ArchiveTarget:
         logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
         if event.chat_id == self.chat_id or (event.chat_id is None and self.is_small_chat()):
             for msg_id in event.deleted_ids:
+                self.run_record.follow_live_timer.latest_msg()
                 msg_objs = self.chat_db.get_messages(msg_id)
                 if not msg_objs:
                     continue

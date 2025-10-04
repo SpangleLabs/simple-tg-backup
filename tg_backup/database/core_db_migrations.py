@@ -39,3 +39,19 @@ class ExtraChatColumns(DBMigration):
             schema_str = f.read()
         with closing(conn.cursor()) as cursor:
             cursor.executescript(schema_str)
+
+
+class ArchiveRecordTable(DBMigration):
+    @property
+    def migration_id(self) -> int:
+        return 3
+
+    @property
+    def migration_name(self) -> str:
+        return "archive_record_table"
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        with open(pathlib.Path(__file__).parent / "core_migration_003_archive_runs_table.sql") as f:
+            schema_str = f.read()
+        with closing(conn.cursor()) as cursor:
+            cursor.executescript(schema_str)
