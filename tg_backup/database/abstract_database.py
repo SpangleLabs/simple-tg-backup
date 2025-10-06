@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import os
 import pathlib
 import sqlite3
@@ -13,6 +14,9 @@ from tg_backup.utils.json_encoder import encode_json_extra
 
 if TYPE_CHECKING:
     from tg_backup.database.migration import DBMigration
+
+
+logger = logging.getLogger(__name__)
 
 
 def storable_date(date_val: Optional[datetime.date]) -> Optional[str]:
@@ -83,6 +87,7 @@ class AbstractDatabase(ABC):
                 start_time = datetime.datetime.now(datetime.timezone.utc)
                 if not migration.is_initial_setup:
                     self.save_migration_data(migration.migration_id, migration.migration_name, start_time, None)
+                logger.info("Running database migration %s on %s", migration.migration_name, type(self).__name__)
                 migration.execute(self.conn)
                 end_time = datetime.datetime.now(datetime.timezone.utc)
                 self.save_migration_data(migration.migration_id, migration.migration_name, start_time, end_time)
