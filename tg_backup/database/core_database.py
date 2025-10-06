@@ -4,9 +4,11 @@ from contextlib import closing
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
-from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable
+from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable, \
+    DialogsTable
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.archive_run_record import ArchiveRunRecord, TargetType, ArchiveRunStats
+from tg_backup.models.dialog import Dialog
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.utils.json_encoder import encode_json_extra
@@ -22,6 +24,7 @@ class CoreDatabase(AbstractDatabase):
             InitialCoreDatabase(),
             ExtraChatColumns(),
             ArchiveRecordTable(),
+            DialogsTable(),
         ]
 
     def save_sticker(self, sticker: Sticker) -> None:
@@ -141,3 +144,57 @@ class CoreDatabase(AbstractDatabase):
                 record.archive_stats = ArchiveRunStats.from_dict(record, json.loads(row["archive_stats"]))
                 records.append(record)
         return records
+
+    def save_dialog(self, dialog: Dialog) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                # Note that we don't update first_seen on conflict
+                "INSERT INTO dialogs (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen) "
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                " ON CONFLICT(id) DO UPDATE SET "
+                " archive_datetime=excluded.archive_datetime, archive_tl_scheme_layer=excluded.archive_tl_scheme_layer, "
+                " type=excluded.type, str_repr=excluded.str_repr, dict=excluded.dict_repr, chat_type=excluded.chat_type, "
+                " name=excluded.name, pinned=excluded.pinned, archived_chat=excluded.archived_chat, "
+                " last_msg_date=excluded.last_msg_date, last_seen=excluded.last_seen",
+                (
+                    storable_date(dialog.archive_datetime),
+                    dialog.archive_tl_schema_layer,
+                    dialog.resource_id,
+                    dialog.resource_type,
+                    dialog.str_repr,
+                    json.dumps(dialog.dict_repr, default=encode_json_extra),
+                    dialog.chat_type.value,
+                    dialog.name,
+                    dialog.pinned,
+                    dialog.archived_chat,
+                    storable_date(dialog.first_seen),
+                    storable_date(dialog.last_seen)
+                )
+            )
+            self.conn.commit()
+
+    def list_dialogs(self) -> list[Dialog]:
+        dialogs = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen "
+                " FROM dialogs ORDER BY pinned DESC, archived_chat DESC, last_msg_date DESC",
+            )
+            for row in resp.fetchall():
+                dialog = Dialog(
+                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+                    resource_id=row["id"],
+                    resource_type=row["type"],
+                    str_repr=row["str_repr"],
+                    dict_repr=json.loads(row["dict_repr"]),
+                )
+                dialog.chat_type = TargetType(row["chat_type"])
+                dialog.name = row["name"]
+                dialog.pinned = row["pinned"] == 1
+                dialog.archived_chat = row["archived_chat"] == 1
+                dialog.last_msg_date = parsable_date(row["last_msg_date"])
+                dialog.first_seen = parsable_date(row["first_seen"])
+                dialog.last_seen = parsable_date(row["last_seen"])
+                dialogs.append(dialog)
+        return dialogs

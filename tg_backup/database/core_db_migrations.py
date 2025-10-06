@@ -55,3 +55,19 @@ class ArchiveRecordTable(DBMigration):
             schema_str = f.read()
         with closing(conn.cursor()) as cursor:
             cursor.executescript(schema_str)
+
+
+class DialogsTable(DBMigration):
+    @property
+    def migration_id(self) -> int:
+        return 4
+
+    @property
+    def migration_name(self) -> str:
+        return "dialog_objects_table"
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        with open(pathlib.Path(__file__).parent / "core_migration_004_dialogs_table.sql") as f:
+            schema_str = f.read()
+        with closing(conn.cursor()) as cursor:
+            cursor.executescript(schema_str)
