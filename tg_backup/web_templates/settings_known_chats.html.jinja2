@@ -1,0 +1,37 @@
+<html>
+<head>
+    <title>Simple telegram archiver</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<h1>Known dialog settings</h1>
+<p><a href="/">Return to home</a></p>
+<h2>Known dialogs</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Chat</th>
+        <th>Leave default</th>
+        <th>Archive chat</th>
+        <th>Don't archive</th>
+        <th>State</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for dialog in dialogs %}
+        <tr>
+        <td>{{ dialog.chat_type }} {{ dialog.resource_id }}: {{ dialog.name }}</td>
+        <td>Radio</td>
+        <td>Radio</td>
+        <td>Radio</td>
+        <td>Current status with the filters and settings and defaults and shit</td>
+        </tr>
+    {% else %}
+        <tr>
+        <td colspan="5">No dialogs in database, trigger dialog listing!</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

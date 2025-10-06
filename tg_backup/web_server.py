@@ -64,6 +64,16 @@ class WebServer:
         self.archiver.chat_settings.save_to_file()
         return await self.settings_behaviour(req)
 
+    async def settings_known_chats(self, req: web.Request) -> web.Response:
+        return aiohttp_jinja2.render_template(
+            "settings_known_chats.html.jinja2",
+            req,
+            {
+                "settings": self.archiver.chat_settings,
+                "dialogs": self.core_db.list_dialogs(),
+            }
+        )
+
     def _setup_routes(self) -> None:
         self.app.add_routes([
             web.static("/static", str(JINJA_TEMPLATE_DIR / "static")),
@@ -71,6 +81,7 @@ class WebServer:
             web.get("/archive/", self.archiver_state),
             web.get("/settings/behaviour", self.settings_behaviour),
             web.post("/settings/behaviour", self.settings_behaviour_save),
+            web.get("/settings/known_chats", self.settings_known_chats),
         ])
 
     def run(self) -> None:
