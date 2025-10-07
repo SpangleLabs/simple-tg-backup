@@ -1,5 +1,7 @@
 import asyncio
+import datetime
 import pathlib
+from typing import Optional
 
 import aiohttp_jinja2
 import jinja2
@@ -66,6 +68,11 @@ class WebServer:
         return await self.settings_behaviour(req)
 
     async def settings_known_chats(self, req: web.Request) -> web.Response:
+        dialogs = self.core_db.list_dialogs()
+        newest_dialog_date: Optional[datetime.datetime] = None
+        for d in dialogs:
+            if newest_dialog_date is None or d.last_seen > newest_dialog_date:
+                newest_dialog_date = d.last_seen
         return aiohttp_jinja2.render_template(
             "settings_known_chats.html.jinja2",
             req,
@@ -73,6 +80,7 @@ class WebServer:
                 "settings": self.archiver.chat_settings,
                 "dialogs": self.core_db.list_dialogs(),
                 "running_list_dialogs": self.archiver.running_list_dialogs,
+                "newest_dialog_date": newest_dialog_date,
             }
         )
 

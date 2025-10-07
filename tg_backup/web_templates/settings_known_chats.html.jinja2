@@ -43,5 +43,17 @@
     {% endfor %}
     </tbody>
 </table>
+{% if running_list_dialogs %}
+    <p>Archiver is currently working on listing all dialogs</p>
+{% elif newest_dialog_date is not none %}
+    <p>
+    Newest dialog date is {{ newest_dialog_date }}.<br />
+    Would you like to re-list all dialogs?
+    <form action="/settings/known_chats" method="post">
+        <input type="hidden" name="action" value="list_dialogs">
+        <input type="submit" value="Re-list all dialogs">
+    </form>
+    </p>
+{% endif %}
 </body>
 </html>
