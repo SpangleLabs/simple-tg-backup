@@ -153,7 +153,7 @@ class CoreDatabase(AbstractDatabase):
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 " ON CONFLICT(id) DO UPDATE SET "
                 " archive_datetime=excluded.archive_datetime, archive_tl_scheme_layer=excluded.archive_tl_scheme_layer, "
-                " type=excluded.type, str_repr=excluded.str_repr, dict=excluded.dict_repr, chat_type=excluded.chat_type, "
+                " type=excluded.type, str_repr=excluded.str_repr, dict_repr=excluded.dict_repr, chat_type=excluded.chat_type, "
                 " name=excluded.name, pinned=excluded.pinned, archived_chat=excluded.archived_chat, "
                 " last_msg_date=excluded.last_msg_date, last_seen=excluded.last_seen",
                 (
@@ -167,6 +167,7 @@ class CoreDatabase(AbstractDatabase):
                     dialog.name,
                     dialog.pinned,
                     dialog.archived_chat,
+                    storable_date(dialog.last_msg_date),
                     storable_date(dialog.first_seen),
                     storable_date(dialog.last_seen)
                 )
@@ -178,7 +179,7 @@ class CoreDatabase(AbstractDatabase):
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
                 "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen "
-                " FROM dialogs ORDER BY pinned DESC, archived_chat DESC, last_msg_date DESC",
+                " FROM dialogs ORDER BY pinned DESC, archived_chat, last_msg_date DESC",
             )
             for row in resp.fetchall():
                 dialog = Dialog(
