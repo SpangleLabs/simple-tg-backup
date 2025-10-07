@@ -1,6 +1,6 @@
 import asyncio
 import dataclasses
-from typing import Union, NewType
+from typing import Union, NewType, Optional
 
 from prometheus_client import Counter
 from telethon import TelegramClient
@@ -41,8 +41,8 @@ class ChatQueueEntry:
 
 @dataclasses.dataclass
 class ChatQueue:
-    chat_id: int
-    chat_db: ChatDatabase
+    chat_id: Optional[int]
+    chat_db: Optional[ChatDatabase]
     queue: asyncio.Queue[ChatQueueEntry]
     stop_when_empty: bool = False
 
@@ -51,20 +51,24 @@ class PeerDataFetcher(AbstractSubsystem):
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(client)
         self.core_db = core_db
-        self.chat_queues: dict[int, ChatQueue] = {}
+        self.chat_queues: dict[Optional[int], ChatQueue] = {}
         self.core_seen_peer_ids: set[PeerCacheID] = set()
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {}
 
     def peer_id_seen_core(self, peer: Peer) -> bool:
         return peer_cache_key(peer) in self.core_seen_peer_ids
 
-    def peer_id_seen_in_chat(self, peer: Peer, chat_id: int) -> bool:
+    def peer_id_seen_in_chat(self, peer: Peer, chat_id: Optional[int]) -> bool:
+        if chat_id is None:
+            return True
         return peer_cache_key(peer) in self.chat_seen_peer_ids.get(chat_id, set())
 
     def record_peer_id_seen_core(self, peer: Peer) -> None:
         self.core_seen_peer_ids.add(peer_cache_key(peer))
 
-    def record_peer_id_seen_in_chat(self, peer: Peer, chat_id: int) -> None:
+    def record_peer_id_seen_in_chat(self, peer: Peer, chat_id: Optional[int]) -> None:
+        if chat_id is None:
+            return
         if chat_id not in self.chat_seen_peer_ids:
             self.chat_seen_peer_ids[chat_id] = set()
         self.chat_seen_peer_ids[chat_id].add(peer_cache_key(peer))
@@ -101,7 +105,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Save to chat DB and core DB
         if not self.peer_id_seen_core(user):
             self.core_db.save_user(user_obj)
-        if not self.peer_id_seen_in_chat(user, chat_id):
+        if not self.peer_id_seen_in_chat(user, chat_id) and chat_queue.chat_db is not None:
             chat_queue.chat_db.save_user(user_obj)
         # Save to cache
         self.record_peer_id_seen_core(user)
@@ -137,10 +141,10 @@ class PeerDataFetcher(AbstractSubsystem):
         # Save to chat DB and core DB
         await self._save_chat(channel, chat_id, chat_queue, chat_obj)
 
-    async def _save_chat(self, peer: Peer, chat_id: int, chat_queue: ChatQueue, chat_obj: Chat) -> None:
+    async def _save_chat(self, peer: Peer, chat_id: Optional[int], chat_queue: ChatQueue, chat_obj: Chat) -> None:
         if not self.peer_id_seen_core(peer):
             self.core_db.save_chat(chat_obj)
-        if not self.peer_id_seen_in_chat(peer, chat_id):
+        if not self.peer_id_seen_in_chat(peer, chat_id) and chat_queue.chat_db is not None:
             chat_queue.chat_db.save_chat(chat_obj)
         # Save to cache
         self.record_peer_id_seen_core(peer)
@@ -153,8 +157,8 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def queue_user(
             self,
-            chat_id: int,
-            chat_db: ChatDatabase,
+            chat_id: Optional[int],
+            chat_db: Optional[ChatDatabase],
             user: Union[PeerUser, int],
             force_add: bool = False,
     ) -> None:
@@ -166,8 +170,8 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def queue_chat(
             self,
-            chat_id: int,
-            chat_db: ChatDatabase,
+            chat_id: Optional[int],
+            chat_db: Optional[ChatDatabase],
             chat: Union[PeerChat, int],
             force_add: bool = False,
     ) -> None:
@@ -179,8 +183,8 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def queue_channel(
             self,
-            chat_id: int,
-            chat_db: ChatDatabase,
+            chat_id: Optional[int],
+            chat_db: Optional[ChatDatabase],
             channel: Union[PeerChannel, int],
             force_add: bool = False,
     ) -> None:
@@ -190,7 +194,13 @@ class PeerDataFetcher(AbstractSubsystem):
             channel = PeerChannel(channel)
         await self.queue_peer(chat_id, chat_db, channel, force_add=force_add)
 
-    async def queue_peer(self, chat_id: int, chat_db: ChatDatabase, peer: Peer, force_add: bool = False) -> None:
+    async def queue_peer(
+            self,
+            chat_id: Optional[int],
+            chat_db: Optional[ChatDatabase],
+            peer: Peer,
+            force_add: bool = False,
+    ) -> None:
         # Ensure a peer is given
         if peer is None:
             return
@@ -210,7 +220,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Add to chat queue
         await self.chat_queues[chat_id].queue.put(ChatQueueEntry(peer, raw))
 
-    async def wait_until_chat_empty(self, chat_id: int) -> None:
+    async def wait_until_chat_empty(self, chat_id: Optional[int]) -> None:
         if chat_id not in self.chat_queues:
             return
         self.chat_queues[chat_id].stop_when_empty = True
