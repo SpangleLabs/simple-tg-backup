@@ -8,6 +8,7 @@ from tg_backup.archive_target import ArchiveTarget
 from tg_backup.chat_settings_store import ChatSettingsStore
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
+from tg_backup.models.dialog import Dialog
 from tg_backup.subsystems.media_downloader import MediaDownloader
 from tg_backup.subsystems.sticker_downloader import StickerDownloader
 from tg_backup.subsystems.peer_data_fetcher import PeerDataFetcher
@@ -20,6 +21,7 @@ class Archiver:
         self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.running = False
+        self.running_list_dialogs = False
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
@@ -69,6 +71,21 @@ class Archiver:
             await self.stop(fast=True)
         finally:
             await self.stop(fast=False)
+
+    async def save_dialogs(self) -> None:
+        if self.running_list_dialogs:
+            raise ValueError("Save dialogs is already running")
+        self.running_list_dialogs = True
+        async with self.run():
+            logger.info("Fetching dialog list from Telegram")
+            raw_dialogs = await self.client.get_dialogs()
+            logger.info("Found %s dialogs", len(raw_dialogs))
+            for dialog in raw_dialogs:
+                dialog_obj = Dialog.from_dialog(dialog)
+                self.core_db.save_dialog(dialog_obj)
+                peer = dialog.dialog.peer
+                await self.peer_fetcher.queue_peer(None, None, peer)
+        self.running_list_dialogs = False
 
     async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:
         async with self.run():

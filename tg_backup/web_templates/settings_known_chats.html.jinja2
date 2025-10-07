@@ -20,7 +20,7 @@
     <tbody>
     {% for dialog in dialogs %}
         <tr>
-        <td>{{ dialog.chat_type }} {{ dialog.resource_id }}: {{ dialog.name }}</td>
+        <td>{{ dialog.chat_type.value }} {{ dialog.resource_id }}: {{ dialog.name }}</td>
         <td>Radio</td>
         <td>Radio</td>
         <td>Radio</td>
@@ -28,7 +28,17 @@
         </tr>
     {% else %}
         <tr>
-        <td colspan="5">No dialogs in database, trigger dialog listing!</td>
+        <td colspan="5">
+            No dialogs in database.<br />
+            {% if running_list_dialogs %}
+                Archiver is currently saving list of dialogs.
+            {% else %}
+                <form action="/settings/known_chats" method="post">
+                    <input type="hidden" name="action" value="list_dialogs">
+                    <input type="submit" value="Trigger dialog listing">
+                </form>
+            {% endif %}
+        </td>
         </tr>
     {% endfor %}
     </tbody>

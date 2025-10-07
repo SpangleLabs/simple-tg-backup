@@ -1,3 +1,4 @@
+import asyncio
 import pathlib
 
 import aiohttp_jinja2
@@ -71,8 +72,18 @@ class WebServer:
             {
                 "settings": self.archiver.chat_settings,
                 "dialogs": self.core_db.list_dialogs(),
+                "running_list_dialogs": self.archiver.running_list_dialogs,
             }
         )
+
+    async def settings_known_chats_post(self, req: web.Request) -> web.Response:
+        data = await req.post()
+        if data.get("action") != "list_dialogs":
+            return web.Response(status=404, text="Unrecognised action")
+        if self.archiver.running_list_dialogs:
+            return web.Response(status=403, text="List dialogs request is already running")
+        asyncio.create_task(self.archiver.save_dialogs())
+        return await self.settings_known_chats(req)
 
     def _setup_routes(self) -> None:
         self.app.add_routes([
@@ -82,6 +93,7 @@ class WebServer:
             web.get("/settings/behaviour", self.settings_behaviour),
             web.post("/settings/behaviour", self.settings_behaviour_save),
             web.get("/settings/known_chats", self.settings_known_chats),
+            web.post("/settings/known_chats", self.settings_known_chats_post),
         ])
 
     def run(self) -> None:
