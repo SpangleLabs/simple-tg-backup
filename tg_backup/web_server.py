@@ -107,10 +107,6 @@ class WebServer:
             return await self.settings_known_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
 
-    async def settings_known_dialog_behaviour(self, req: web.Request) -> web.Response:
-        dialog_id = req.match_info["dialog_id"]
-        # TODO: a form to configure behaviour settings for a chat
-
     def _setup_routes(self) -> None:
         self.app.add_routes([
             web.static("/static", str(JINJA_TEMPLATE_DIR / "static")),

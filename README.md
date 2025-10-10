@@ -11,23 +11,26 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Allow specifying multiple chats to archive
-  - Metrics on how many chats are being watched, what's the chat download queue? What's the total number of chats?
-  - Ability to archive all by pattern? All users perhaps
-  - Ability to exclude which chats are being archived
-- Deduplicate admin events in the same way messages are?
-- Deduplicate users in the same way messages are
-- Deduplicate chats in the same way messages are
-- Double check how sticker and sticker set deduplication is working
-
-### TODO: full archiver
-- List how many chats there are
+- Implement download for multiple dialogs
+  - Metrics ofc
+    - How many dialogs are being watched
+    - What's the dialog download queue?
+    - What's the total number of dialogs?
+- Further work on the web UI
+  - Implement form for setting behaviour config for individual dialogs
+  - Implement form for setting up filtered configuration for dialogs
+    - Also, update the "default" value for dialogs in known dialogs list, when this is done
+    - And then the functionality, ofc
+- Data deduplication
+  - Deduplicate admin events in the same way messages are?
+  - Deduplicate users in the same way messages are
+  - Deduplicate chats in the same way messages are
+  - Double check how sticker and sticker set deduplication is working
 - Store shared locations, with history
-- Archive channel data, for messages sent from channels
-- Behaviour setting to only download necessary stickers, rather than entire packs
 
-### TODO: eventually
-- HTML view of chatting?
+### TODO: Later
+- Behaviour setting to only download necessary stickers, rather than entire packs
+- HTML view of chats?
 - Store web page previews?
 
 
