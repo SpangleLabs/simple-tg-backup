@@ -67,14 +67,14 @@ class WebServer:
         self.archiver.chat_settings.save_to_file()
         return await self.settings_behaviour(req)
 
-    async def settings_known_chats(self, req: web.Request) -> web.Response:
+    async def settings_known_dialogs(self, req: web.Request) -> web.Response:
         dialogs = self.core_db.list_dialogs()
         newest_dialog_date: Optional[datetime.datetime] = None
         for d in dialogs:
             if newest_dialog_date is None or d.last_seen > newest_dialog_date:
                 newest_dialog_date = d.last_seen
         return aiohttp_jinja2.render_template(
-            "settings_known_chats.html.jinja2",
+            "settings_known_dialogs.html.jinja2",
             req,
             {
                 "settings": self.archiver.chat_settings,
@@ -84,9 +84,9 @@ class WebServer:
             }
         )
 
-    async def settings_known_chats_post(self, req: web.Request) -> web.Response:
+    async def settings_known_dialogs_post(self, req: web.Request) -> web.Response:
         data = await req.post()
-        if data.get("action") == "update_known_chats":
+        if data.get("action") == "update_known_dialogs":
             dialogs = self.core_db.list_dialogs()
             for data_key, data_val in data.items():
                 if data_key.startswith("archive_dialog_"):
@@ -99,14 +99,17 @@ class WebServer:
                     }[data_val]
                     self.archiver.chat_settings.set_chat_archive(dialog_id, dialog, parsed_val)
             self.archiver.chat_settings.save_to_file()
-            return await self.settings_known_chats(req)
+            return await self.settings_known_dialogs(req)
         if data.get("action") == "list_dialogs":
             if self.archiver.running_list_dialogs:
                 return web.Response(status=403, text="List dialogs request is already running")
             asyncio.create_task(self.archiver.save_dialogs())
-            return await self.settings_known_chats(req)
+            return await self.settings_known_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
 
+    async def settings_known_dialog_behaviour(self, req: web.Request) -> web.Response:
+        dialog_id = req.match_info["dialog_id"]
+        # TODO: a form to configure behaviour settings for a chat
 
     def _setup_routes(self) -> None:
         self.app.add_routes([
@@ -115,8 +118,8 @@ class WebServer:
             web.get("/archive/", self.archiver_state),
             web.get("/settings/behaviour", self.settings_behaviour),
             web.post("/settings/behaviour", self.settings_behaviour_save),
-            web.get("/settings/known_chats", self.settings_known_chats),
-            web.post("/settings/known_chats", self.settings_known_chats_post),
+            web.get("/settings/known_dialogs", self.settings_known_dialogs),
+            web.post("/settings/known_dialogs", self.settings_known_dialogs_post),
         ])
 
     def run(self) -> None:
