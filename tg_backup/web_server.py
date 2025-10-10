@@ -86,12 +86,27 @@ class WebServer:
 
     async def settings_known_chats_post(self, req: web.Request) -> web.Response:
         data = await req.post()
-        if data.get("action") != "list_dialogs":
-            return web.Response(status=404, text="Unrecognised action")
-        if self.archiver.running_list_dialogs:
-            return web.Response(status=403, text="List dialogs request is already running")
-        asyncio.create_task(self.archiver.save_dialogs())
-        return await self.settings_known_chats(req)
+        if data.get("action") == "update_known_chats":
+            dialogs = self.core_db.list_dialogs()
+            for data_key, data_val in data.items():
+                if data_key.startswith("archive_dialog_"):
+                    dialog_id = int(data_key[len("archive_dialog_"):])
+                    dialog = [d for d in dialogs if d.resource_id == dialog_id][0]
+                    parsed_val = {
+                        "default": None,
+                        "archive": True,
+                        "no_archive": False,
+                    }[data_val]
+                    self.archiver.chat_settings.set_chat_archive(dialog_id, dialog, parsed_val)
+            self.archiver.chat_settings.save_to_file()
+            return await self.settings_known_chats(req)
+        if data.get("action") == "list_dialogs":
+            if self.archiver.running_list_dialogs:
+                return web.Response(status=403, text="List dialogs request is already running")
+            asyncio.create_task(self.archiver.save_dialogs())
+            return await self.settings_known_chats(req)
+        return web.Response(status=404, text="Unrecognised action")
+
 
     def _setup_routes(self) -> None:
         self.app.add_routes([
