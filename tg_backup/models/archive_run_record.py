@@ -2,21 +2,15 @@ import dataclasses
 import datetime
 import logging
 import uuid
-from enum import Enum
 from typing import Optional, TYPE_CHECKING
 
 from tg_backup.config import BehaviourConfig
+from tg_backup.utils.dialog_type import DialogType
 
 if TYPE_CHECKING:
     from tg_backup.database.core_database import CoreDatabase
 
 logger = logging.getLogger(__name__)
-
-
-class TargetType(Enum):
-    USER = "user"
-    CHAT = "chat"
-    UNKNOWN = "unknown"
 
 
 @dataclasses.dataclass
@@ -89,7 +83,7 @@ class ArchiveRunTimer:
 class ArchiveRunRecord:
     def __init__(
             self,
-            target_type: TargetType,
+            target_type: DialogType,
             target_id: int,
             core_db: "CoreDatabase",
             time_queued: Optional[datetime.datetime] = None,

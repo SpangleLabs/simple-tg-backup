@@ -4,7 +4,7 @@ from typing import Optional
 import telethon.tl.custom.dialog
 
 from tg_backup.models.abstract_resource import AbstractResource
-from tg_backup.models.archive_run_record import TargetType
+from tg_backup.utils.dialog_type import DialogType
 
 
 class Dialog(AbstractResource):
@@ -18,7 +18,7 @@ class Dialog(AbstractResource):
             dict_repr: Optional[dict],
     ) -> None:
         super().__init__(archive_datetime, archive_tl_schema_layer, resource_id, resource_type, str_repr, dict_repr)
-        self.chat_type: TargetType = TargetType.UNKNOWN
+        self.chat_type: DialogType = DialogType.UNKNOWN
         self.name: Optional[str] = None
         self.pinned: Optional[bool] = None
         self.archived_chat: Optional[bool] = None
@@ -30,7 +30,7 @@ class Dialog(AbstractResource):
     def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":
         obj = cls.from_storable_object(dialog)
         if hasattr(dialog, "is_user"):
-            obj.chat_type = TargetType.USER if dialog.is_user else TargetType.CHAT
+            obj.chat_type = DialogType.USER if dialog.is_user else DialogType.GROUP
         if hasattr(dialog, "name"):
             obj.name = dialog.name
         if hasattr(dialog, "pinned"):

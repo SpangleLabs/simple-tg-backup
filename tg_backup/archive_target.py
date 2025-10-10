@@ -10,8 +10,8 @@ import telethon.tl.types
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.admin_event import AdminEvent
-from tg_backup.models.archive_run_record import ArchiveRunRecord, TargetType
-from tg_backup.models.chat import Chat
+from tg_backup.models.archive_run_record import ArchiveRunRecord
+from tg_backup.utils.dialog_type import DialogType
 from tg_backup.models.message import Message
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ class ArchiveTarget:
         self.client = archiver.client
         self.chat_db = ChatDatabase(chat_id)
         self._known_msg_ids: Optional[set[int]] = None
-        self.run_record = ArchiveRunRecord(TargetType.UNKNOWN, chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
+        self.run_record = ArchiveRunRecord(DialogType.UNKNOWN, chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
 
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
@@ -146,7 +146,7 @@ class ArchiveTarget:
 
     async def archive_chat(self) -> None:
         self.run_record.mark_queued()
-        self.run_record.target_type = TargetType.USER if await self.is_user() else TargetType.CHAT
+        self.run_record.target_type = DialogType.USER if await self.is_user() else DialogType.GROUP
         # Connect to chat database
         self.chat_db.start()
         # Get chat data

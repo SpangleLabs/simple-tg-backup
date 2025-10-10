@@ -5,16 +5,13 @@ from typing import Optional, Callable
 
 import pyparsing as pp
 
+from tg_backup.utils.dialog_type import DialogType
 
-class ChatType(enum.Enum):
-    USER = enum.auto()
-    GROUP = enum.auto()
-    CHANNEL = enum.auto()
 
 @dataclasses.dataclass
 class ChatData:
     chat_id: int
-    chat_type: ChatType
+    chat_type: DialogType
     username: Optional[str]
     title: Optional[str]
     member_count: Optional[int]
@@ -32,7 +29,7 @@ class ChatData:
     def from_dict(cls, data: dict) -> "ChatData":
         return cls(
             data["chat_id"],
-            ChatType(data["chat_type"]),
+            DialogType.from_str(data["chat_type"]),
             data["username"],
             data["title"],
             data["member_count"],
@@ -148,7 +145,7 @@ def matcher_parser() -> pp.ParserElement:
 
     # Parse specifying chat type
     chat_type_key_expr = pp.MatchFirst([pp.CaselessLiteral("chat_type"), pp.CaselessLiteral("type")]).set_parse_action(lambda _: FieldGetter.CHAT_TYPE).set_results_name("key_expr")
-    val_chat_type_expr = pp.MatchFirst([pp.CaselessLiteral("user"), pp.CaselessLiteral("group"), pp.CaselessLiteral("channel")]).set_name("value_chat_type").set_results_name("value").set_parse_action(lambda x: ChatType[x[0].upper()])
+    val_chat_type_expr = pp.MatchFirst([pp.CaselessLiteral("user"), pp.CaselessLiteral("group"), pp.CaselessLiteral("channel")]).set_name("value_chat_type").set_results_name("value").set_parse_action(lambda x: DialogType.from_str(x[0].upper()))
     chat_type_expr = pp.Group(chat_type_key_expr + key_val_delim_expr + val_chat_type_expr).set_parse_action(lambda x: ChatFieldMatcher(x[0].key_expr, x[0].key_val_delim, x[0].value))
 
     # Parse specifying username

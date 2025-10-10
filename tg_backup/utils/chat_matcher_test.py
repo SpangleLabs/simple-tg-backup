@@ -1,8 +1,8 @@
 import pytest
-from charset_normalizer.utils import is_arabic_isolated_form
 
-from tg_backup.utils.chat_matcher import matcher_parser, ChatFieldMatcher, FieldGetter, DelimFunctor, ChatType, \
+from tg_backup.utils.chat_matcher import matcher_parser, ChatFieldMatcher, FieldGetter, DelimFunctor, \
     NotMatcher, AndMatcher, OrMatcher
+from tg_backup.utils.dialog_type import DialogType
 
 
 def test_parse_chat_id() -> None:
@@ -80,7 +80,7 @@ def test_parse_chat_type() -> None:
     assert isinstance(matcher, ChatFieldMatcher)
     assert matcher.field_getter == FieldGetter.CHAT_TYPE
     assert matcher.delim_func == DelimFunctor.EQUAL
-    assert matcher.compare_val == ChatType.USER
+    assert matcher.compare_val == DialogType.USER
 
 def test_parse_chat_type_short() -> None:
     match_str = "type=USER"
@@ -91,7 +91,7 @@ def test_parse_chat_type_short() -> None:
     assert isinstance(matcher, ChatFieldMatcher)
     assert matcher.field_getter == FieldGetter.CHAT_TYPE
     assert matcher.delim_func == DelimFunctor.EQUAL
-    assert matcher.compare_val == ChatType.USER
+    assert matcher.compare_val == DialogType.USER
 
 def test_parse_chat_type_lowercase() -> None:
     match_str = "chat_type=user"
@@ -102,7 +102,7 @@ def test_parse_chat_type_lowercase() -> None:
     assert isinstance(matcher, ChatFieldMatcher)
     assert matcher.field_getter == FieldGetter.CHAT_TYPE
     assert matcher.delim_func == DelimFunctor.EQUAL
-    assert matcher.compare_val == ChatType.USER
+    assert matcher.compare_val == DialogType.USER
 
 def test_parse_chat_type_group() -> None:
     match_str = "chat_type=GROUP"
@@ -113,7 +113,7 @@ def test_parse_chat_type_group() -> None:
     assert isinstance(matcher, ChatFieldMatcher)
     assert matcher.field_getter == FieldGetter.CHAT_TYPE
     assert matcher.delim_func == DelimFunctor.EQUAL
-    assert matcher.compare_val == ChatType.GROUP
+    assert matcher.compare_val == DialogType.GROUP
 
 
 def test_parse_chat_type_channel() -> None:
@@ -125,7 +125,7 @@ def test_parse_chat_type_channel() -> None:
     assert isinstance(matcher, ChatFieldMatcher)
     assert matcher.field_getter == FieldGetter.CHAT_TYPE
     assert matcher.delim_func == DelimFunctor.EQUAL
-    assert matcher.compare_val == ChatType.CHANNEL
+    assert matcher.compare_val == DialogType.CHANNEL
 
 
 def test_parse_username() -> None:
@@ -200,7 +200,7 @@ def test_parse_and() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.TITLE
     assert second.delim_func == DelimFunctor.EQUAL
@@ -220,7 +220,7 @@ def test_parse_and_3() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.TITLE
     assert second.delim_func == DelimFunctor.EQUAL
@@ -243,7 +243,7 @@ def test_parse_and_not() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, NotMatcher)
     assert isinstance(second.sub_matcher, ChatFieldMatcher)
     assert second.sub_matcher.field_getter == FieldGetter.TITLE
@@ -263,7 +263,7 @@ def test_parse_or() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.TITLE
     assert second.delim_func == DelimFunctor.EQUAL
@@ -282,7 +282,7 @@ def test_parse_or_3() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.TITLE
     assert second.delim_func == DelimFunctor.EQUAL
@@ -307,7 +307,7 @@ def test_parse_and_or() -> None:
     first, second = and_match.sub_matchers
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.TITLE
     assert second.delim_func == DelimFunctor.EQUAL
@@ -353,7 +353,7 @@ def test_parse_not_brackets() -> None:
     assert isinstance(first, ChatFieldMatcher)
     assert first.field_getter == FieldGetter.CHAT_TYPE
     assert first.delim_func == DelimFunctor.EQUAL
-    assert first.compare_val == ChatType.USER
+    assert first.compare_val == DialogType.USER
     assert isinstance(second, ChatFieldMatcher)
     assert second.field_getter == FieldGetter.CHAT_ID
     assert second.delim_func == DelimFunctor.EQUAL

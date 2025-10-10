@@ -7,7 +7,8 @@ from tg_backup.database.abstract_database import AbstractDatabase, storable_date
 from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable, \
     DialogsTable
 from tg_backup.database.migration import DBMigration
-from tg_backup.models.archive_run_record import ArchiveRunRecord, TargetType, ArchiveRunStats
+from tg_backup.models.archive_run_record import ArchiveRunRecord, ArchiveRunStats
+from tg_backup.utils.dialog_type import DialogType
 from tg_backup.models.dialog import Dialog
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
@@ -126,7 +127,7 @@ class CoreDatabase(AbstractDatabase):
             )
             for row in resp.fetchall():
                 record = ArchiveRunRecord(
-                    target_type=TargetType(row["target_type"]),
+                    target_type=DialogType.from_str(row["target_type"]),
                     target_id=row["target_id"],
                     core_db=self,
                     time_queued=parsable_date(row["time_queued"]),
@@ -190,7 +191,7 @@ class CoreDatabase(AbstractDatabase):
                     str_repr=row["str_repr"],
                     dict_repr=json.loads(row["dict_repr"]),
                 )
-                dialog.chat_type = TargetType(row["chat_type"])
+                dialog.chat_type = DialogType.from_str(row["chat_type"])
                 dialog.name = row["name"]
                 dialog.pinned = row["pinned"] == 1
                 dialog.archived_chat = row["archived_chat"] == 1
