@@ -25,13 +25,13 @@ class WebServer:
     async def home_page(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template("home.html.jinja2", req, {})
 
-    async def archive_state(self, req: web.Request) -> web.Response:
+    async def archive_info(self, req: web.Request) -> web.Response:
         chats_by_id = group_by_id(self.core_db.list_chats())
         users_by_id = group_by_id(self.core_db.list_users())
         sticker_sets_by_id = group_by_id(self.core_db.list_sticker_sets())
         archive_records = self.core_db.list_archive_runs()
         return aiohttp_jinja2.render_template(
-            "archive_state.html.jinja2",
+            "archive_info.html.jinja2",
             req,
             {
                 "running": self.archiver.running,
@@ -39,6 +39,15 @@ class WebServer:
                 "chats_by_id": chats_by_id,
                 "users_by_id": users_by_id,
                 "sticker_sets_by_id": sticker_sets_by_id,
+            }
+        )
+
+    async def archiver_status(self, req: web.Request) -> web.Response:
+        return aiohttp_jinja2.render_template(
+            "archiver_state.html.jinja2",
+            req,
+            {
+                "running": self.archiver.running,
             }
         )
 
@@ -111,7 +120,8 @@ class WebServer:
         self.app.add_routes([
             web.static("/static", str(JINJA_TEMPLATE_DIR / "static")),
             web.get("/", self.home_page),
-            web.get("/archive/", self.archive_state),
+            web.get("/archive/", self.archive_info),
+            web.get("/archiver/", self.archiver_status),
             web.get("/settings/behaviour", self.settings_behaviour),
             web.post("/settings/behaviour", self.settings_behaviour_save),
             web.get("/settings/known_dialogs", self.settings_known_dialogs),
