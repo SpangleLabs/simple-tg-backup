@@ -29,6 +29,8 @@ class Archiver:
         self.chat_settings = ChatSettingsStore.load_from_file()
 
     async def start(self) -> None:
+        if self.running:
+            raise ValueError("Archiver is already running")
         logger.info("Starting Archiver core database")
         self.core_db.start()
         logger.info("Connecting to telegram")
