@@ -11,11 +11,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Implement download for multiple dialogs
-  - Metrics ofc
-    - How many dialogs are being watched
-    - What's the dialog download queue?
-    - What's the total number of dialogs?
+- Implement watching multiple dialogs
 - Further work on the web UI
   - Implement form for setting behaviour config for individual dialogs
   - Implement form for setting up filtered configuration for dialogs
@@ -31,6 +27,8 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 ### TODO: Later
 - Behaviour setting to only download necessary stickers, rather than entire packs
 - HTML view of chats?
+- Archive user and chat profile photos
+- Ensure archiver can correctly archive targets with multiple usernames
 - Store web page previews?
 
 

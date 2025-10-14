@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class DialogType(Enum): # TODO: move to utils
+class DialogType(Enum):
     USER = "user"
     GROUP = "group"
     CHANNEL = "channel"

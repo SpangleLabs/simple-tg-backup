@@ -18,7 +18,7 @@ class User(AbstractResource):
     ) -> None:
         super().__init__(archive_datetime, archive_tl_schema_layer, resource_id, resource_type, str_repr, dict_repr)
         self.bio: Optional[str] = None
-        self.birthday: Optional[datetime.date] = None  # TODO: validate whether this type is correct
+        self.birthday: Optional[datetime.date] = None
         self.is_bot: Optional[bool] = None
         self.is_deleted: Optional[bool] = None
         self.first_name: Optional[str] = None
