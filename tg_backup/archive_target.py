@@ -147,6 +147,7 @@ class ArchiveTarget:
         self.run_record.archive_history_timer.ended()
 
     async def archive_chat(self) -> None:
+        logger.info("Starting archive of chat %s", self.chat_id)
         self.run_record.mark_queued()
         self.run_record.target_type = DialogType.USER if await self.is_user() else DialogType.GROUP
         # Connect to chat database
@@ -172,10 +173,13 @@ class ArchiveTarget:
             logger.info("Chat history archive complete, watching live updates")
             await watch_task
         # Wait for user fetcher to be done before disconnecting database
+        logger.info("Waiting for peer fetcher to complete for chat")
         await self.archiver.peer_fetcher.wait_until_chat_empty(self.chat_id)
         # Disconnect from chat DB
+        logger.info("Disconnecting from chat database")
         self.chat_db.stop()
         self.run_record.mark_complete()
+        logger.info("Chat archive complete %s", self.chat_id)
 
     async def watch_chat(self) -> None:
         self.run_record.follow_live_timer.started()

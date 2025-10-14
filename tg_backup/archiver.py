@@ -48,11 +48,15 @@ class Archiver:
         self.sticker_downloader.start()
 
     async def stop(self, fast: bool = False) -> None:
+        logger.info("Stopping archiver")
         # Shut down media downloader
+        logger.info("Waiting for media downloader to complete")
         await self.media_dl.stop(fast=fast)
         # Shut down user data fetcher
+        logger.info("Waiting for peer fetcher to complete")
         await self.peer_fetcher.stop(fast=fast)
         # Shut down sticker downloader
+        logger.info("Waiting for sticker downloader to complete")
         await self.sticker_downloader.stop(fast=fast)
         # Disconnect from telegram
         logger.info("Disconnecting from telegram")
@@ -61,6 +65,7 @@ class Archiver:
         logger.info("Disconnecting from core database")
         self.core_db.stop()
         self.running = False
+        logger.info("Archiver stopped")
 
     @asynccontextmanager
     async def run(self) -> AsyncGenerator[None]:
