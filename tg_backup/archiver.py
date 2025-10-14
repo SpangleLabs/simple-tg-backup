@@ -31,6 +31,7 @@ class Archiver:
     async def start(self) -> None:
         if self.running:
             raise ValueError("Archiver is already running")
+        self.running = True
         logger.info("Starting Archiver core database")
         self.core_db.start()
         logger.info("Connecting to telegram")
@@ -45,10 +46,8 @@ class Archiver:
         self.peer_fetcher.start()
         logger.info("Starting sticker downloader")
         self.sticker_downloader.start()
-        self.running = True
 
     async def stop(self, fast: bool = False) -> None:
-        self.running = False
         # Shut down media downloader
         await self.media_dl.stop(fast=fast)
         # Shut down user data fetcher
@@ -61,6 +60,7 @@ class Archiver:
         # Disconnect database
         logger.info("Disconnecting from core database")
         self.core_db.stop()
+        self.running = False
 
     @asynccontextmanager
     async def run(self) -> AsyncGenerator[None]:
