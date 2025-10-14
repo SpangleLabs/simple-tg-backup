@@ -18,14 +18,19 @@ class TelegramClientConfig:
 
 @dataclasses.dataclass
 class BehaviourConfig:
-    download_media: Optional[bool]
-    check_admin_log: Optional[bool]
-    follow_live: Optional[bool]
-    archive_history: Optional[bool]
-    cleanup_duplicates: Optional[bool]
+    download_media: Optional[bool] = dataclasses.field(default=None)
+    check_admin_log: Optional[bool] = dataclasses.field(default=None)
+    follow_live: Optional[bool] = dataclasses.field(default=None)
+    archive_history: Optional[bool] = dataclasses.field(default=None)
+    cleanup_duplicates: Optional[bool] = dataclasses.field(default=None)
+
+    def needs_archive_run(self) -> bool:
+        return self.archive_history is True or self.check_admin_log is True
 
     @classmethod
-    def merge(cls, b1: "BehaviourConfig", b2: "BehaviourConfig") -> "BehaviourConfig":
+    def merge(cls, b1: Optional["BehaviourConfig"], b2: "BehaviourConfig") -> "BehaviourConfig":
+        if b1 is None:
+            return b2
         return BehaviourConfig(
             download_media=b1.download_media if b1.download_media is not None else b2.download_media,
             check_admin_log=b1.check_admin_log if b1.check_admin_log is not None else b2.check_admin_log,

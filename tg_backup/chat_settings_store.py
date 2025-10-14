@@ -87,6 +87,28 @@ class ChatSettingsStore:
         else:
             self.chat_settings[chat_id].archive = archive
 
+    def should_archive_chat(self, chat_id: int) -> bool:
+        chat_settings = self.chat_settings.get(chat_id)
+        if chat_settings is None or chat_settings.archive is None:
+            return self.default_archive
+        return chat_settings.archive
+
+    def behaviour_for_chat(self, chat_id: int, fallback: BehaviourConfig) -> BehaviourConfig:
+        chat_settings = self.chat_settings.get(chat_id)
+        default_fallback = BehaviourConfig.merge(self.default_behaviour, fallback)
+        if chat_settings is None or chat_settings.behaviour is None:
+            return default_fallback
+        return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
+
+    def any_follow_live(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> bool:
+        for dialog in dialogs:
+            if not self.should_archive_chat(dialog.resource_id):
+                continue
+            behaviour = self.behaviour_for_chat(dialog.resource_id, default_behaviour)
+            if behaviour.follow_live:
+                return True
+        return False
+
     def to_dict(self) -> dict:
         return {
             "default_archive": self.default_archive,
