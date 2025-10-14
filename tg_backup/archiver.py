@@ -74,24 +74,38 @@ class Archiver:
         finally:
             await self.stop(fast=False)
 
-    async def save_dialogs(self) -> None:
+    async def save_dialogs(self) -> list[Dialog]:
         if self.running_list_dialogs:
             raise ValueError("Save dialogs is already running")
         self.running_list_dialogs = True
+        dialogs = []
         async with self.run():
             logger.info("Fetching dialog list from Telegram")
             raw_dialogs = await self.client.get_dialogs()
             logger.info("Found %s dialogs", len(raw_dialogs))
             for dialog in raw_dialogs:
                 dialog_obj = Dialog.from_dialog(dialog)
+                dialogs.append(dialog_obj)
                 self.core_db.save_dialog(dialog_obj)
                 peer = dialog.dialog.peer
                 await self.peer_fetcher.queue_peer(None, None, peer)
         self.running_list_dialogs = False
+        return dialogs
 
     async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:
         async with self.run():
+            # Find the dialog of the target chat
+            dialogs = self.core_db.list_dialogs()
+            matching_dialogs = [d for d in dialogs if d.resource_id == chat_id]
+            if not matching_dialogs:
+                logger.info("Cannot find dialog for specified chat ID, re-scanning dialog list")
+                dialogs = await self.save_dialogs()
+                matching_dialogs = [d for d in dialogs if d.resource_id == chat_id]
+                if not matching_dialogs:
+                    logger.error("Cannot find dialog matching the given chat ID, after re-scanning")
+                    raise ValueError("Cannot find dialog matching the given chat ID, after re-scanning")
             # Archive the target chat
             behaviour = BehaviourConfig.merge(archive_behaviour, self.config.default_behaviour)
-            target = ArchiveTarget(chat_id, behaviour, self)
+            target = ArchiveTarget(matching_dialogs[0], behaviour, self)
+            self.current_targets = [target]
             await target.archive_chat()

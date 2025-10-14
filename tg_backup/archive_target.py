@@ -11,6 +11,7 @@ from tg_backup.config import BehaviourConfig
 from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.archive_run_record import ArchiveRunRecord
+from tg_backup.models.dialog import Dialog
 from tg_backup.utils.dialog_type import DialogType
 from tg_backup.models.message import Message
 
@@ -32,15 +33,16 @@ admin_log_events_processed = Counter(
 
 
 class ArchiveTarget:
-    def __init__(self, chat_id: int, behaviour: BehaviourConfig, archiver: "Archiver") -> None:
-        self.chat_id = chat_id
+    def __init__(self, dialog: Dialog, behaviour: BehaviourConfig, archiver: "Archiver") -> None:
+        self.dialog = dialog
+        self.chat_id = dialog.resource_id
         self._chat_entity: Optional[hints.Entity] = None
         self.behaviour = behaviour
         self.archiver = archiver
         self.client = archiver.client
-        self.chat_db = ChatDatabase(chat_id)
+        self.chat_db = ChatDatabase(self.chat_id)
         self._known_msg_ids: Optional[set[int]] = None
-        self.run_record = ArchiveRunRecord(DialogType.UNKNOWN, chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
+        self.run_record = ArchiveRunRecord(dialog.chat_type, self.chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
 
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
