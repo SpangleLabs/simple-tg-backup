@@ -22,6 +22,7 @@ class Archiver:
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.running = False
         self.running_list_dialogs = False
+        self.current_targets = []
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
@@ -96,6 +97,38 @@ class Archiver:
                 await self.peer_fetcher.queue_peer(None, None, peer)
         self.running_list_dialogs = False
         return dialogs
+
+    async def run_archive(self) -> None:
+        """
+        Runs the archiver with the ChatSettingsStore settings
+        """
+        async with self.run():
+            dialogs = self.core_db.list_dialogs()
+            fallback_behaviour = self.config.default_behaviour
+            # Watch for new messages from applicable chats
+            logger.info("Checking if any dialogs need following live")
+            if self.chat_settings.any_follow_live(dialogs, fallback_behaviour):
+                # TODO: Not sure how best to do this, fun
+                raise NotImplementedError("Have not yet implemented follow live for multiple chats")
+            # Archive the history of applicable chats
+            logger.info("Checking which dialogs needs archiving")
+            self.current_targets = []
+            for dialog in dialogs:
+                dialog_behaviour = self.chat_settings.behaviour_for_chat(dialog.resource_id, fallback_behaviour)
+                do_archive_chat = self.chat_settings.should_archive_chat(dialog.resource_id)
+                if not do_archive_chat:
+                    continue
+                archive_behaviour = BehaviourConfig.merge(BehaviourConfig(follow_live=False), dialog_behaviour)
+                if archive_behaviour.needs_archive_run():
+                    logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
+                    archive_target = ArchiveTarget(dialog, archive_behaviour, self)
+                    self.current_targets.append(archive_target)
+            # Archiving targets
+            logger.info("Archiving dialogs")
+            for archive_target in self.current_targets:
+                logger.info("Archiving chat: %s \"%s\"", dialog.resource_id, dialog.name)
+                await archive_target.archive_chat()
+            logger.info("Completed archiving all targets")
 
     async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:
         async with self.run():
