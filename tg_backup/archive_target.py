@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 messages_processed_count = Counter(
-    "tgbackup_messages_processed_count",
-    "Total number of messages which have been processed",
+    "tgbackup_archivetarget_messages_processed_count",
+    "Total number of messages which have been processed in the current archive target",
 )
 admin_log_events_processed = Counter(
-    "tgbackup_admin_log_events_processed_count",
-    "Total number of admin log events which have been processed",
+    "tgbackup_archivetarget_admin_log_events_processed_count",
+    "Total number of admin log events which have been processed in the current archive target",
 )
 
 

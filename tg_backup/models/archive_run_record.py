@@ -75,6 +75,9 @@ class ArchiveRunTimer:
         self.latest_msg_time = datetime.datetime.now(datetime.timezone.utc)
         self.record.save()
 
+    def has_ended(self) -> bool:
+        return self.end_time is not None
+
     def ended(self) -> None:
         self.end_time = datetime.datetime.now(datetime.timezone.utc)
         self.record.save(force=True)

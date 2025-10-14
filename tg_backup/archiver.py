@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from prometheus_client import Gauge
 from telethon import TelegramClient
 
 from tg_backup.archive_target import ArchiveTarget
@@ -16,18 +17,35 @@ from tg_backup.subsystems.peer_data_fetcher import PeerDataFetcher
 logger = logging.getLogger(__name__)
 
 
+archiver_running = Gauge(
+    "tgbackup_archiver_running",
+    "Whether the TG backup archiver is currently running",
+)
+archiver_current_targets = Gauge(
+    "tgbackup_archiver_current_targets_count",
+    "Count of how many targets the archiver is currently archiving",
+)
+archiver_completed_targets = Gauge(
+    "tgbackup_archiver_completed_targets_count",
+    "Count of how many of the current archive targets the archiver has completed archiving",
+)
+
+
 class Archiver:
     def __init__(self, conf: Config) -> None:
         self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.running = False
         self.running_list_dialogs = False
-        self.current_targets = []
+        self.current_targets: list[ArchiveTarget] = []
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
         self.sticker_downloader = StickerDownloader(self.client, self.core_db)
         self.chat_settings = ChatSettingsStore.load_from_file()
+        archiver_running.set_function(lambda: int(self.running))
+        archiver_current_targets.set_function(lambda: len(self.current_targets))
+        archiver_completed_targets.set_function(lambda: len([t for t in self.current_targets if t.run_record.archive_history_timer.has_ended()]))
 
     async def start(self) -> None:
         if self.running:

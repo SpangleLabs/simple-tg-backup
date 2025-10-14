@@ -2,6 +2,8 @@ import datetime
 import json
 from contextlib import closing
 
+from prometheus_client import Gauge
+
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable, \
@@ -15,7 +17,23 @@ from tg_backup.models.sticker_set import StickerSet
 from tg_backup.utils.json_encoder import encode_json_extra
 
 
+count_archive_runs = Gauge(
+    "tgbackup_coredb_archive_runs_count",
+    "Total number of archive runs which are stored in the database, as of last database check",
+)
+count_dialogs = Gauge(
+    "tgbackup_coredb_dialogs_count",
+    "Total number of dialogs which are stored in the database, as of last database check",
+)
+
+
 class CoreDatabase(AbstractDatabase):
+
+    def start(self) -> None:
+        super().start()
+        # Initialise metrics
+        self.count_dialogs()
+        self.count_archive_runs()
 
     def file_path(self) -> str:
         return "store/core_db.sqlite"
@@ -117,6 +135,14 @@ class CoreDatabase(AbstractDatabase):
                 )
             )
             self.conn.commit()
+        self.count_archive_runs()
+
+    def count_archive_runs(self) -> int:
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute("SELECT COUNT(*) FROM archive_runs")
+            count = int(resp.fetchone()[0])
+            count_archive_runs.set(count)
+            return count
 
     def list_archive_runs(self) -> list[ArchiveRunRecord]:
         records = []
@@ -144,6 +170,7 @@ class CoreDatabase(AbstractDatabase):
                 )
                 record.archive_stats = ArchiveRunStats.from_dict(record, json.loads(row["archive_stats"]))
                 records.append(record)
+        count_archive_runs.set(len(records))
         return records
 
     def save_dialog(self, dialog: Dialog) -> None:
@@ -174,6 +201,14 @@ class CoreDatabase(AbstractDatabase):
                 )
             )
             self.conn.commit()
+        self.count_dialogs()
+
+    def count_dialogs(self) -> int:
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute("SELECT COUNT(*) FROM dialogs")
+            count = int(resp.fetchone()[0])
+            count_dialogs.set(count)
+            return count
 
     def list_dialogs(self) -> list[Dialog]:
         dialogs = []
@@ -199,4 +234,5 @@ class CoreDatabase(AbstractDatabase):
                 dialog.first_seen = parsable_date(row["first_seen"])
                 dialog.last_seen = parsable_date(row["last_seen"])
                 dialogs.append(dialog)
+        count_dialogs.set(len(dialogs))
         return dialogs

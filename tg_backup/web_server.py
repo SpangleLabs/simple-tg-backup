@@ -6,6 +6,7 @@ from typing import Optional
 import aiohttp_jinja2
 import jinja2
 from aiohttp import web
+from prometheus_client import Gauge
 
 from tg_backup.archiver import Archiver
 from tg_backup.config import BehaviourConfig
@@ -13,6 +14,11 @@ from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.abstract_resource import group_by_id
 
 JINJA_TEMPLATE_DIR = pathlib.Path(__file__).parent / 'web_templates'
+
+webserver_running = Gauge(
+    "tgbackup_webserver_running",
+    "Whether the TG backup webserver is currently running",
+)
 
 class WebServer:
     def __init__(self, archiver: Archiver) -> None:
@@ -142,8 +148,10 @@ class WebServer:
 
     def run(self) -> None:
         try:
+            webserver_running.set(1)
             self.core_db.start()
             self._setup_routes()
             web.run_app(self.app, host='127.0.0.1', port=2000)
         finally:
             self.core_db.stop()
+            webserver_running.set(0)
