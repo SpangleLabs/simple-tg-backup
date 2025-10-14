@@ -48,8 +48,19 @@ class WebServer:
             req,
             {
                 "running": self.archiver.running,
+                "current_targets": self.archiver.current_targets,
             }
         )
+
+    async def archiver_status_post(self, req: web.Request) -> web.Response:
+        data = await req.post()
+        if data.get("action") == "run_archiver":
+            asyncio.create_task(self.archiver.run_archive())
+            while not self.archiver.running:
+                await asyncio.sleep(0.1)
+            return await self.archiver_status(req)
+        return web.Response(status=404, text="Unrecognised action")
+
 
     async def settings_behaviour(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template(
@@ -122,6 +133,7 @@ class WebServer:
             web.get("/", self.home_page),
             web.get("/archive/", self.archive_info),
             web.get("/archiver/", self.archiver_status),
+            web.post("/archiver/", self.archiver_status_post),
             web.get("/settings/behaviour", self.settings_behaviour),
             web.post("/settings/behaviour", self.settings_behaviour_save),
             web.get("/settings/known_dialogs", self.settings_known_dialogs),

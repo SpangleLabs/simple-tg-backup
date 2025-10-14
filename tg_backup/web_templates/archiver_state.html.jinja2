@@ -6,6 +6,21 @@
 <body>
 <h1>Current archiver state</h1>
 <p><a href="/">Return to home</a></p>
-<p>The archiver is currently {% if running %}running!{% else %}not running{% endif %}</p>
+{% if running %}
+    <p>The archiver is currently running, with these archive targets:</p>
+    <ul>
+    {% for target in current_targets %}
+        <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
+            Start: {{ target.run_record.archive_history_timer.start_time }}
+            End: {{ target.run_record.archive_history_timer.end_time }}</li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>The archiver is not currently running. Would you like to start it?</p>
+    <form action="/archiver/" method="post">
+    <input type="hidden" name="action" value="run_archiver" />
+    <input type="submit" value="Start archiver" />
+    </form>
+{% endif %}
 </body>
 </html>
