@@ -183,25 +183,25 @@ class ArchiveTarget:
 
     async def watch_chat(self) -> None:
         self.run_record.follow_live_timer.started()
-        self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=self.chat_id))
-        self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=self.chat_id))
-        self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
+        self.client.add_event_handler(self.on_live_new_message, events.NewMessage(chats=self.chat_id))
+        self.client.add_event_handler(self.on_live_edit_message, events.MessageEdited(chats=self.chat_id))
+        self.client.add_event_handler(self.on_live_delete_message, events.MessageDeleted())
         try:
             await self.client.run_until_disconnected()
         finally:
             self.run_record.follow_live_timer.ended()
 
-    async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
+    async def on_live_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")
         self.run_record.follow_live_timer.latest_msg()
         await self._process_message(event.message)
 
-    async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
+    async def on_live_edit_message(self, event: events.MessageEdited.Event) -> None:
         logger.info("Edited message received")
         self.run_record.follow_live_timer.latest_msg()
         await self._process_message(event.message)
 
-    async def _watch_delete_message(self, event: events.MessageDeleted.Event) -> None:
+    async def on_live_delete_message(self, event: events.MessageDeleted.Event) -> None:
         # Telegram does not send information about where a message was deleted if it occurs in private conversations
         # with other users or in small group chats, because message IDs are unique and you can identify the chat with
         # the message ID alone if you saved it previously.
