@@ -225,3 +225,4 @@ class PeerDataFetcher(AbstractSubsystem):
             return
         self.chat_queues[chat_id].stop_when_empty = True
         await self.chat_queues[chat_id].queue.join()
+        del self.chat_queues[chat_id] # Must remove, otherwise chat will never be marked to be used again
