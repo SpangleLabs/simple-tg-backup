@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import logging
 from typing import Union, NewType, Optional
 
 from prometheus_client import Counter
@@ -20,6 +21,9 @@ peers_processed = Counter(
     "tgbackup_peerdatafetcher_peers_processed_count",
     "Total number of peers which have been picked from the queue by the PeerDataFetcher",
 )
+
+logger = logging.getLogger(__name__)
+
 
 Peer = Union[PeerUser, PeerChat, PeerChannel]
 PeerCacheID = NewType("PeerCacheID", tuple[str, int])
@@ -85,6 +89,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Fetch item from queue
         chat_queue, queue_entry = self._get_next_in_queue()
         peers_processed.inc()
+        logger.info("Processing peer to fetch")
         # Check whether cache wants update
         if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_queue.chat_id):
             return
@@ -97,6 +102,7 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def _process_user(self, chat_queue: ChatQueue, user: PeerUser) -> None:
         chat_id = chat_queue.chat_id
+        logger.info("Fetching full user info from telegram")
         # Get full user info
         # noinspection PyTypeChecker
         full = await self.client(GetFullUserRequest(user))
@@ -115,6 +121,7 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def _process_chat(self, chat_queue: ChatQueue, chat: PeerChat) -> None:
         chat_id = chat_queue.chat_id
+        logger.info("Fetching full chat data from telegram")
         # Get full chat info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChatRequest(chat.chat_id))
@@ -128,6 +135,7 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def _process_channel(self, chat_queue: ChatQueue, channel: PeerChannel) -> None:
         chat_id = chat_queue.chat_id
+        logger.info("Fetching full channel data from telegram")
         # Get full channel info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChannelRequest(channel))
@@ -218,11 +226,13 @@ class PeerDataFetcher(AbstractSubsystem):
         if not force_add and self.chat_queues[chat_id].stop_when_empty:
             raise ValueError("PeerDataFetcher has been told to stop for that chat when empty, cannot queue more peers for it")
         # Add to chat queue
+        logger.info("Added peer to peer fetcher queue")
         await self.chat_queues[chat_id].queue.put(ChatQueueEntry(peer, raw))
 
     async def wait_until_chat_empty(self, chat_id: Optional[int]) -> None:
         if chat_id not in self.chat_queues:
             return
+        logger.info("Marking peer fetcher chat queue %s as stop when empty", chat_id)
         self.chat_queues[chat_id].stop_when_empty = True
         await self.chat_queues[chat_id].queue.join()
         del self.chat_queues[chat_id] # Must remove, otherwise chat will never be marked to be used again
