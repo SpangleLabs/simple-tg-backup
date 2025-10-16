@@ -206,7 +206,7 @@ class ArchiveTarget:
         # with other users or in small group chats, because message IDs are unique and you can identify the chat with
         # the message ID alone if you saved it previously.
         logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
-        if event.chat_id == self.chat_id or (event.chat_id is None and self.is_small_chat()):
+        if event.chat_id == self.chat_id or (event.chat_id is None and await self.is_small_chat()):
             for msg_id in event.deleted_ids:
                 self.run_record.follow_live_timer.latest_msg()
                 msg_objs = self.chat_db.get_messages(msg_id)
