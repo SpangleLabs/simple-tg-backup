@@ -19,7 +19,7 @@ start_time = Gauge("tgbackup_startup_unixtime", "Last time TG backup was started
 
 
 def setup_logging(log_level: str = "INFO") -> None:
-    os.makedirs("scripts/logs", exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
     formatter = logging.Formatter("{asctime}:{levelname}:{name}:{message}", style="{")
 
     base_logger = logging.getLogger()
@@ -27,7 +27,7 @@ def setup_logging(log_level: str = "INFO") -> None:
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     base_logger.addHandler(console_handler)
-    file_handler = TimedRotatingFileHandler("scripts/logs/backups.log", when="midnight")
+    file_handler = TimedRotatingFileHandler("logs/backups.log", when="midnight")
     file_handler.setFormatter(formatter)
     base_logger.addHandler(file_handler)
 
