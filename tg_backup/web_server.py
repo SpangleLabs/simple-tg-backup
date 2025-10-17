@@ -54,14 +54,15 @@ class WebServer:
             req,
             {
                 "running": self.archiver.running,
-                "current_targets": self.archiver.current_targets,
+                "current_activity": self.archiver.current_activity,
             }
         )
 
     async def archiver_status_post(self, req: web.Request) -> web.Response:
         data = await req.post()
         if data.get("action") == "run_archiver":
-            asyncio.create_task(self.archiver.run_archive())
+            dialogs = self.core_db.list_dialogs()
+            asyncio.create_task(self.archiver.run_archive(dialogs))
             while not self.archiver.running:
                 await asyncio.sleep(0.1)
             return await self.archiver_status(req)

@@ -100,14 +100,43 @@ class ChatSettingsStore:
             return default_fallback
         return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
 
-    def any_follow_live(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> bool:
+    def list_archive_enabled(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
+        should_archive: list[Dialog] = []
         for dialog in dialogs:
-            if not self.should_archive_chat(dialog.resource_id):
-                continue
+            if self.should_archive_chat(dialog.resource_id):
+                should_archive.append(dialog)
+        return should_archive
+
+    def list_follow_live(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
+        follow_live: list[Dialog] = []
+        for dialog in self.list_archive_enabled(dialogs, default_behaviour):
             behaviour = self.behaviour_for_chat(dialog.resource_id, default_behaviour)
             if behaviour.follow_live:
-                return True
-        return False
+                follow_live.append(dialog)
+        return follow_live
+
+    def list_needs_archive_run(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
+        needs_archive_run: list[Dialog] = []
+        for dialog in self.list_archive_enabled(dialogs, default_behaviour):
+            behaviour = self.behaviour_for_chat(dialog.resource_id, default_behaviour)
+            if behaviour.needs_archive_run():
+                needs_archive_run.append(dialog)
+        return needs_archive_run
+
+    def behaviour_for_dialogs(
+            self,
+            dialogs: list[Dialog],
+            default_behaviour: BehaviourConfig,
+            override_behaviour: Optional[BehaviourConfig] = None,
+    ) -> dict[int, BehaviourConfig]:
+        result = {}
+        for dialog in dialogs:
+            behaviour = BehaviourConfig.merge(
+                override_behaviour,
+                self.behaviour_for_chat(dialog.resource_id, default_behaviour),
+            )
+            result[dialog.resource_id] = behaviour
+        return result
 
     def to_dict(self) -> dict:
         return {

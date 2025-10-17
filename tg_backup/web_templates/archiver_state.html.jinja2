@@ -4,23 +4,45 @@
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-<h1>Current archiver state</h1>
+<h1>Current archiver status</h1>
 <p><a href="/">Return to home</a></p>
 {% if running %}
-    <p>The archiver is currently running, with these archive targets:</p>
-    <ul>
-    {% for target in current_targets %}
-        <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
-            Start: {{ target.run_record.archive_history_timer.start_time }}
-            End: {{ target.run_record.archive_history_timer.end_time }}</li>
-    {% endfor %}
-    </ul>
+    <p>The archiver is currently running!</p>
 {% else %}
     <p>The archiver is not currently running. Would you like to start it?</p>
     <form action="/archiver/" method="post">
     <input type="hidden" name="action" value="run_archiver" />
     <input type="submit" value="Start archiver" />
     </form>
+{% endif %}
+<h2>Archiver activity</h2>
+<p><a href="/archiver/">Refresh archiver activity</a></p>
+{% if current_activity is none %}
+    <p>The archiver has not yet been run (since last startup).</p>
+{% else %}
+    {% set archive_targets = current_activity.archive_targets %}
+    {% if archive_targets | length > 0 %}
+        <h3>Archive targets</h3>
+        Downloading chat history of these targets:
+        <ul>
+        {#  TODO: record end times are wrong #}
+        {% for target in archive_targets %}
+            <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
+                Start: {{ target.run_record.archive_history_timer.start_time }}
+                End: {{ target.run_record.archive_history_timer.end_time }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+    {% set follow_targets = current_activity.follow_targets %}
+    {% if follow_targets | length > 0 %}
+        <h3>Follow targets</h3>
+        Watching these targets for live updates:
+        <ul>
+        {% for target in follow_targets %}
+            <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
+                Start: {{ target.run_record.archive_history_timer.start_time }}</li>
+        {% endfor %}
+        </ul>
 {% endif %}
 </body>
 </html>
