@@ -73,7 +73,6 @@ class ArchiveTarget:
         await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
 
     async def _archive_admin_log(self) -> None:
-        self.run_record.archive_history_timer.start()
         chat_entity = await self.chat_entity()
         if await self.is_small_chat():
             logger.info("No admin log in small chats")
@@ -96,7 +95,6 @@ class ArchiveTarget:
                 new_msg_obj = Message.from_msg(new_msg)
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
-        self.run_record.archive_history_timer.end()
 
     async def _process_message(self, msg: telethon.tl.types.Message) -> None:
         logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
@@ -138,28 +136,16 @@ class ArchiveTarget:
                 await self.archiver.media_dl.queue_media(self.chat_id, msg)
                 self.run_record.archive_stats.inc_media_seen()
 
-    async def _archive_history(self) -> None:
-        self.run_record.archive_history_timer.start()
+    async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
             await self._process_message(msg)
-        self.run_record.archive_history_timer.end()
 
-    async def archive_chat(self) -> None:
-        logger.info("Starting archive of chat %s", self.chat_id)
-        self.run_record.mark_queued()
-        self.run_record.target_type = DialogType.USER if await self.is_user() else DialogType.GROUP
-        # Connect to chat database
-        self.chat_db.start()
-        # Get chat data
-        await self._archive_chat_data()
-        # Start the chat watcher
-        watch_task: Optional[asyncio.Task] = None
-        if self.behaviour.follow_live:
-            logger.info("Following live chat")
-            watch_task = asyncio.create_task(self.watch_chat())
-        # Gather data from admin log
+    async def _archive_history(self):
+        # Start archive history timer
+        self.run_record.archive_history_timer.start()
+        # Archive admin log
         if self.behaviour.check_admin_log:
             try:
                 await self._archive_admin_log()
@@ -167,6 +153,25 @@ class ArchiveTarget:
                 logger.warning("Do not have sufficient permissions to archive admin log of chat.", exc_info=e)
         # Gather messages from chat
         if self.behaviour.archive_history:
+            await self._archive_message_history()
+        # Stop archive history timer
+        self.run_record.archive_history_timer.end()
+
+    async def archive_chat(self) -> None:
+        logger.info("Starting archive of chat %s", self.chat_id)
+        self.run_record.mark_queued()
+        self.run_record.target_type = self.dialog.chat_type
+        # Connect to chat database
+        self.chat_db.start()
+        # Push chat peer to the peer data fetcher
+        await self._archive_chat_data()
+        # Start the chat watcher
+        watch_task: Optional[asyncio.Task] = None
+        if self.behaviour.follow_live:
+            logger.info("Following live chat")
+            watch_task = asyncio.create_task(self.watch_chat())
+        # Gather data from admin log
+        if self.behaviour.needs_archive_run():
             await self._archive_history()
         # Continue watching if relevant
         if self.behaviour.follow_live:
