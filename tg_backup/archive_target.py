@@ -73,7 +73,7 @@ class ArchiveTarget:
         await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
 
     async def _archive_admin_log(self) -> None:
-        self.run_record.archive_history_timer.started()
+        self.run_record.archive_history_timer.start()
         chat_entity = await self.chat_entity()
         if await self.is_small_chat():
             logger.info("No admin log in small chats")
@@ -96,7 +96,7 @@ class ArchiveTarget:
                 new_msg_obj = Message.from_msg(new_msg)
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
-        self.run_record.archive_history_timer.ended()
+        self.run_record.archive_history_timer.end()
 
     async def _process_message(self, msg: telethon.tl.types.Message) -> None:
         logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
@@ -139,12 +139,12 @@ class ArchiveTarget:
                 self.run_record.archive_stats.inc_media_seen()
 
     async def _archive_history(self) -> None:
-        self.run_record.archive_history_timer.started()
+        self.run_record.archive_history_timer.start()
         chat_entity = await self.chat_entity()
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
             await self._process_message(msg)
-        self.run_record.archive_history_timer.ended()
+        self.run_record.archive_history_timer.end()
 
     async def archive_chat(self) -> None:
         logger.info("Starting archive of chat %s", self.chat_id)
@@ -182,14 +182,14 @@ class ArchiveTarget:
         logger.info("Chat archive complete %s", self.chat_id)
 
     async def watch_chat(self) -> None:
-        self.run_record.follow_live_timer.started()
+        self.run_record.follow_live_timer.start()
         self.client.add_event_handler(self.on_live_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_edit_message, events.MessageEdited(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_delete_message, events.MessageDeleted())
         try:
             await self.client.run_until_disconnected()
         finally:
-            self.run_record.follow_live_timer.ended()
+            self.run_record.follow_live_timer.end()
 
     async def on_live_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")

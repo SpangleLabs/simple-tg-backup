@@ -30,7 +30,7 @@ class MultiTargetWatcher:
     async def watch(self) -> None:
         # Mark all archive targets as starting watch, and connect to their databases
         for target in self.targets.values():
-            target.run_record.follow_live_timer.started()
+            target.run_record.follow_live_timer.start()
             target.chat_db.start()
         # Register event handlers
         chat_ids = list(self.targets.keys())
@@ -43,7 +43,7 @@ class MultiTargetWatcher:
         finally:
             # Mark all targets as stopped and disconnect from databases
             for target in self.targets.values():
-                target.run_record.follow_live_timer.ended()
+                target.run_record.follow_live_timer.end()
                 target.chat_db.stop()
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:

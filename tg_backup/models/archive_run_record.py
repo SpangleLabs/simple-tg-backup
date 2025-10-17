@@ -63,7 +63,7 @@ class ArchiveRunTimer:
     end_time: Optional[datetime.datetime]
     record: "ArchiveRunRecord"
 
-    def started(self) -> None:
+    def start(self) -> None:
         if self.end_time is None:
             self.end_time = None
         if self.start_time is not None:
@@ -78,7 +78,7 @@ class ArchiveRunTimer:
     def has_ended(self) -> bool:
         return self.end_time is not None
 
-    def ended(self) -> None:
+    def end(self) -> None:
         self.end_time = datetime.datetime.now(datetime.timezone.utc)
         self.record.save(force=True)
 
@@ -127,13 +127,13 @@ class ArchiveRunRecord:
         self.save(force=True)
 
     def save(self, force: bool = False) -> None:
-        logger.info("Record save request, force=%s", force)
+        logger.debug("Record save request, force=%s", force)
         if not force:
             now_time = datetime.datetime.now(datetime.timezone.utc)
             save_age = (now_time - self.last_saved)
             if save_age < datetime.timedelta(minutes=3):
                 return
-        logger.info("Actually saving record")
+        logger.debug("Actually saving record")
         self.last_saved = datetime.datetime.now(datetime.timezone.utc)
         self.core_db.save_archive_run(self)
 
@@ -144,9 +144,9 @@ class ArchiveRunRecord:
     def mark_complete(self) -> None:
         self.completed = True
         if self.archive_history_timer.start_time is not None:
-            self.archive_history_timer.ended()
+            self.archive_history_timer.end()
         if self.follow_live_timer.start_time is not None:
-            self.follow_live_timer.ended()
+            self.follow_live_timer.end()
         self.save(force=True)
 
     def mark_failed(self, failure_reason: str) -> None:
