@@ -40,7 +40,6 @@ def peer_cache_key(peer: Peer) -> PeerCacheID:
 @dataclasses.dataclass
 class QueueEntry:
     peer: Peer
-    raw: object
 
 
 @dataclasses.dataclass
@@ -212,7 +211,6 @@ class PeerDataFetcher(AbstractSubsystem):
         # Ensure a peer is given
         if peer is None:
             return
-        raw = peer
         # Ensure peer is of a valid type
         if not isinstance(peer, PeerUser) and not isinstance(peer, PeerChat) and not isinstance(peer, PeerChannel):
             raise ValueError(f"Unrecognised peer type: {peer}")
@@ -227,7 +225,7 @@ class PeerDataFetcher(AbstractSubsystem):
             raise ValueError("PeerDataFetcher has been told to stop for that chat when empty, cannot queue more peers for it")
         # Add to chat queue
         logger.info("Added peer to peer fetcher queue")
-        await self.chat_queues[chat_id].queue.put(QueueEntry(peer, raw))
+        await self.chat_queues[chat_id].queue.put(QueueEntry(peer))
 
     async def wait_until_chat_empty(self, chat_id: Optional[int]) -> None:
         if chat_id not in self.chat_queues:
