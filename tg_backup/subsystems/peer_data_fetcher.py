@@ -54,7 +54,7 @@ class PeerDataFetcher(AbstractSubsystem):
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(client)
         self.core_db = core_db
-        self.chat_queues: dict[Optional[int], ArchiveRunQueue] = {}
+        self.queues: dict[Optional[int], ArchiveRunQueue] = {}
         self.core_seen_peer_ids: set[PeerCacheID] = set()
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {}
 
@@ -77,9 +77,9 @@ class PeerDataFetcher(AbstractSubsystem):
         self.chat_seen_peer_ids[chat_id].add(peer_cache_key(peer))
 
     def _get_next_in_queue(self) -> tuple[ArchiveRunQueue, QueueEntry]:
-        for chat_queue in self.chat_queues.values():
+        for queue in self.queues.values():
             try:
-                return chat_queue, chat_queue.queue.get_nowait()
+                return queue, queue.queue.get_nowait()
             except asyncio.QueueEmpty:
                 continue
         raise asyncio.QueueEmpty()
@@ -160,7 +160,7 @@ class PeerDataFetcher(AbstractSubsystem):
         chat_queue.queue.task_done()
 
     def queue_size(self) -> int:
-        return sum(chat_queue.queue.qsize() for chat_queue in self.chat_queues.values())
+        return sum(queue.queue.qsize() for queue in self.queues.values())
 
     async def queue_user(
             self,
@@ -218,19 +218,19 @@ class PeerDataFetcher(AbstractSubsystem):
         if self.peer_id_seen_core(peer) and self.peer_id_seen_in_chat(peer, chat_id):
             return
         # Set up chat queue
-        if chat_id not in self.chat_queues:
-            self.chat_queues[chat_id] = ArchiveRunQueue(chat_id, chat_db, asyncio.Queue())
+        if chat_id not in self.queues:
+            self.queues[chat_id] = ArchiveRunQueue(chat_id, chat_db, asyncio.Queue())
         # Ensure chat queue isn't being emptied
-        if not force_add and self.chat_queues[chat_id].stop_when_empty:
+        if not force_add and self.queues[chat_id].stop_when_empty:
             raise ValueError("PeerDataFetcher has been told to stop for that chat when empty, cannot queue more peers for it")
         # Add to chat queue
         logger.info("Added peer to peer fetcher queue")
-        await self.chat_queues[chat_id].queue.put(QueueEntry(peer))
+        await self.queues[chat_id].queue.put(QueueEntry(peer))
 
     async def wait_until_chat_empty(self, chat_id: Optional[int]) -> None:
-        if chat_id not in self.chat_queues:
+        if chat_id not in self.queues:
             return
         logger.info("Marking peer fetcher chat queue %s as stop when empty", chat_id)
-        self.chat_queues[chat_id].stop_when_empty = True
-        await self.chat_queues[chat_id].queue.join()
-        del self.chat_queues[chat_id] # Must remove, otherwise chat will never be marked to be used again
+        self.queues[chat_id].stop_when_empty = True
+        await self.queues[chat_id].queue.join()
+        del self.queues[chat_id] # Must remove, otherwise chat will never be marked to be used again
