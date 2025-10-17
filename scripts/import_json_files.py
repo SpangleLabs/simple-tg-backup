@@ -78,7 +78,7 @@ class JSONFileImporter:
         self.chat_db.save_message(msg_obj)
         # Save users
         if msg_obj.user_id not in self.seen_user_ids:
-            await self.archiver.peer_fetcher.queue_user(self.chat_id, self.chat_db, msg_obj.user_id)
+            await self.archiver.peer_fetcher.queue_user(None, self.chat_id, self.chat_db, msg_obj.user_id)
         # Check stickers and cry
         if msg_obj.sticker_id is not None and msg_obj.sticker_set_id is not None:
             matches = glob.glob(f"store/stickers/{msg_obj.sticker_set_id}/{msg_obj.sticker_id}.*")

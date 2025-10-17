@@ -70,7 +70,8 @@ class ArchiveTarget:
         chat_entity = await self.chat_entity()
         logger.info("Got chat entity data: %s", chat_entity)
         peer = telethon.utils.get_peer(chat_entity)
-        await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, peer)
+        queue_key = self.run_record.archive_run_id
+        await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, peer)
 
     async def _archive_admin_log(self) -> None:
         chat_entity = await self.chat_entity()
@@ -127,7 +128,8 @@ class ArchiveTarget:
         self.run_record.archive_stats.inc_messages_saved()
         self.add_known_msg_id(msg.id)
         if hasattr(msg, "from_id") and msg.from_id is not None:
-            await self.archiver.peer_fetcher.queue_peer(self.chat_id, self.chat_db, msg.from_id)
+            queue_key = self.run_record.archive_run_id
+            await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
             await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
             return
@@ -178,8 +180,8 @@ class ArchiveTarget:
             logger.info("Chat history archive complete, watching live updates")
             await watch_task
         # Wait for user fetcher to be done before disconnecting database
-        logger.info("Waiting for peer fetcher to complete for chat")
-        await self.archiver.peer_fetcher.wait_until_chat_empty(self.chat_id)
+        logger.info("Waiting for peer fetcher to complete for archive target")
+        await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
         # Disconnect from chat DB
         logger.info("Disconnecting from chat database")
         self.chat_db.stop()

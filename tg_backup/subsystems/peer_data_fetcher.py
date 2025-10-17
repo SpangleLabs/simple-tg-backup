@@ -44,6 +44,7 @@ class QueueEntry:
 
 @dataclasses.dataclass
 class ArchiveRunQueue:
+    queue_key: Optional[str]
     chat_id: Optional[int]
     chat_db: Optional[ChatDatabase]
     queue: asyncio.Queue[QueueEntry]
@@ -54,7 +55,7 @@ class PeerDataFetcher(AbstractSubsystem):
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(client)
         self.core_db = core_db
-        self.queues: dict[Optional[int], ArchiveRunQueue] = {}
+        self.queues: dict[Optional[str], ArchiveRunQueue] = {}
         self.core_seen_peer_ids: set[PeerCacheID] = set()
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {}
 
@@ -119,7 +120,9 @@ class PeerDataFetcher(AbstractSubsystem):
         chat_queue.queue.task_done()
 
     async def _process_chat(self, chat_queue: ArchiveRunQueue, chat: PeerChat) -> None:
+        queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
+        chat_db = chat_queue.chat_db
         logger.info("Fetching full chat data from telegram")
         # Get full chat info
         # noinspection PyTypeChecker
@@ -128,12 +131,14 @@ class PeerDataFetcher(AbstractSubsystem):
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats
         if chat_obj.migrated_to_chat_id is not None:
-            await self.queue_channel(chat_id, chat_queue.chat_db, chat_obj.migrated_to_chat_id, force_add=True)
+            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.migrated_to_chat_id, force_add=True)
         # Save to chat DB and core DB
         await self._save_chat(chat, chat_id, chat_queue, chat_obj)
 
     async def _process_channel(self, chat_queue: ArchiveRunQueue, channel: PeerChannel) -> None:
+        queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
+        chat_db = chat_queue.chat_db
         logger.info("Fetching full channel data from telegram")
         # Get full channel info
         # noinspection PyTypeChecker
@@ -142,9 +147,9 @@ class PeerDataFetcher(AbstractSubsystem):
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats
         if chat_obj.linked_chat_id is not None:
-            await self.queue_channel(chat_id, chat_queue.chat_db, chat_obj.linked_chat_id, force_add=True)
+            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.linked_chat_id, force_add=True)
         if chat_obj.migrated_from_chat_id is not None:
-            await self.queue_chat(chat_id, chat_queue.chat_db, chat_obj.migrated_from_chat_id, force_add=True)
+            await self.queue_chat(queue_key, chat_id, chat_db, chat_obj.migrated_from_chat_id, force_add=True)
         # Save to chat DB and core DB
         await self._save_chat(channel, chat_id, chat_queue, chat_obj)
 
@@ -164,6 +169,7 @@ class PeerDataFetcher(AbstractSubsystem):
 
     async def queue_user(
             self,
+            queue_key: Optional[str],
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             user: Union[PeerUser, int],
@@ -173,10 +179,11 @@ class PeerDataFetcher(AbstractSubsystem):
             return
         if isinstance(user, int):
             user = PeerUser(user)
-        await self.queue_peer(chat_id, chat_db, user, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, user, force_add=force_add)
 
     async def queue_chat(
             self,
+            queue_key: Optional[str],
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             chat: Union[PeerChat, int],
@@ -186,10 +193,11 @@ class PeerDataFetcher(AbstractSubsystem):
             return
         if isinstance(chat, int):
             chat = PeerChat(chat)
-        await self.queue_peer(chat_id, chat_db, chat, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, chat, force_add=force_add)
 
     async def queue_channel(
             self,
+            queue_key: Optional[str],
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             channel: Union[PeerChannel, int],
@@ -199,10 +207,11 @@ class PeerDataFetcher(AbstractSubsystem):
             return
         if isinstance(channel, int):
             channel = PeerChannel(channel)
-        await self.queue_peer(chat_id, chat_db, channel, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, channel, force_add=force_add)
 
     async def queue_peer(
             self,
+            queue_key: Optional[str],
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             peer: Peer,
@@ -217,20 +226,20 @@ class PeerDataFetcher(AbstractSubsystem):
         # Check if already in cache
         if self.peer_id_seen_core(peer) and self.peer_id_seen_in_chat(peer, chat_id):
             return
-        # Set up chat queue
-        if chat_id not in self.queues:
-            self.queues[chat_id] = ArchiveRunQueue(chat_id, chat_db, asyncio.Queue())
+        # Set up chat queue if needed
+        if queue_key not in self.queues:
+            self.queues[queue_key] = ArchiveRunQueue(queue_key, chat_id, chat_db, asyncio.Queue())
         # Ensure chat queue isn't being emptied
-        if not force_add and self.queues[chat_id].stop_when_empty:
-            raise ValueError("PeerDataFetcher has been told to stop for that chat when empty, cannot queue more peers for it")
+        if not force_add and self.queues[queue_key].stop_when_empty:
+            raise ValueError("PeerDataFetcher has been told to stop for that archive run when empty, cannot queue more peers for it")
         # Add to chat queue
         logger.info("Added peer to peer fetcher queue")
-        await self.queues[chat_id].queue.put(QueueEntry(peer))
+        await self.queues[queue_key].queue.put(QueueEntry(peer))
 
-    async def wait_until_chat_empty(self, chat_id: Optional[int]) -> None:
-        if chat_id not in self.queues:
+    async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
+        if queue_key not in self.queues:
             return
-        logger.info("Marking peer fetcher chat queue %s as stop when empty", chat_id)
-        self.queues[chat_id].stop_when_empty = True
-        await self.queues[chat_id].queue.join()
-        del self.queues[chat_id] # Must remove, otherwise chat will never be marked to be used again
+        logger.info("Marking peer fetcher queue %s as stop when empty", queue_key)
+        self.queues[queue_key].stop_when_empty = True
+        await self.queues[queue_key].queue.join()
+        del self.queues[queue_key]

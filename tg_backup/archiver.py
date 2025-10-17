@@ -143,7 +143,7 @@ class Archiver:
                 dialogs.append(dialog_obj)
                 self.core_db.save_dialog(dialog_obj)
                 peer = dialog.dialog.peer
-                await self.peer_fetcher.queue_peer(None, None, peer)
+                await self.peer_fetcher.queue_peer(None, None, None, peer)
         self.running_list_dialogs = False
         return dialogs
 
