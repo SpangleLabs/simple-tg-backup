@@ -42,6 +42,8 @@ class ArchiverActivity:
     archive_targets: list[ArchiveTarget]
     start_time: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
     completed: bool = False
+    watch_task: Optional[asyncio.Task] = None
+    watcher: Optional[MultiTargetWatcher] = None
 
     @classmethod
     def from_targets(cls, name: str, targets: list[ArchiveTarget]) -> "ArchiverActivity":
@@ -174,11 +176,10 @@ class Archiver:
         self.current_activity = activity
         async with self.run():
             # Watch for new messages from applicable chats
-            watch_task: Optional[asyncio.Task] = None
             if follow_targets:
                 logger.info("Following %s dialogs live", len(follow_targets))
-                multi_follow = await MultiTargetWatcher.from_targets(self.client, follow_targets)
-                watch_task = asyncio.create_task(multi_follow.watch())
+                activity.watcher = await MultiTargetWatcher.from_targets(self.client, follow_targets)
+                activity.watch_task = asyncio.create_task(multi_follow.watch())
             # Archive the history of applicable chats
             if archive_history_targets:
                 logger.info("Archiving dialogs")
@@ -188,9 +189,9 @@ class Archiver:
                     await archive_target.archive_chat()
                 logger.info("Completed archiving chat history of all targets")
             # Continue watching if relevant
-            if watch_task:
+            if activity.watch_task:
                 logger.info("Watching dialogs for live updates")
-                await watch_task
+                await activity.watch_task
             activity.completed = True
 
     async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:

@@ -189,6 +189,7 @@ class ArchiveTarget:
         logger.info("Chat archive complete %s", self.chat_id)
 
     async def watch_chat(self) -> None:
+        # This method is only used when archiving a singular chat target. It is not very good and cannot be shut down
         self.run_record.follow_live_timer.start()
         self.client.add_event_handler(self.on_live_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_edit_message, events.MessageEdited(chats=self.chat_id))

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from telethon import TelegramClient, events
@@ -17,6 +18,8 @@ class MultiTargetWatcher:
         self.client = client
         self.targets: dict[int, ArchiveTarget] = {t.chat_id: t for t in targets if t.behaviour.follow_live}
         self.small_group_targets = small_group_targets # Need passing in, because cannot async in init
+        self.running = False
+        self._shutdown_event = asyncio.Event()
 
     @classmethod
     async def from_targets(cls, client: TelegramClient, targets: list[ArchiveTarget]) -> "MultiTargetWatcher":
@@ -28,6 +31,14 @@ class MultiTargetWatcher:
         return cls(client, targets, small_group_targets)
 
     async def watch(self) -> None:
+        await self._start_watch()
+        # Watch the client until disconnect
+        try:
+            await self._shutdown_event.wait()
+        finally:
+            await self._stop_watch()
+
+    async def _start_watch(self) -> None:
         # Mark all archive targets as starting watch, and connect to their databases
         for target in self.targets.values():
             target.run_record.follow_live_timer.start()
@@ -37,14 +48,24 @@ class MultiTargetWatcher:
         self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=chat_ids))
         self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=chat_ids))
         self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
-        # Watch the client until disconnect
-        try:
-            await self.client.run_until_disconnected()
-        finally:
-            # Mark all targets as stopped and disconnect from databases
-            for target in self.targets.values():
-                target.run_record.follow_live_timer.end()
-                target.chat_db.stop()
+        self.running = True
+
+    async def _stop_watch(self) -> None:
+        self._shutdown_event.set()
+        self._shutdown_event.clear()
+        self.running = False
+        # Unregister event handlers
+        self.client.remove_event_handler(self._watch_new_message)
+        self.client.remove_event_handler(self._watch_edit_message)
+        self.client.remove_event_handler(self._watch_delete_message)
+        # Mark all targets as stopped and disconnect from databases
+        for target in self.targets.values():
+            target.run_record.follow_live_timer.end()
+            target.chat_db.stop()
+
+    def shutdown(self) -> None:
+        self._shutdown_event.set()
+        self._shutdown_event.clear()
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
         target = self.targets.get(event.chat_id)
