@@ -11,9 +11,8 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Implement watching multiple dialogs
+- Allow stopping the archiver when it is following/watching targets
 - Further work on the web UI
-  - Implement form for setting behaviour config for individual dialogs
   - Implement form for setting up filtered configuration for dialogs
     - Also, update the "default" value for dialogs in known dialogs list, when this is done
     - And then the functionality, ofc
@@ -25,6 +24,8 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 - Store shared locations, with history
 
 ### TODO: Later
+- Further work on the web UI
+  - Implement form for setting behaviour config for individual dialogs
 - Behaviour setting to only download necessary stickers, rather than entire packs
 - HTML view of chats?
 - Archive user and chat profile photos
