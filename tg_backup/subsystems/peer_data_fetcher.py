@@ -92,6 +92,7 @@ class PeerDataFetcher(AbstractSubsystem):
         logger.info("Processing peer to fetch")
         # Check whether cache wants update
         if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_queue.chat_id):
+            chat_queue.queue.task_done()
             return
         if isinstance(queue_entry.peer, PeerUser):
             return await self._process_user(chat_queue, queue_entry.peer)
