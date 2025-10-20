@@ -48,6 +48,10 @@ class AbstractDatabase(ABC):
 
     def stop(self) -> None:
         self.conn.close()
+        self.conn = None
+
+    def is_connected(self) -> bool:
+        return self.conn is not None
 
     @abstractmethod
     def list_migrations(self) -> list["DBMigration"]:

@@ -133,6 +133,10 @@ class ArchiveRunRecord:
             save_age = (now_time - self.last_saved)
             if save_age < datetime.timedelta(minutes=3):
                 return
+        # If database isn't connected, skip
+        if not self.core_db.is_connected() and not self.completed:
+            logger.debug("Database not yet connected, skipping save")
+            return
         logger.debug("Actually saving record")
         self.last_saved = datetime.datetime.now(datetime.timezone.utc)
         self.core_db.save_archive_run(self)
