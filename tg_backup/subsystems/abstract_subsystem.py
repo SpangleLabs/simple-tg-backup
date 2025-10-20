@@ -28,6 +28,9 @@ class AbstractSubsystem(ABC):
         return type(self).__name__
 
     def start(self) -> None:
+        if self.running:
+            raise ValueError(f"Cannot start {self.name()}, it is already running")
+        self.stop_when_empty = False
         self.task = asyncio.create_task(self.run())
 
     async def stop(self, fast: bool = False) -> None:
