@@ -11,7 +11,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Allow stopping the archiver when it is following/watching targets
 - Further work on the web UI
   - Implement form for setting up filtered configuration for dialogs
     - Also, update the "default" value for dialogs in known dialogs list, when this is done

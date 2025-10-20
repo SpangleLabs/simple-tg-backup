@@ -66,6 +66,17 @@ class WebServer:
             while not self.archiver.running:
                 await asyncio.sleep(0.1)
             return await self.archiver_status(req)
+        if data.get("action") == "stop_watcher":
+            activity = self.archiver.current_activity
+            if activity is None:
+                return web.Response(status=400, text="Archiver is not currently active")
+            watcher = activity.watcher
+            if watcher is None:
+                return web.Response(status=400, text="Archiver is not currently watching any targets")
+            watcher.shutdown()
+            while watcher.running:
+                await asyncio.sleep(0.1)
+            return await self.archiver_status(req)
         return web.Response(status=404, text="Unrecognised action")
 
 
