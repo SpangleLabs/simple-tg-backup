@@ -26,7 +26,7 @@
         Downloading chat history of these targets:
         <ul>
         {% for target in archive_targets %}
-            <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
+            <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
                 Start: {{ target.run_record.archive_history_timer.start_time }}
                 End: {{ target.run_record.archive_history_timer.end_time }}</li>
         {% endfor %}
@@ -38,8 +38,8 @@
         Watching these targets for live updates:
         <ul>
         {% for target in follow_targets %}
-            <li>{{ target.dialog.chat_type }}: {{ target.chat_id }}
-                Start: {{ target.run_record.archive_history_timer.start_time }}</li>
+            <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
+                Start: {{ target.run_record.follow_live_timer.start_time }}</li>
         {% endfor %}
         </ul>
     {% endif %}
