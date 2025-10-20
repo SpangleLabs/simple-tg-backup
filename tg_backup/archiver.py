@@ -180,15 +180,16 @@ class Archiver:
                 multi_follow = await MultiTargetWatcher.from_targets(self.client, follow_targets)
                 watch_task = asyncio.create_task(multi_follow.watch())
             # Archive the history of applicable chats
-            logger.info("Archiving dialogs")
-            for archive_target in archive_history_targets:
-                dialog = archive_target.dialog
-                logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
-                await archive_target.archive_chat()
-            logger.info("Completed archiving all targets")
+            if archive_history_targets:
+                logger.info("Archiving dialogs")
+                for archive_target in archive_history_targets:
+                    dialog = archive_target.dialog
+                    logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
+                    await archive_target.archive_chat()
+                logger.info("Completed archiving chat history of all targets")
             # Continue watching if relevant
             if watch_task:
-                logger.info("Chat history archive complete, watching live updates")
+                logger.info("Watching dialogs for live updates")
                 await watch_task
             activity.completed = True
 
