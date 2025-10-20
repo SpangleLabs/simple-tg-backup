@@ -234,7 +234,7 @@ class PeerDataFetcher(AbstractSubsystem):
         if not force_add and self.queues[queue_key].stop_when_empty:
             raise ValueError("PeerDataFetcher has been told to stop for that archive run when empty, cannot queue more peers for it")
         # Add to chat queue
-        logger.info("Added peer to peer fetcher queue")
+        logger.info("Added peer %s to peer fetcher queue", peer_cache_key(peer))
         await self.queues[queue_key].queue.put(QueueEntry(peer))
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
