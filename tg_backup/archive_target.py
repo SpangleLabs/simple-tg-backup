@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Iterable
 
 from prometheus_client import Counter
 from telethon import hints, events
@@ -12,7 +12,6 @@ from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.archive_run_record import ArchiveRunRecord
 from tg_backup.models.dialog import Dialog
-from tg_backup.utils.dialog_type import DialogType
 from tg_backup.models.message import Message
 
 if TYPE_CHECKING:
@@ -154,9 +153,28 @@ class ArchiveTarget:
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
+        prev_msg_id: Optional[int] = None
+        initial_known_msg_ids = self.known_msg_ids()
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
+            # Process and save the message
             await self._process_message(msg)
+            # Check for deleted messages
+            msg_id = msg.id
+            missing_ids = self.missing_message_ids(msg_id, prev_msg_id, initial_known_msg_ids)
+            for missing_id in missing_ids:
+                self._mark_msg_deleted(missing_id)
+            prev_msg_id = msg_id
+
+    @staticmethod
+    def missing_message_ids(msg_id: int, prev_msg_id: Optional[int], known_msg_ids: Iterable[int]) -> list[int]:
+        if prev_msg_id is None:
+            return []
+        if (prev_msg_id - msg_id) <= 1:
+            return []
+        if msg_id not in known_msg_ids or prev_msg_id not in known_msg_ids:
+            return []
+        return [i for i in known_msg_ids if msg_id < i < prev_msg_id]
 
     async def _archive_history(self):
         # Start archive history timer
@@ -231,10 +249,15 @@ class ArchiveTarget:
         if event.chat_id == self.chat_id or (event.chat_id is None and await self.is_small_chat()):
             for msg_id in event.deleted_ids:
                 self.run_record.follow_live_timer.latest_msg()
-                msg_objs = self.chat_db.get_messages(msg_id)
-                if not msg_objs:
-                    continue
-                logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
-                latest_msg_obj = Message.latest_copy_of_message(msg_objs)
-                deleted_msg = latest_msg_obj.mark_deleted()
-                self.chat_db.save_message(deleted_msg)
+                self._mark_msg_deleted(msg_id)
+
+    def _mark_msg_deleted(self, msg_id: int) -> None:
+        msg_objs = self.chat_db.get_messages(msg_id)
+        if not msg_objs:
+            return
+        logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
+        latest_msg_obj = Message.latest_copy_of_message(msg_objs)
+        if latest_msg_obj.deleted:
+            return
+        deleted_msg = latest_msg_obj.mark_deleted()
+        self.chat_db.save_message(deleted_msg)
