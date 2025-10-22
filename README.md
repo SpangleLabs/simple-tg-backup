@@ -13,7 +13,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 ### TODO: Would be good
 - Further work on the web UI
   - Implement form for setting up filtered configuration for dialogs
-    - Also, update the "default" value for dialogs in known dialogs list, when this is done
+    - Also, update the "default" value for dialogs in "known dialogs list" page, when this is done
     - And then the functionality, ofc
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
