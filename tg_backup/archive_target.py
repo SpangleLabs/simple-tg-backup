@@ -101,21 +101,15 @@ class ArchiveTarget:
         logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
         messages_processed_count.inc()
         self.run_record.archive_stats.inc_messages_seen()
+        # Convert raw telegram message into storage object
         msg_obj = Message.from_msg(msg)
         # Check if the message has already been identically archived
         if msg.id in self.known_msg_ids():
             old_msg_objs = self.chat_db.get_messages(msg.id)
+            # Cleanup duplicate stored messages if applicable
             if self.behaviour.cleanup_duplicates and len(old_msg_objs) >= 2:
-                cleaned_msg_objs = Message.remove_redundant_copies(old_msg_objs)
-                if len(cleaned_msg_objs) != len(old_msg_objs):
-                    logger.info(
-                        "Cleaning up redundant %s message copies for msg ID: %s",
-                        len(old_msg_objs) - len(cleaned_msg_objs),
-                        msg.id
-                    )
-                    self.chat_db.delete_messages(msg.id)
-                    for msg_obj in cleaned_msg_objs:
-                        self.chat_db.save_message(msg_obj)
+                msg_obj = await self._cleanup_duplicate_messages(msg, msg_obj, old_msg_objs)
+            # Get the latest copy of the message and see if it needs re-saving
             latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
                 logger.debug("Already have message ID %s archived sufficiently", msg.id)
@@ -124,9 +118,11 @@ class ArchiveTarget:
                 logger.info("Message ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
         else:
             logger.debug("Processing new message ID: %s in chat ID: %s", msg.id, self.chat_id)
+        # Save the message
         self.chat_db.save_message(msg_obj)
         self.run_record.archive_stats.inc_messages_saved()
         self.add_known_msg_id(msg.id)
+        # Send peers, media, and sticker to relevant subsystems
         if hasattr(msg, "from_id") and msg.from_id is not None:
             queue_key = self.run_record.archive_run_id
             await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
@@ -137,6 +133,24 @@ class ArchiveTarget:
             if self.behaviour.download_media:
                 await self.archiver.media_dl.queue_media(self.chat_id, msg)
                 self.run_record.archive_stats.inc_media_seen()
+
+    async def _cleanup_duplicate_messages(
+            self,
+            msg: telethon.tl.types.Message,
+            msg_obj: Message,
+            old_msg_objs: list[Message],
+    ) -> Message:
+        cleaned_msg_objs = Message.remove_redundant_copies(old_msg_objs)
+        if len(cleaned_msg_objs) != len(old_msg_objs):
+            logger.info(
+                "Cleaning up redundant %s message copies for msg ID: %s",
+                len(old_msg_objs) - len(cleaned_msg_objs),
+                msg.id
+            )
+            self.chat_db.delete_messages(msg.id)
+            for msg_obj in cleaned_msg_objs:
+                self.chat_db.save_message(msg_obj)
+        return msg_obj
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
