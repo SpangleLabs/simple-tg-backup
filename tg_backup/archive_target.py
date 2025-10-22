@@ -176,6 +176,7 @@ class ArchiveTarget:
             msg_id = msg.id
             missing_ids = self.missing_message_ids(msg_id, prev_msg_id, initial_known_msg_ids)
             if missing_ids:
+                logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
                 self.bump_high_water_mark(msg.date)
                 for missing_id in missing_ids:
                     self._mark_msg_deleted(missing_id)
@@ -183,7 +184,13 @@ class ArchiveTarget:
             # If the message is older than the cutoff date, stop iterating through history
             if self.cutoff_date_met(msg.date):
                 logger.info("Reached cutoff date without new message updates, stopping search through message history")
-                break
+                return
+        # After iterating through all messages, ensure that earlier messages have not been deleted
+        final_missing_ids = self.earlier_missing_message_ids(prev_msg_id, initial_known_msg_ids)
+        if final_missing_ids:
+            logger.info("There are %s messages missing from the start of the chat history. Marking as deleted", len(final_missing_ids))
+            for missing_id in final_missing_ids:
+                self._mark_msg_deleted(missing_id)
 
     def high_water_mark(self) -> Optional[datetime.datetime]:
         if self._high_water_mark is not None:
@@ -225,6 +232,11 @@ class ArchiveTarget:
         if msg_id not in known_msg_ids or prev_msg_id not in known_msg_ids:
             return []
         return [i for i in known_msg_ids if msg_id < i < prev_msg_id]
+
+    def earlier_missing_message_ids(self, msg_id: Optional[int], known_msg_ids: Iterable[int]) -> list[int]:
+        if msg_id is None:
+            return []
+        return [i for i in known_msg_ids if i < msg_id]
 
     async def _archive_history(self):
         # Start archive history timer
