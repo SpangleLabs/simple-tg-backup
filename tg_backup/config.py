@@ -85,7 +85,7 @@ DEFAULT_BEHAVIOUR = BehaviourConfig(
     follow_live=False,
     archive_history=True,
     cleanup_duplicates=False,
-    msg_history_overlap_days=2,
+    msg_history_overlap_days=3,
 )
 
 
