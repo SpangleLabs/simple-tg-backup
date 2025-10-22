@@ -99,6 +99,7 @@ class WebServer:
             follow_live=data.get("follow_live") == "on",
             archive_history=data.get("archive_history") == "on",
             cleanup_duplicates=data.get("cleanup_duplicates") == "on",
+            msg_history_overlap_days=int(data.get("msg_history_overlap_days")),
         )
         settings.default_behaviour = behaviour
         self.archiver.chat_settings = settings

@@ -41,6 +41,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.option("--follow-live/--no-follow-live", default=None, help="Whether to follow live messages in the chat")
 @click.option("--archive-history/--no-archive-history", default=None, help="Whether to archive the history of the chat before this point")
 @click.option("--cleanup_duplicates/--no_cleanup_duplicates", default=None, help="Whether to clean up duplicate messages in the database")
+@click.option("--msg_history_overlap", default=0, type=int, help="Number of days worth of overlapping non-modified messages to scrape before exiting re-archival early. (0 to archive entire history every time)")
 def main(
         log_level: str,
         prom_port: int,
@@ -50,6 +51,7 @@ def main(
         follow_live: bool,
         archive_history: bool,
         cleanup_duplicates: bool,
+        msg_history_overlap: int
 ) -> None:
     setup_logging(log_level)
     start_http_server(prom_port)
@@ -61,6 +63,7 @@ def main(
         follow_live=follow_live,
         archive_history=archive_history,
         cleanup_duplicates=cleanup_duplicates,
+        msg_history_overlap_days=msg_history_overlap,
     )
     if chat_id is None:
         web_server = WebServer(archiver)

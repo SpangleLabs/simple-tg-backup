@@ -47,6 +47,11 @@
         <td><input type="checkbox" name="cleanup_duplicates" {{ "checked" if behaviour.cleanup_duplicates else "" }}/></td>
         <td>Whether the archiver should attempt to cleanup duplicate objects in the database when saving new objects</td>
     </tr>
+    <tr>
+        <td>Message history overlap (days)</td>
+        <td><input type="number" step="1" name="msg_history_overlap_days" value="{{ behaviour.msg_history_overlap_days }}"/></td>
+        <td>How many days of overlapping messages to check when re-archiving a target, before exiting early. (0 to scrape entire chat history every time)</td>
+    </tr>
     </tbody>
 </table>
     <input type="submit" value="Save">
