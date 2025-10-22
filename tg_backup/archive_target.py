@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 from typing import TYPE_CHECKING, Optional, Iterable
 
@@ -42,6 +43,7 @@ class ArchiveTarget:
         self.chat_db = ChatDatabase(self.chat_id)
         self._known_msg_ids: Optional[set[int]] = None
         self.run_record = ArchiveRunRecord(dialog.chat_type, self.chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
+        self._high_water_mark: Optional[datetime.datetime] = None
 
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
@@ -96,7 +98,10 @@ class ArchiveTarget:
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
 
-    async def _process_message(self, msg: telethon.tl.types.Message) -> None:
+    async def _process_message(self, msg: telethon.tl.types.Message) -> Optional[Message]:
+        """
+        Processes a new message, returning the model Message object, if it was saved
+        """
         logger.info("Checking message ID: %s in chat ID: %s", msg.id, self.chat_id)
         messages_processed_count.inc()
         self.run_record.archive_stats.inc_messages_seen()
@@ -112,7 +117,7 @@ class ArchiveTarget:
             latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
                 logger.debug("Already have message ID %s archived sufficiently", msg.id)
-                return
+                return None
             else:
                 logger.info("Message ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
         else:
@@ -127,11 +132,13 @@ class ArchiveTarget:
             await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
             await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
-            return
-        if hasattr(msg, "media") and msg.media is not None:
-            if self.behaviour.download_media:
-                await self.archiver.media_dl.queue_media(self.chat_id, msg)
-                self.run_record.archive_stats.inc_media_seen()
+        else:
+            if hasattr(msg, "media") and msg.media is not None:
+                if self.behaviour.download_media:
+                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
+                    self.run_record.archive_stats.inc_media_seen()
+        # Return the saved message object
+        return msg_obj
 
     async def _cleanup_duplicate_messages(
             self,
@@ -153,18 +160,61 @@ class ArchiveTarget:
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
+        initial_cutoff = self.cutoff_date()
+        if initial_cutoff is not None:
+            logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff)
         prev_msg_id: Optional[int] = None
         initial_known_msg_ids = self.known_msg_ids()
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
             # Process and save the message
-            await self._process_message(msg)
+            new_msg_obj = await self._process_message(msg)
+            # If the message was updated, update the high water mark
+            if new_msg_obj is not None:
+                self.bump_high_water_mark(new_msg_obj.datetime)
             # Check for deleted messages
             msg_id = msg.id
             missing_ids = self.missing_message_ids(msg_id, prev_msg_id, initial_known_msg_ids)
-            for missing_id in missing_ids:
-                self._mark_msg_deleted(missing_id)
+            if missing_ids:
+                self.bump_high_water_mark(msg.date)
+                for missing_id in missing_ids:
+                    self._mark_msg_deleted(missing_id)
             prev_msg_id = msg_id
+            # If the message is older than the cutoff date, stop iterating through history
+            if self.cutoff_date_met(msg.date):
+                logger.info("Reached cutoff date without new message updates, stopping search through message history")
+                break
+
+    def high_water_mark(self) -> Optional[datetime.datetime]:
+        if self._high_water_mark is not None:
+            return self._high_water_mark
+        newest_msg = self.chat_db.get_newest_message()
+        if newest_msg is None:
+            return None
+        self._high_water_mark = newest_msg.datetime
+        return self._high_water_mark
+
+    def bump_high_water_mark(self, new_hwm: datetime.datetime) -> None:
+        if self._high_water_mark is None:
+            self._high_water_mark = new_hwm
+        hwm = min(self._high_water_mark, new_hwm)
+        if new_hwm == hwm:
+            logger.info("Updating high water mark in chat history")
+        self._high_water_mark = hwm
+
+    def cutoff_date(self) -> Optional[datetime.datetime]:
+        if self.behaviour.msg_history_overlap_days == 0:
+            return None
+        if self.high_water_mark() is None:
+            return None
+        return self.high_water_mark() - datetime.timedelta(days=self.behaviour.msg_history_overlap_days)
+
+    def cutoff_date_met(self, current_date: datetime.datetime) -> bool:
+        cutoff_date = self.cutoff_date()
+        if cutoff_date is None:
+            return False
+        # If the current message is before the cutoff, we've gone back far enough
+        return current_date < cutoff_date
 
     @staticmethod
     def missing_message_ids(msg_id: int, prev_msg_id: Optional[int], known_msg_ids: Iterable[int]) -> list[int]:
