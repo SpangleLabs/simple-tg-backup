@@ -11,6 +11,11 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
+- Ensure archiver checks for, and marks, deleted messages from history.
+- Ability to have the archiver start, and not check the whole chat history?
+  - Add `msg_history_overlap_days` to behaviour config. Make it such that it'll check that far back for edited and deleted messages
+  - Reset the counter if it does find an edited or deleted message
+  - Default it to 3 days or something (normally messages can be edited for 2 days)
 - Further work on the web UI
   - Implement form for setting up filtered configuration for dialogs
     - Also, update the "default" value for dialogs in known dialogs list, when this is done
