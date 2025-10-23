@@ -12,9 +12,9 @@ from tg_backup.utils.dialog_type import DialogType
 class ChatData:
     chat_id: int
     chat_type: DialogType
-    username: Optional[str]
     title: Optional[str]
-    member_count: Optional[int]
+    username: Optional[str] = None
+    member_count: Optional[int] = None
 
     def to_dict(self) -> dict:
         return {

@@ -4,6 +4,7 @@ from typing import Optional
 import telethon.tl.custom.dialog
 
 from tg_backup.models.abstract_resource import AbstractResource
+from tg_backup.utils.chat_matcher import ChatData
 from tg_backup.utils.dialog_type import DialogType
 
 
@@ -25,6 +26,13 @@ class Dialog(AbstractResource):
         self.last_msg_date: Optional[datetime.datetime] = None
         self.first_seen: Optional[datetime.datetime] = None
         self.last_seen: Optional[datetime.datetime] = None
+
+    def chat_data(self) -> ChatData:
+        return ChatData(
+            chat_id=self.resource_id,
+            chat_type=self.chat_type,
+            title=self.name,
+        )
 
     @classmethod
     def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":

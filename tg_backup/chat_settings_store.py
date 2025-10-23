@@ -82,7 +82,7 @@ class ChatSettingsStore:
 
     def set_chat_archive(self, chat_id: int, dialog: Dialog, archive: Optional[bool]) -> None:
         if chat_id not in self.chat_settings:
-            chat_data = ChatData(chat_id, dialog.chat_type, None, dialog.name, None)
+            chat_data = dialog.chat_data()
             self.chat_settings[chat_id] = ChatSettingsEntry(chat_id, chat_data, dialog.last_seen, archive, None)
         else:
             self.chat_settings[chat_id].archive = archive
