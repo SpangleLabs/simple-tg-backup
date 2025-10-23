@@ -127,6 +127,11 @@ class ArchiveTarget:
         self.run_record.archive_stats.inc_messages_saved()
         self.add_known_msg_id(msg.id)
         # Send peers, media, and sticker to relevant subsystems
+        await self._msg_to_subsystems(msg)
+        # Return the saved message object
+        return msg_obj
+
+    async def _msg_to_subsystems(self, msg: telethon.tl.types.Message) -> None:
         if hasattr(msg, "from_id") and msg.from_id is not None:
             queue_key = self.run_record.archive_run_id
             await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
@@ -137,8 +142,6 @@ class ArchiveTarget:
                 if self.behaviour.download_media:
                     await self.archiver.media_dl.queue_media(self.chat_id, msg)
                     self.run_record.archive_stats.inc_media_seen()
-        # Return the saved message object
-        return msg_obj
 
     async def _cleanup_duplicate_messages(
             self,
