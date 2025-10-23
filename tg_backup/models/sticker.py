@@ -33,5 +33,6 @@ class Sticker(AbstractResource):
                     sticker_obj.file_name = attr.file_name
                 if isinstance(attr, DocumentAttributeSticker):
                     sticker_obj.emoji = attr.alt
-                    sticker_obj.sticker_set_id = attr.stickerset.id
+                    if hasattr(attr.stickerset, "id"):
+                        sticker_obj.sticker_set_id = attr.stickerset.id
         return sticker_obj
