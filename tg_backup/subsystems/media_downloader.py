@@ -61,7 +61,10 @@ class MediaDownloader(AbstractSubsystem):
                         media_ext = attr.file_name.split(".")[-1]
                 return MediaInfo(media_type, media_id, media_ext)
             if hasattr(msg.media, "webpage"):
-                logger.info("Downloading web page previews not currently supported")
+                logger.info("Downloading web page previews not currently supported") # TODO
+                return None
+            if hasattr(msg.media, "geo"):
+                logger.info("Downloading shared locations not currently supported") # TODO
                 return None
             raise ValueError(f"Unrecognised media type: {media_type}")
         return None
