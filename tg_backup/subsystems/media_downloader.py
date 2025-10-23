@@ -71,7 +71,7 @@ class MediaDownloader(AbstractSubsystem):
         media_processed_count.inc()
         # Determine media folder
         chat_id = queue_entry.chat_id
-        media_dir = f"store/chats/{chat_id}/media/"
+        media_dir = f"store/chats/{chat_id}/media"
         os.makedirs(media_dir, exist_ok=True)
         # Determine media info
         media_info = self._parse_media_info(queue_entry.message)
