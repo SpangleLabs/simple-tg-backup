@@ -55,6 +55,7 @@ class WebServer:
             {
                 "running": self.archiver.running,
                 "current_activity": self.archiver.current_activity,
+                "archiver": self.archiver,
             }
         )
 

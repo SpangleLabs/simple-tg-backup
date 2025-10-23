@@ -8,6 +8,53 @@
 <p><a href="/">Return to home</a></p>
 {% if running %}
     <p>The archiver is currently running!</p>
+    <ul>
+        <li>
+            Media downloader:
+            {% set media_dl_task = archiver.media_dl.task %}
+            {% if media_dl_task is none %}
+                Not yet running
+            {% else %}
+                {% if not media_dl_task.done() %}
+                    Running
+                {% else %}
+                    <b>Stopped</b>
+                    {% set media_dl_exc = media_dl_task.exception() %}
+                    {% if media_dl_exc is not none %} Exception: {{ media_dl_exc }} {% endif %}
+                {% endif %}
+            {% endif %}
+        </li>
+        <li>
+            Sticker downloader:
+            {% set sticker_dl_task = archiver.sticker_downloader.task %}
+            {% if sticker_dl_task is none %}
+                Not yet running
+            {% else %}
+                {% if not sticker_dl_task.done() %}
+                    Running
+                {% else %}
+                    <b>Stopped</b>
+                    {% set sticker_dl_exc = sticker_dl_task.exception() %}
+                    {% if sticker_dl_exc is not none %} Exception: {{ sticker_dl_exc }} {% endif %}
+                {% endif %}
+            {% endif %}
+        </li>
+        <li>
+            Peer fetcher:
+            {% set peer_fetch_task = archiver.peer_fetcher.task %}
+            {% if peer_fetch_task is none %}
+                Not yet running
+            {% else %}
+                {% if not peer_fetch_task.done() %}
+                    Running
+                {% else %}
+                    <b>Stopped</b>
+                    {% set peer_fetch_exc = peer_fetch_task.exception() %}
+                    {% if peer_fetch_exc is not none %} Exception: {{ peer_fetch_exc }} {% endif %}
+                {% endif %}
+            {% endif %}
+        </li>
+    </ul>
 {% else %}
     <p>The archiver is not currently running. Would you like to start it?</p>
     <form action="/archiver/" method="post">
