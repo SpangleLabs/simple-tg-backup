@@ -7,7 +7,8 @@ from typing import Optional
 import telethon
 from prometheus_client import Counter
 from telethon import TelegramClient
-from telethon.tl.types import DocumentAttributeFilename
+from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage, \
+    MessageMediaGeo, MessageMediaGeoLive
 
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
@@ -50,23 +51,23 @@ class MediaDownloader(AbstractSubsystem):
         media_ext = "unknown_filetype"
         if hasattr(msg, "media"):
             media_type = type(msg.media).__name__
-            if hasattr(msg.media, "photo"):
+            if isinstance(msg.media, MessageMediaPhoto):
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
                 return MediaInfo(media_type, media_id, media_ext)
-            if hasattr(msg.media, "document"):
+            if isinstance(msg.media, MessageMediaDocument):
                 media_id = msg.media.document.id
                 for attr in msg.media.document.attributes:
                     if type(attr) == DocumentAttributeFilename:
                         media_ext = attr.file_name.split(".")[-1]
                 return MediaInfo(media_type, media_id, media_ext)
-            if hasattr(msg.media, "webpage"):
+            if isinstance(msg.media, MessageMediaWebPage):
                 logger.info("Downloading web page previews not currently supported") # TODO
                 return None
-            if hasattr(msg.media, "geo"):
+            if isinstance(msg.media, MessageMediaGeo) or isinstance(msg.media, MessageMediaGeoLive):
                 logger.info("Downloading shared locations not currently supported") # TODO
                 return None
-            raise ValueError(f"Unrecognised media type: {media_type}")
+            raise ValueError(f"Unhandled media type: {media_type}")
         return None
 
     async def _do_process(self) -> None:
