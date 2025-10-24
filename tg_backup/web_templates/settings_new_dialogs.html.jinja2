@@ -7,8 +7,6 @@
 <h1>New dialog settings</h1>
 <p><a href="/">Return to home</a></p>
 <h2>Auto filters for new dialogs</h2>
-<form action="/settings/new_dialogs" method="post">
-<input type="hidden" name="action" value="update_new_dialogs">
 <table>
     <thead>
     <tr>
@@ -31,17 +29,22 @@
             <td>WIPPPP</td>
         </tr>
     {% endfor %}
+    <form action="/settings/new_dialogs" method="post">
+    <input type="hidden" name="action" value="update_new_dialogs">
     <tr style="border-top: 3px double black">
-        <td>New filter<br/><input type="text" name="new_filter_filter" /></td>
+        <td>
+            New filter<br/>
+            <input type="text" name="new_filter_filter" /><br/>
+            <input type="submit" value="Add new filter"/>
+        </td>
         <td><input type="radio" name="new_filter_archive" value="default" checked /></td>
         <td><input type="radio" name="new_filter_archive" value="archive" /></td>
         <td><input type="radio" name="new_filter_archive" value="no_archive" /></td>
         <td>WIP</td>
         <td>-</td>
     </tr>
+    </form>
     </tbody>
 </table>
-<input type="submit" value="Save all new dialog filter settings">
-</form>
 </body>
 </html>
