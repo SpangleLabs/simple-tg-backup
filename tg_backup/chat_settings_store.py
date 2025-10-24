@@ -47,7 +47,7 @@ class ChatSettingsEntry:
 @dataclasses.dataclass
 class NewChatsFilter:
     filter: str
-    archive: bool
+    archive: Optional[bool]
     behaviour: Optional[BehaviourConfig]
 
     def to_dict(self) -> dict:
