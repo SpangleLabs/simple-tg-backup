@@ -16,7 +16,7 @@
                 Not yet running
             {% else %}
                 {% if not media_dl_task.done() %}
-                    Running
+                    Running! Queue size: {{ archiver.media_dl.queue_size() }}
                 {% else %}
                     <b>Stopped</b>
                     {% set media_dl_exc = media_dl_task.exception() %}
@@ -31,7 +31,7 @@
                 Not yet running
             {% else %}
                 {% if not sticker_dl_task.done() %}
-                    Running
+                    Running! Queue size: {{ archiver.sticker_downloader.queue_size() }}
                 {% else %}
                     <b>Stopped</b>
                     {% set sticker_dl_exc = sticker_dl_task.exception() %}
@@ -46,7 +46,7 @@
                 Not yet running
             {% else %}
                 {% if not peer_fetch_task.done() %}
-                    Running
+                    Running! Queue size: {{ archiver.peer_fetcher.queue_size() }}
                 {% else %}
                     <b>Stopped</b>
                     {% set peer_fetch_exc = peer_fetch_task.exception() %}
