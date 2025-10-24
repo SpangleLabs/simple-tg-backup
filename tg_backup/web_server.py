@@ -9,9 +9,11 @@ from aiohttp import web
 from prometheus_client import Gauge
 
 from tg_backup.archiver import Archiver
+from tg_backup.chat_settings_store import NewChatsFilter
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.abstract_resource import group_by_id
+from tg_backup.utils.chat_matcher import matcher_parser
 
 JINJA_TEMPLATE_DIR = pathlib.Path(__file__).parent / 'web_templates'
 
@@ -147,6 +149,46 @@ class WebServer:
             return await self.settings_known_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
 
+    async def settings_new_dialogs(self, req: web.Request) -> web.Response:
+        return aiohttp_jinja2.render_template(
+            "settings_new_dialogs.html.jinja2",
+            req,
+            {
+                "settings": self.archiver.chat_settings,
+            }
+        )
+
+    async def settings_new_dialogs_post(self, req: web.Request) -> web.Response:
+        data = await req.post()
+        if data.get("action") == "update_new_dialogs":
+            for data_key, data_val in data.items():
+                if data_key.startswith("archive_filter_"):
+                    filter_id = int(data_key[len("archive_filter_"):])
+                    chat_filter = self.archiver.chat_settings.new_chat_filters[filter_id]
+                    parsed_val = {
+                        "default": None,
+                        "archive": True,
+                        "no_archive": False,
+                    }[data_val]
+                    chat_filter.archive = parsed_val
+            new_filter_str = data.get("new_filter_filter").strip()
+            if new_filter_str != "":
+                filter_parser = matcher_parser()
+                try:
+                    new_filter_filter = filter_parser.parse_string(new_filter_str)
+                except Exception as e:
+                    return web.Response(status=400, text=f"Could not parse new chat filter: {str(e)}")
+                parsed_archive_val = {
+                    "default": None,
+                    "archive": True,
+                    "no_archive": False,
+                }[data.get("new_filter_archive")]
+                new_filter = NewChatsFilter(new_filter_str, parsed_archive_val, None)
+                self.archiver.chat_settings.new_chat_filters.append(new_filter)
+            self.archiver.chat_settings.save_to_file()
+            return await self.settings_new_dialogs(req)
+        return web.Response(status=404, text="Unrecognised action")
+
     def _setup_routes(self) -> None:
         self.app.add_routes([
             web.static("/static", str(JINJA_TEMPLATE_DIR / "static")),
@@ -158,6 +200,8 @@ class WebServer:
             web.post("/settings/behaviour", self.settings_behaviour_save),
             web.get("/settings/known_dialogs", self.settings_known_dialogs),
             web.post("/settings/known_dialogs", self.settings_known_dialogs_post),
+            web.get("/settings/new_dialogs", self.settings_new_dialogs),
+            web.post("/settings/new_dialogs", self.settings_new_dialogs_post),
         ])
 
     def run(self) -> None:

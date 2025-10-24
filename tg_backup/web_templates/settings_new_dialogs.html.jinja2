@@ -1,0 +1,47 @@
+<html>
+<head>
+    <title>Simple telegram archiver</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<h1>New dialog settings</h1>
+<p><a href="/">Return to home</a></p>
+<h2>Auto filters for new dialogs</h2>
+<form action="/settings/new_dialogs" method="post">
+<input type="hidden" name="action" value="update_new_dialogs">
+<table>
+    <thead>
+    <tr>
+        <th>Filter</th>
+        <th>Leave default</th>
+        <th>Archive chat</th>
+        <th>Don't archive</th>
+        <th>Behaviour config</th>
+        <th>Delete?</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for filter in settings.new_chat_filters %}
+        <tr>
+            <td>{{ filter.filter }}</td>
+            <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="default" {% if filter.archive is none %}checked{% endif %} /></td>
+            <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="archive" {% if filter.archive is true %}checked{% endif %} /></td>
+            <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="no_archive" {% if filter.archive is false %}checked{% endif %}/></td>
+            <td>WIP</td>
+            <td>WIPPPP</td>
+        </tr>
+    {% endfor %}
+    <tr style="border-top: 3px double black">
+        <td>New filter<br/><input type="text" name="new_filter_filter" /></td>
+        <td><input type="radio" name="new_filter_archive" value="default" checked /></td>
+        <td><input type="radio" name="new_filter_archive" value="archive" /></td>
+        <td><input type="radio" name="new_filter_archive" value="no_archive" /></td>
+        <td>WIP</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+<input type="submit" value="Save all new dialog filter settings">
+</form>
+</body>
+</html>
