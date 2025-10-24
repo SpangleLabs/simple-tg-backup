@@ -51,10 +51,16 @@ class MediaDownloader(AbstractSubsystem):
         if hasattr(msg, "media"):
             media_type = type(msg.media).__name__
             if isinstance(msg.media, MessageMediaPhoto):
+                if msg.media.photo is None:
+                    logger.info("This timed photo has expired, cannot archive")
+                    return None
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
                 return MediaInfo(media_type, media_id, media_ext)
             if isinstance(msg.media, MessageMediaDocument):
+                if msg.media.document is None:
+                    logger.info("This timed document has expired, cannot archive")
+                    return None
                 media_id = msg.media.document.id
                 for attr in msg.media.document.attributes:
                     if type(attr) == DocumentAttributeFilename:
