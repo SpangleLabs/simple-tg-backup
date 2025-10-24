@@ -8,7 +8,7 @@ import telethon
 from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage, \
-    MessageMediaGeo, MessageMediaGeoLive
+    MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll
 
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
@@ -71,6 +71,9 @@ class MediaDownloader(AbstractSubsystem):
                 return None
             if isinstance(msg.media, MessageMediaGeo) or isinstance(msg.media, MessageMediaGeoLive):
                 logger.info("Downloading shared locations not currently supported") # TODO
+                return None
+            if isinstance(msg.media, MessageMediaPoll):
+                logger.info("Downloading polls not currently supported") # TODO
                 return None
             raise ValueError(f"Unhandled media type: {media_type}")
         return None
