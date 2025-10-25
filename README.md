@@ -11,7 +11,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Make chat matchers able to match with wildcard (fnmatch?)
 - Make dialogs able to recognise group vs channel, for filtering
 - Data deduplication
   - Deduplicate admin events in the same way messages are?

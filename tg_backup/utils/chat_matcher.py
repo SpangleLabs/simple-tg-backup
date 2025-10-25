@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import fnmatch
 from abc import ABC, abstractmethod
 from typing import Optional, Callable
 
@@ -40,10 +41,24 @@ class DelimFunctor(enum.Enum):
     EQUAL = "equal"
     NOT_EQUAL = "not_equal"
 
+    @staticmethod
+    def _equal(chat_val: any, query_val: any) -> bool:
+        if chat_val == query_val:
+            return True
+        if isinstance(query_val, str) and isinstance(chat_val, str):
+            if "*" in query_val:
+                return fnmatch.fnmatch(chat_val.lower(), query_val.lower())
+            return chat_val.lower() == query_val.lower()
+        return False
+
+    @staticmethod
+    def _not_equal(chat_val: any, query_val: any) -> bool:
+        return not DelimFunctor._equal(chat_val, query_val)
+
     def compare_func(self) -> Callable[[any, any], bool]:
         return {
-            DelimFunctor.EQUAL: lambda a, b: a == b,
-            DelimFunctor.NOT_EQUAL: lambda a, b: a != b,
+            DelimFunctor.EQUAL: self._equal,
+            DelimFunctor.NOT_EQUAL: self._not_equal,
         }[self]
 
     def compare(self, chat_value: any, query_value: any) -> bool:
