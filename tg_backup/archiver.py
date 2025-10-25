@@ -167,11 +167,14 @@ class Archiver:
         Runs the archiver with the ChatSettingsStore settings
         """
         fallback_behaviour = self.config.default_behaviour
+        # List the targets to follow live
         follow_dialogs = self.chat_settings.list_follow_live(dialogs, fallback_behaviour)
         follow_targets = self.dialogs_to_archive_targets(follow_dialogs)
+        # List the targets to archive history for
         archive_history_dialogs = self.chat_settings.list_needs_archive_run(dialogs, fallback_behaviour)
         override_follow = BehaviourConfig(follow_live=False)
         archive_history_targets = self.dialogs_to_archive_targets(archive_history_dialogs, override_follow)
+        # Set up the archiver activity
         activity = ArchiverActivity("Running archive", follow_targets, archive_history_targets)
         self.current_activity = activity
         async with self.run():
