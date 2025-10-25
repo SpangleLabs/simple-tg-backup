@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+from functools import reduce
 from typing import Optional
 
 import yaml
@@ -106,19 +107,22 @@ class ChatSettingsStore:
 
     def behaviour_for_dialog(self, dialog: Dialog, fallback: BehaviourConfig) -> BehaviourConfig:
         dialog_id = dialog.resource_id
+        behaviour_configs: list[BehaviourConfig] = []
         # Check for chat-specific settings
         chat_settings = self.chat_settings.get(dialog_id)
-        default_fallback = BehaviourConfig.merge(self.default_behaviour, fallback)
         if chat_settings is not None and chat_settings.behaviour is not None:
-            return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
+            behaviour_configs.append(chat_settings.behaviour)
         # Check against chat filters
         dialog_data = dialog.chat_data()
         for chat_filter in self.new_chat_filters:
             if chat_filter.matcher.matches_chat(dialog_data):
                 if chat_filter.behaviour is not None:
-                    return BehaviourConfig.merge(chat_filter.behaviour, default_fallback)
-        # Otherwise, return default fallback behaviour
-        return default_fallback
+                    behaviour_configs.append(chat_filter.behaviour)
+        # Finally, add the fallback
+        default_fallback = BehaviourConfig.merge(self.default_behaviour, fallback)
+        behaviour_configs.append(default_fallback)
+        # Return combined behaviours
+        return reduce(BehaviourConfig.merge, behaviour_configs)
 
     def list_archive_enabled(self, dialogs: list[Dialog]) -> list[Dialog]:
         should_archive: list[Dialog] = []
