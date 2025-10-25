@@ -11,10 +11,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 
 ## TODO lists
 ### TODO: Would be good
-- Implement form for setting up filtered configuration for dialogs
-  - And then the functionality, ofc
-  - Extra: Say how many dialogs the filter matches (and/or list them)
-  - Extra: Update the "default" value for dialogs in "known dialogs list" page, when this is done
 - Make chat matchers able to match with wildcard (fnmatch?)
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
