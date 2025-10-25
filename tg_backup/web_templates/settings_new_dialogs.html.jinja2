@@ -7,6 +7,8 @@
 <h1>New dialog settings</h1>
 <p><a href="/">Return to home</a></p>
 <h2>Auto filters for new dialogs</h2>
+<form action="/settings/new_dialogs" method="post">
+<button name="action" value="update_new_dialogs">Save all new dialog filter settings</button>
 <table>
     <thead>
     <tr>
@@ -16,6 +18,7 @@
         <th>Don't archive</th>
         <th>Behaviour config</th>
         <th>Delete?</th>
+        <th>Move</th>
     </tr>
     </thead>
     <tbody>
@@ -26,16 +29,19 @@
             <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="archive" {% if filter.archive is true %}checked{% endif %} /></td>
             <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="no_archive" {% if filter.archive is false %}checked{% endif %}/></td>
             <td>WIP</td>
-            <td>WIPPPP</td>
+            <td>
+                <button name="action" value="delete_filter_{{ loop.index0 }}">Delete</button>
+            </td>
+            <td>
+                <button name="action" value="move_up_{{ loop.index0 }}">^ up</button>
+                <button name="action" value="move_down_{{ loop.index0 }}">v down</button>
+            </td>
         </tr>
     {% endfor %}
-    <form action="/settings/new_dialogs" method="post">
-    <input type="hidden" name="action" value="update_new_dialogs">
     <tr style="border-top: 3px double black">
         <td>
             New filter<br/>
-            <input type="text" name="new_filter_filter" /><br/>
-            <input type="submit" value="Add new filter"/>
+            <input type="text" name="new_filter_filter" />
         </td>
         <td><input type="radio" name="new_filter_archive" value="default" checked /></td>
         <td><input type="radio" name="new_filter_archive" value="archive" /></td>
@@ -43,8 +49,9 @@
         <td>WIP</td>
         <td>-</td>
     </tr>
-    </form>
     </tbody>
 </table>
+<button name="action" value="update_new_dialogs">Save all new dialog filter settings</button>
+</form>
 </body>
 </html>

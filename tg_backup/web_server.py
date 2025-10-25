@@ -187,6 +187,29 @@ class WebServer:
                 self.archiver.chat_settings.new_chat_filters.append(new_filter)
             self.archiver.chat_settings.save_to_file()
             return await self.settings_new_dialogs(req)
+        if data.get("action").startswith("delete_filter_"):
+            filter_id = int(data.get("action")[len("delete_filter_"):])
+            del self.archiver.chat_settings.new_chat_filters[filter_id]
+            self.archiver.chat_settings.save_to_file()
+            return await self.settings_new_dialogs(req)
+        if data.get("action").startswith("move_up_"):
+            filter_id = int(data.get("action")[len("move_up_"):])
+            if filter_id == 0:
+                return web.Response(status=400, text="Can't move top up, silly")
+            filters = self.archiver.chat_settings.new_chat_filters
+            filters[filter_id-1], filters[filter_id] = filters[filter_id], filters[filter_id-1]
+            self.archiver.chat_settings.new_chat_filters = filters
+            self.archiver.chat_settings.save_to_file()
+            return await self.settings_new_dialogs(req)
+        if data.get("action").startswith("move_down_"):
+            filter_id = int(data.get("action")[len("move_down_"):])
+            filters = self.archiver.chat_settings.new_chat_filters
+            if filter_id == len(filters)-1:
+                return web.Response(status=400, text="Can't move bottom down, silly")
+            filters[filter_id], filters[filter_id+1] = filters[filter_id+1], filters[filter_id]
+            self.archiver.chat_settings.new_chat_filters = filters
+            self.archiver.chat_settings.save_to_file()
+            return await self.settings_new_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
 
     def _setup_routes(self) -> None:
