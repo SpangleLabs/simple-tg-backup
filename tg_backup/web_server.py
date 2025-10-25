@@ -175,7 +175,7 @@ class WebServer:
             if new_filter_str != "":
                 filter_parser = matcher_parser()
                 try:
-                    new_filter_filter = filter_parser.parse_string(new_filter_str)
+                    matcher = filter_parser.parse_string(new_filter_str)[0]
                 except Exception as e:
                     return web.Response(status=400, text=f"Could not parse new chat filter: {str(e)}")
                 parsed_archive_val = {
@@ -183,7 +183,7 @@ class WebServer:
                     "archive": True,
                     "no_archive": False,
                 }[data.get("new_filter_archive")]
-                new_filter = NewChatsFilter(new_filter_str, parsed_archive_val, None)
+                new_filter = NewChatsFilter(new_filter_str, parsed_archive_val, None, matcher)
                 self.archiver.chat_settings.new_chat_filters.append(new_filter)
             self.archiver.chat_settings.save_to_file()
             return await self.settings_new_dialogs(req)

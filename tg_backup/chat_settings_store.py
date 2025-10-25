@@ -3,12 +3,12 @@ import datetime
 from typing import Optional
 
 import yaml
+import pyparsing as pp
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.abstract_database import storable_date, parsable_date
 from tg_backup.models.dialog import Dialog
-from tg_backup.utils.chat_matcher import ChatData
-
+from tg_backup.utils.chat_matcher import ChatData, ChatMatcher, matcher_parser
 
 STORE_FILE = "archive_settings.yaml"
 
@@ -49,6 +49,7 @@ class NewChatsFilter:
     filter: str
     archive: Optional[bool]
     behaviour: Optional[BehaviourConfig]
+    matcher: ChatMatcher
 
     def to_dict(self) -> dict:
         return {
@@ -58,11 +59,12 @@ class NewChatsFilter:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "NewChatsFilter":
+    def from_dict(cls, data: dict, filter_parser: pp.ParserElement) -> "NewChatsFilter":
         return cls(
             filter=data["filter"],
             archive=data["archive"],
             behaviour=BehaviourConfig.from_dict(data["behaviour"]) if data.get("behaviour") else None,
+            matcher=filter_parser.parse_string(data["filter"])[0],
         )
 
 @dataclasses.dataclass
@@ -160,13 +162,16 @@ class ChatSettingsStore:
         except FileNotFoundError:
             data = {}
         behaviour = BehaviourConfig.from_dict(data["default_behaviour"]) if data.get("default_behaviour") else None
+        # Parse dialog settings
         chat_settings = {}
         for data_entry in data.get("chat_settings", []):
             settings = ChatSettingsEntry.from_dict(data_entry)
             chat_settings[settings.chat_id] = settings
+        # Parse new dialog filters
+        filter_parser = matcher_parser()
         chat_filters = []
         for data_entry in data.get("new_chat_filters", []):
-            chat_filter = NewChatsFilter.from_dict(data_entry)
+            chat_filter = NewChatsFilter.from_dict(data_entry, filter_parser)
             chat_filters.append(chat_filter)
         # Construct the settings store
         return cls(
