@@ -90,9 +90,17 @@ class ChatSettingsStore:
             self.chat_settings[chat_id].archive = archive
 
     def should_archive_chat(self, dialog: Dialog) -> bool:
+        # Check for chat-specific settings
         chat_settings = self.chat_settings.get(dialog.resource_id)
         if chat_settings is not None and chat_settings.archive is not None:
             return chat_settings.archive
+        # Check against chat filters
+        dialog_data = dialog.chat_data()
+        for chat_filter in self.new_chat_filters:
+            if chat_filter.matcher.matches_chat(dialog_data):
+                if chat_filter.archive is not None:
+                    return chat_filter.archive
+        # Otherwise, use default value
         return self.default_archive
 
     def behaviour_for_chat(self, chat_id: int, fallback: BehaviourConfig) -> BehaviourConfig:
