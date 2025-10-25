@@ -8,7 +8,9 @@ import telethon
 from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage, \
-    MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll
+    MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll, MessageMediaDice, MessageMediaContact, MessageMediaToDo, \
+    MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaInvoice, \
+    MessageMediaVenue, MessageMediaGame
 
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
 
@@ -38,25 +40,29 @@ class MediaInfo:
 
 
 class MediaDownloader(AbstractSubsystem):
+    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll, MessageMediaContact, MessageMediaToDo, MessageMediaDice]
+    MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
+
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
         self.queue: asyncio.Queue[MediaQueueEntry] = asyncio.Queue()
 
-    def _parse_media_info(self, msg: object) -> Optional[MediaInfo]:
+    def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> Optional[MediaInfo]:
         # Skip if not media
         if not hasattr(msg, "media"):
             return None
         # Start checking media type
         media_ext = "unknown_filetype"
         if hasattr(msg, "media"):
-            media_type = type(msg.media).__name__
+            media_type = type(msg.media)
+            media_type_name = media_type.__name__
             if isinstance(msg.media, MessageMediaPhoto):
                 if msg.media.photo is None:
                     logger.info("This timed photo has expired, cannot archive")
                     return None
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
-                return MediaInfo(media_type, media_id, media_ext)
+                return MediaInfo(media_type_name, media_id, media_ext)
             if isinstance(msg.media, MessageMediaDocument):
                 if msg.media.document is None:
                     logger.info("This timed document has expired, cannot archive")
@@ -65,17 +71,24 @@ class MediaDownloader(AbstractSubsystem):
                 for attr in msg.media.document.attributes:
                     if type(attr) == DocumentAttributeFilename:
                         media_ext = attr.file_name.split(".")[-1]
-                return MediaInfo(media_type, media_id, media_ext)
-            if isinstance(msg.media, MessageMediaWebPage):
-                logger.info("Downloading web page previews not currently supported") # TODO
+                return MediaInfo(media_type_name, media_id, media_ext)
+            if media_type in self.MEDIA_TO_DO:
+                logger.info(
+                    "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
+                    media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+                ) # TODO: Implement these
                 return None
-            if isinstance(msg.media, MessageMediaGeo) or isinstance(msg.media, MessageMediaGeoLive):
-                logger.info("Downloading shared locations not currently supported") # TODO
+            if media_type in self.MEDIA_IGNORE:
+                logger.info(
+                    "Media type ignored: %s, chat ID: %s, msg ID: %s, date %s",
+                    media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+                )
                 return None
-            if isinstance(msg.media, MessageMediaPoll):
-                logger.info("Downloading polls not currently supported") # TODO
-                return None
-            raise ValueError(f"Unhandled media type: {media_type}")
+            logger.warning(
+                "Unknown media type! %s, chat ID: %s, msg ID: %s, date %s",
+                media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+            )
+            return None
         return None
 
     async def _do_process(self) -> None:
@@ -86,7 +99,7 @@ class MediaDownloader(AbstractSubsystem):
         media_dir = f"store/chats/{chat_id}/media"
         os.makedirs(media_dir, exist_ok=True)
         # Determine media info
-        media_info = self._parse_media_info(queue_entry.message)
+        media_info = self._parse_media_info(queue_entry.message, queue_entry.chat_id)
         if media_info is None:
             return
         # Construct file path
