@@ -82,14 +82,15 @@ class ChatSettingsStore:
         for chat_id in del_ids:
             del self.chat_settings[chat_id]
 
-    def set_chat_archive(self, chat_id: int, dialog: Dialog, archive: Optional[bool]) -> None:
-        if chat_id not in self.chat_settings:
+    def set_dialog_archive(self, dialog: Dialog, archive: Optional[bool]) -> None:
+        dialog_id = dialog.resource_id
+        if dialog_id not in self.chat_settings:
             chat_data = dialog.chat_data()
-            self.chat_settings[chat_id] = ChatSettingsEntry(chat_id, chat_data, dialog.last_seen, archive, None)
+            self.chat_settings[dialog_id] = ChatSettingsEntry(dialog_id, chat_data, dialog.last_seen, archive, None)
         else:
-            self.chat_settings[chat_id].archive = archive
+            self.chat_settings[dialog_id].archive = archive
 
-    def should_archive_chat(self, dialog: Dialog) -> bool:
+    def should_archive_dialog(self, dialog: Dialog) -> bool:
         # Check for chat-specific settings
         chat_settings = self.chat_settings.get(dialog.resource_id)
         if chat_settings is not None and chat_settings.archive is not None:
@@ -103,32 +104,35 @@ class ChatSettingsStore:
         # Otherwise, use default value
         return self.default_archive
 
-    def behaviour_for_chat(self, chat_id: int, fallback: BehaviourConfig) -> BehaviourConfig:
-        chat_settings = self.chat_settings.get(chat_id)
+    def behaviour_for_dialog(self, dialog: Dialog, fallback: BehaviourConfig) -> BehaviourConfig:
+        dialog_id = dialog.resource_id
+        # Check for chat-specific settings
+        chat_settings = self.chat_settings.get(dialog_id)
         default_fallback = BehaviourConfig.merge(self.default_behaviour, fallback)
-        if chat_settings is None or chat_settings.behaviour is None:
-            return default_fallback
-        return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
+        if chat_settings is not None and chat_settings.behaviour is not None:
+            return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
+        # Otherwise, return default fallback behaviour
+        return default_fallback
 
-    def list_archive_enabled(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
+    def list_archive_enabled(self, dialogs: list[Dialog]) -> list[Dialog]:
         should_archive: list[Dialog] = []
         for dialog in dialogs:
-            if self.should_archive_chat(dialog):
+            if self.should_archive_dialog(dialog):
                 should_archive.append(dialog)
         return should_archive
 
     def list_follow_live(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
         follow_live: list[Dialog] = []
-        for dialog in self.list_archive_enabled(dialogs, default_behaviour):
-            behaviour = self.behaviour_for_chat(dialog.resource_id, default_behaviour)
+        for dialog in self.list_archive_enabled(dialogs):
+            behaviour = self.behaviour_for_dialog(dialog, default_behaviour)
             if behaviour.follow_live:
                 follow_live.append(dialog)
         return follow_live
 
     def list_needs_archive_run(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
         needs_archive_run: list[Dialog] = []
-        for dialog in self.list_archive_enabled(dialogs, default_behaviour):
-            behaviour = self.behaviour_for_chat(dialog.resource_id, default_behaviour)
+        for dialog in self.list_archive_enabled(dialogs):
+            behaviour = self.behaviour_for_dialog(dialog, default_behaviour)
             if behaviour.needs_archive_run():
                 needs_archive_run.append(dialog)
         return needs_archive_run
@@ -143,7 +147,7 @@ class ChatSettingsStore:
         for dialog in dialogs:
             behaviour = BehaviourConfig.merge(
                 override_behaviour,
-                self.behaviour_for_chat(dialog.resource_id, default_behaviour),
+                self.behaviour_for_dialog(dialog, default_behaviour),
             )
             result[dialog.resource_id] = behaviour
         return result

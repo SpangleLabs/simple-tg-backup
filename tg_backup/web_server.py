@@ -139,7 +139,7 @@ class WebServer:
                         "archive": True,
                         "no_archive": False,
                     }[data_val]
-                    self.archiver.chat_settings.set_chat_archive(dialog_id, dialog, parsed_val)
+                    self.archiver.chat_settings.set_dialog_archive(dialog, parsed_val)
             self.archiver.chat_settings.save_to_file()
             return await self.settings_known_dialogs(req)
         if data.get("action") == "list_dialogs":
