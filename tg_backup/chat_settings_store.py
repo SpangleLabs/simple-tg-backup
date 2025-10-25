@@ -87,11 +87,11 @@ class ChatSettingsStore:
         else:
             self.chat_settings[chat_id].archive = archive
 
-    def should_archive_chat(self, chat_id: int) -> bool:
-        chat_settings = self.chat_settings.get(chat_id)
-        if chat_settings is None or chat_settings.archive is None:
-            return self.default_archive
-        return chat_settings.archive
+    def should_archive_chat(self, dialog: Dialog) -> bool:
+        chat_settings = self.chat_settings.get(dialog.resource_id)
+        if chat_settings is not None and chat_settings.archive is not None:
+            return chat_settings.archive
+        return self.default_archive
 
     def behaviour_for_chat(self, chat_id: int, fallback: BehaviourConfig) -> BehaviourConfig:
         chat_settings = self.chat_settings.get(chat_id)
@@ -103,7 +103,7 @@ class ChatSettingsStore:
     def list_archive_enabled(self, dialogs: list[Dialog], default_behaviour: BehaviourConfig) -> list[Dialog]:
         should_archive: list[Dialog] = []
         for dialog in dialogs:
-            if self.should_archive_chat(dialog.resource_id):
+            if self.should_archive_chat(dialog):
                 should_archive.append(dialog)
         return should_archive
 
