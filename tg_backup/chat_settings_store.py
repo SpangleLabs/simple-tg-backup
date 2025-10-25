@@ -111,6 +111,12 @@ class ChatSettingsStore:
         default_fallback = BehaviourConfig.merge(self.default_behaviour, fallback)
         if chat_settings is not None and chat_settings.behaviour is not None:
             return BehaviourConfig.merge(chat_settings.behaviour, default_fallback)
+        # Check against chat filters
+        dialog_data = dialog.chat_data()
+        for chat_filter in self.new_chat_filters:
+            if chat_filter.matcher.matches_chat(dialog_data):
+                if chat_filter.behaviour is not None:
+                    return BehaviourConfig.merge(chat_filter.behaviour, default_fallback)
         # Otherwise, return default fallback behaviour
         return default_fallback
 
