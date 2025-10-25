@@ -6,10 +6,24 @@
 <body>
 <h1>Known dialog settings</h1>
 <p><a href="/">Return to home</a></p>
+<h2>Dialog refresh</h2>
+{% if running_list_dialogs %}
+    <p>Archiver is currently working on listing all dialogs</p>
+{% elif newest_dialog_date is not none %}
+    <p>
+    Newest dialog date is {{ newest_dialog_date }}.<br />
+    Would you like to re-list all dialogs?
+    </p>
+    <form action="/settings/known_dialogs" method="post">
+        <input type="hidden" name="action" value="list_dialogs">
+        <input type="submit" value="Re-list all dialogs">
+    </form>
+{% endif %}
 <h2>Known dialogs</h2>
 {% if dialogs | length > 0 %}
 <form action="/settings/known_dialogs" method="post">
 <input type="hidden" name="action" value="update_known_dialogs">
+<input type="submit" value="Save all dialog settings">
 {% endif %}
 <table>
     <thead>
@@ -59,19 +73,6 @@
 {% if dialogs | length > 0 %}
 <input type="submit" value="Save all dialog settings">
 </form>
-{% endif %}
-
-{% if running_list_dialogs %}
-    <p>Archiver is currently working on listing all dialogs</p>
-{% elif newest_dialog_date is not none %}
-    <p>
-    Newest dialog date is {{ newest_dialog_date }}.<br />
-    Would you like to re-list all dialogs?
-    <form action="/settings/known_dialogs" method="post">
-        <input type="hidden" name="action" value="list_dialogs">
-        <input type="submit" value="Re-list all dialogs">
-    </form>
-    </p>
 {% endif %}
 </body>
 </html>
