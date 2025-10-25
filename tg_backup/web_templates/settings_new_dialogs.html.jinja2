@@ -13,6 +13,7 @@
     <thead>
     <tr>
         <th>Filter</th>
+        <th># Matches</th>
         <th>Leave default</th>
         <th>Archive chat</th>
         <th>Don't archive</th>
@@ -25,6 +26,7 @@
     {% for filter in settings.new_chat_filters %}
         <tr>
             <td>{{ filter.filter }}</td>
+            <td>{{ settings.count_matches_filter(dialogs, filter) }}</td>
             <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="default" {% if filter.archive is none %}checked{% endif %} /></td>
             <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="archive" {% if filter.archive is true %}checked{% endif %} /></td>
             <td><input type="radio" name="archive_filter_{{ loop.index0 }}" value="no_archive" {% if filter.archive is false %}checked{% endif %}/></td>
@@ -43,6 +45,7 @@
             New filter<br/>
             <input type="text" name="new_filter_filter" />
         </td>
+        <td>-</td>
         <td><input type="radio" name="new_filter_archive" value="default" checked /></td>
         <td><input type="radio" name="new_filter_archive" value="archive" /></td>
         <td><input type="radio" name="new_filter_archive" value="no_archive" /></td>

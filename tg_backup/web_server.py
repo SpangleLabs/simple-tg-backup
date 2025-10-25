@@ -155,6 +155,7 @@ class WebServer:
             req,
             {
                 "settings": self.archiver.chat_settings,
+                "dialogs": self.core_db.list_dialogs(),
             }
         )
 

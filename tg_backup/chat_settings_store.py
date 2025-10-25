@@ -91,6 +91,15 @@ class ChatSettingsStore:
         else:
             self.chat_settings[dialog_id].archive = archive
 
+    @staticmethod
+    def count_matches_filter(dialogs: list[Dialog], chat_filter: NewChatsFilter) -> int:
+        count = 0
+        for dialog in dialogs:
+            dialog_data = dialog.chat_data()
+            if chat_filter.matcher.matches_chat(dialog_data):
+                count += 1
+        return count
+
     def should_archive_dialog(self, dialog: Dialog, return_default: bool = False) -> bool:
         if not return_default:
             # Check for chat-specific settings
