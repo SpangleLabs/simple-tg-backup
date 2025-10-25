@@ -91,11 +91,12 @@ class ChatSettingsStore:
         else:
             self.chat_settings[dialog_id].archive = archive
 
-    def should_archive_dialog(self, dialog: Dialog) -> bool:
-        # Check for chat-specific settings
-        chat_settings = self.chat_settings.get(dialog.resource_id)
-        if chat_settings is not None and chat_settings.archive is not None:
-            return chat_settings.archive
+    def should_archive_dialog(self, dialog: Dialog, return_default: bool = False) -> bool:
+        if not return_default:
+            # Check for chat-specific settings
+            chat_settings = self.chat_settings.get(dialog.resource_id)
+            if chat_settings is not None and chat_settings.archive is not None:
+                return chat_settings.archive
         # Check against chat filters
         dialog_data = dialog.chat_data()
         for chat_filter in self.new_chat_filters:

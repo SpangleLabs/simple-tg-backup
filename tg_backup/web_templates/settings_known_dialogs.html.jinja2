@@ -42,14 +42,13 @@
         {% if dialog_settings is not none %}
             {% set archive_dialog = dialog_settings.archive %}
         {% endif %}
-        {% set default_archive = settings.default_archive %}
+        {% set default_archive = settings.should_archive_dialog(dialog, return_default=True) %}
         <tr>
         <td>{{ dialog.chat_type.value }} {{ dialog.resource_id }}: {{ dialog.name }}</td>
-        <td><input type="radio" name="archive_dialog_{{ dialog.resource_id }}" value="default" {% if archive_dialog is none %}checked{% endif %} /></td>
+        <td><input type="radio" name="archive_dialog_{{ dialog.resource_id }}" value="default" {% if archive_dialog is none %}checked{% endif %} />({{ default_archive }})</td>
         <td><input type="radio" name="archive_dialog_{{ dialog.resource_id }}" value="archive" {% if archive_dialog is true %}checked{% endif %} /></td>
         <td><input type="radio" name="archive_dialog_{{ dialog.resource_id }}" value="no_archive" {% if archive_dialog is false %}checked{% endif %}/></td>
         <td>
-            (default: {{ default_archive }}){# TODO: process with filters #}
             <a href="/settings/known_dialogs/{{ dialog.resource_id }}">Edit archive behaviour [WIP]</a>
         </td>
         </tr>
