@@ -33,8 +33,8 @@
                 <button name="action" value="delete_filter_{{ loop.index0 }}">Delete</button>
             </td>
             <td>
-                <button name="action" value="move_up_{{ loop.index0 }}">^ up</button>
-                <button name="action" value="move_down_{{ loop.index0 }}">v down</button>
+                <button name="action" value="move_up_{{ loop.index0 }}" {% if loop.first %}disabled{% endif %}>^ up</button>
+                <button name="action" value="move_down_{{ loop.index0 }}" {% if loop.last %}disabled{% endif %}>v down</button>
             </td>
         </tr>
     {% endfor %}
