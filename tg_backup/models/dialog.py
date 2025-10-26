@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import telethon.tl.custom.dialog
+import telethon.tl.types
 
 from tg_backup.models.abstract_resource import AbstractResource
 from tg_backup.utils.chat_matcher import ChatData
@@ -37,8 +38,13 @@ class Dialog(AbstractResource):
     @classmethod
     def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":
         obj = cls.from_storable_object(dialog)
-        if hasattr(dialog, "is_user"):
-            obj.chat_type = DialogType.USER if dialog.is_user else DialogType.GROUP
+        if hasattr(dialog, "is_user") and dialog.is_user:
+            obj.chat_type = DialogType.USER
+        if hasattr(dialog, "is_group") and dialog.is_group:
+            obj.chat_type = DialogType.GROUP
+        if hasattr(dialog, "entity"):
+            if isinstance(dialog.entity, telethon.tl.types.Channel) and dialog.entity.broadcast:
+                obj.chat_type = DialogType.CHANNEL
         if hasattr(dialog, "name"):
             obj.name = dialog.name
         if hasattr(dialog, "pinned"):
