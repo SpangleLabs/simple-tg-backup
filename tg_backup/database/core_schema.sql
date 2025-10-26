@@ -1,6 +1,5 @@
 /*
 This is the schema for the core database, this database stores only the users and chats
-# TODO: Add stickers and sticker packs to this database too
 Migrations may be placed on top of this database definition
 
 Each resource stored starts with a table like this, and then additional columns can be parsed out for easier querying.
