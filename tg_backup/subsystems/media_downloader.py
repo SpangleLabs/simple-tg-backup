@@ -40,8 +40,8 @@ class MediaInfo:
 
 
 class MediaDownloader(AbstractSubsystem):
-    MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice]
-    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact, MessageMediaToDo]
+    MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
+    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
 
     def __init__(self, client: TelegramClient) -> None:
