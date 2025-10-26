@@ -40,7 +40,8 @@ class MediaInfo:
 
 
 class MediaDownloader(AbstractSubsystem):
-    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll, MessageMediaContact, MessageMediaToDo, MessageMediaDice]
+    MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice]
+    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact, MessageMediaToDo]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
 
     def __init__(self, client: TelegramClient) -> None:
@@ -72,6 +73,9 @@ class MediaDownloader(AbstractSubsystem):
                     if type(attr) == DocumentAttributeFilename:
                         media_ext = attr.file_name.split(".")[-1]
                 return MediaInfo(media_type_name, media_id, media_ext)
+            if media_type in self.MEDIA_NO_ACTION_NEEDED:
+                logger.info("No action needed for data-only media type: %s", media_type_name)
+                return None
             if media_type in self.MEDIA_TO_DO:
                 logger.info(
                     "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
