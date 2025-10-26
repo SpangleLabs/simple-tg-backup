@@ -26,6 +26,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 - Archive user and chat profile photos
 - Ensure archiver can correctly archive targets with multiple usernames
 - Store web page previews?
+- Call GetPollResultsRequest and gather poll results `PollResults` after getting poll with MessageMediaPoll?
 
 
 ## Storage layout
