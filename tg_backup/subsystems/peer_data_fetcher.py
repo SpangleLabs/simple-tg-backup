@@ -14,8 +14,7 @@ from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.chat import Chat
 from tg_backup.models.user import User
-from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
-
+from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem, ArchiveRunQueue
 
 peers_processed = Counter(
     "tgbackup_peerdatafetcher_peers_processed_count",
@@ -38,24 +37,15 @@ def peer_cache_key(peer: Peer) -> PeerCacheID:
 
 
 @dataclasses.dataclass
-class QueueEntry:
+class PeerQueueEntry:
     peer: Peer
-
-
-@dataclasses.dataclass
-class ArchiveRunQueue:
-    queue_key: Optional[str]
-    chat_id: Optional[int]
-    chat_db: Optional[ChatDatabase]
-    queue: asyncio.Queue[QueueEntry]
-    stop_when_empty: bool = False
 
 
 class PeerDataFetcher(AbstractSubsystem):
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(client)
         self.core_db = core_db
-        self.queues: dict[Optional[str], ArchiveRunQueue] = {}
+        self.queues: dict[Optional[str], ArchiveRunQueue[PeerQueueEntry]] = {}
         self.core_seen_peer_ids: set[PeerCacheID] = set()
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {}
 
@@ -77,7 +67,7 @@ class PeerDataFetcher(AbstractSubsystem):
             self.chat_seen_peer_ids[chat_id] = set()
         self.chat_seen_peer_ids[chat_id].add(peer_cache_key(peer))
 
-    def _get_next_in_queue(self) -> tuple[ArchiveRunQueue, QueueEntry]:
+    def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[PeerQueueEntry], PeerQueueEntry]:
         for queue in self.queues.values():
             try:
                 return queue, queue.queue.get_nowait()
@@ -101,7 +91,7 @@ class PeerDataFetcher(AbstractSubsystem):
         if isinstance(queue_entry.peer, PeerChannel):
             return await self._process_channel(chat_queue, queue_entry.peer)
 
-    async def _process_user(self, chat_queue: ArchiveRunQueue, user: PeerUser) -> None:
+    async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], user: PeerUser) -> None:
         chat_id = chat_queue.chat_id
         logger.info("Fetching full user info from telegram")
         # Get full user info
@@ -120,7 +110,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Mark done in queue
         chat_queue.queue.task_done()
 
-    async def _process_chat(self, chat_queue: ArchiveRunQueue, chat: PeerChat) -> None:
+    async def _process_chat(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], chat: PeerChat) -> None:
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
@@ -136,7 +126,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Save to chat DB and core DB
         await self._save_chat(chat, chat_id, chat_queue, chat_obj)
 
-    async def _process_channel(self, chat_queue: ArchiveRunQueue, channel: PeerChannel) -> None:
+    async def _process_channel(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], channel: PeerChannel) -> None:
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
@@ -154,7 +144,7 @@ class PeerDataFetcher(AbstractSubsystem):
         # Save to chat DB and core DB
         await self._save_chat(channel, chat_id, chat_queue, chat_obj)
 
-    async def _save_chat(self, peer: Peer, chat_id: Optional[int], chat_queue: ArchiveRunQueue, chat_obj: Chat) -> None:
+    async def _save_chat(self, peer: Peer, chat_id: Optional[int], chat_queue: ArchiveRunQueue[PeerQueueEntry], chat_obj: Chat) -> None:
         if not self.peer_id_seen_core(peer):
             self.core_db.save_chat(chat_obj)
         if not self.peer_id_seen_in_chat(peer, chat_id) and chat_queue.chat_db is not None:
@@ -229,13 +219,14 @@ class PeerDataFetcher(AbstractSubsystem):
             return
         # Set up chat queue if needed
         if queue_key not in self.queues:
-            self.queues[queue_key] = ArchiveRunQueue(queue_key, chat_id, chat_db, asyncio.Queue())
+            raw_queue: asyncio.Queue[PeerQueueEntry] = asyncio.Queue()
+            self.queues[queue_key] = ArchiveRunQueue(queue_key, chat_id, chat_db, raw_queue)
         # Ensure chat queue isn't being emptied
         if not force_add and self.queues[queue_key].stop_when_empty:
             raise ValueError("PeerDataFetcher has been told to stop for that archive run when empty, cannot queue more peers for it")
         # Add to chat queue
         logger.info("Added peer %s to peer fetcher queue", peer_cache_key(peer))
-        await self.queues[queue_key].queue.put(QueueEntry(peer))
+        await self.queues[queue_key].queue.put(PeerQueueEntry(peer))
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
         if queue_key not in self.queues:

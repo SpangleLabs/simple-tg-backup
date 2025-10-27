@@ -1,11 +1,13 @@
 import asyncio
+import dataclasses
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, TypeVar, Generic
 
 from prometheus_client import Gauge
 from telethon import TelegramClient
 
+from tg_backup.database.chat_database import ChatDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +74,15 @@ class AbstractSubsystem(ABC):
 
     def mark_as_filled(self) -> None:
         self.stop_when_empty = True
+
+
+Q = TypeVar("Q")
+
+
+@dataclasses.dataclass
+class ArchiveRunQueue(Generic[Q]):
+    queue_key: Optional[str]
+    chat_id: Optional[int]
+    chat_db: Optional[ChatDatabase]
+    queue: asyncio.Queue[Q]
+    stop_when_empty: bool = False
