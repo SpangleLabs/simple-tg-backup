@@ -4,7 +4,7 @@ from contextlib import closing
 from typing import Optional
 
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
-from tg_backup.database.chat_db_migrations import InitialChatDatabase
+from tg_backup.database.chat_db_migrations import InitialChatDatabase, AddWebPageMediaTable
 from tg_backup.database.core_db_migrations import ExtraChatColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
@@ -29,6 +29,7 @@ def message_from_row(row):
     msg.sticker_set_id = row["sticker_set_id"]
     msg.deleted = bool(row["deleted"])
     msg.edit_datetime = parsable_date(row["edit_datetime"])
+    msg.web_page_id = row["web_page_id"]
     return msg
 
 
@@ -45,6 +46,7 @@ class ChatDatabase(AbstractDatabase):
         return [
             InitialChatDatabase(),
             ExtraChatColumns(),
+            AddWebPageMediaTable(),
         ]
 
     def save_admin_event(self, admin_event: AdminEvent) -> None:
@@ -106,7 +108,7 @@ class ChatDatabase(AbstractDatabase):
         msgs = []
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
-                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime"
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime, web_page_id"
                 " FROM messages "
                 " WHERE id = :msg_id",
                 {
@@ -121,7 +123,7 @@ class ChatDatabase(AbstractDatabase):
     def get_newest_message(self) -> Optional[Message]:
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
-                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime"
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime, web_page_id"
                 " FROM messages "
                 " ORDER BY datetime DESC, archive_datetime DESC"
                 " LIMIT 1"

@@ -27,6 +27,7 @@ class Message(AbstractResource):
         self.sticker_set_id: Optional[int] = None
         self.deleted: bool = False
         self.edit_datetime: Optional[datetime.datetime] = None
+        self.web_page_id: Optional[int] = None
 
     @classmethod
     def from_msg(cls, msg: telethon.types.Message, deleted: bool = False) -> "Message":
@@ -54,6 +55,10 @@ class Message(AbstractResource):
             if hasattr(msg.media, "document"):
                 if hasattr(msg.media.document, "id"):
                     obj.media_id = msg.media.document.id
+            # Handle web pages
+            if hasattr(msg.media, "webpage"):
+                if hasattr(msg.media.webpage, "id"):
+                    obj.web_page_id = msg.media.webpage.id
         # Handle users
         if hasattr(msg, "from_id"):
             if hasattr(msg.from_id, "user_id"):
@@ -81,6 +86,7 @@ class Message(AbstractResource):
             self.text == other.text,
             self.media_id == other.media_id,
             self.sticker_id == other.sticker_id,
+            self.web_page_id == other.web_page_id,
             self.archive_tl_schema_layer == other.archive_tl_schema_layer,
         ])
 
@@ -170,6 +176,9 @@ class Message(AbstractResource):
             if msg_str_obj.get("media").has("document"):
                 if msg_str_obj.get("media").get("document").has("id"):
                     obj.media_id = msg_str_obj.get("media").get("document").get("id")
+            if msg_str_obj.get("media").has("webpage"):
+                if msg_str_obj.get("media").get("webpage").has("id"):
+                    obj.webpage_id = msg_str_obj.get("media").get("webpage").get("id")
         # Handle users
         if msg_str_obj.has("from_id") and msg_str_obj.get("from_id") is not None:
             if msg_str_obj.get("from_id").has("user_id"):
