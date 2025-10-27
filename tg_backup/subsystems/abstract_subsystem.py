@@ -86,3 +86,49 @@ class ArchiveRunQueue(Generic[Q]):
     chat_db: Optional[ChatDatabase]
     queue: asyncio.Queue[Q]
     stop_when_empty: bool = False
+
+
+class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
+    def __init__(self, client: TelegramClient):
+        super().__init__(client)
+        self.queues: dict[Optional[str], ArchiveRunQueue[Q]] = {}
+
+    def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[Q], Q]:
+        for queue in self.queues.values():
+            try:
+                return queue, queue.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                continue
+        raise asyncio.QueueEmpty()
+
+    def queue_size(self) -> int:
+        return sum(queue.queue.qsize() for queue in self.queues.values())
+
+    async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
+        if queue_key not in self.queues:
+            return
+        logger.info("Marking peer fetcher queue %s as stop when empty", queue_key)
+        self.queues[queue_key].stop_when_empty = True
+        await self.queues[queue_key].queue.join()
+        del self.queues[queue_key]
+
+    async def _add_queue_entry(
+            self,
+            queue_key: Optional[str],
+            chat_id: Optional[int],
+            chat_db: Optional[ChatDatabase],
+            entry: Q,
+            force_add: bool = False,
+    ) -> None:
+        # Set up chat queue if needed
+        if queue_key not in self.queues:
+            raw_queue: asyncio.Queue[Q] = asyncio.Queue()
+            self.queues[queue_key] = ArchiveRunQueue(queue_key, chat_id, chat_db, raw_queue)
+        # Ensure chat queue isn't being emptied
+        if not force_add and self.queues[queue_key].stop_when_empty:
+            raise ValueError(
+                f"{self.name()} has been told to stop for that archive run when empty, cannot queue more entries for it"
+            )
+        # Add to chat queue
+        logger.info(f"Added queue entry to {self.name()} queue")
+        await self.queues[queue_key].queue.put(entry)
