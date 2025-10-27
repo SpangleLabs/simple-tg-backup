@@ -69,9 +69,7 @@ class MediaDownloader(AbstractSubsystem):
                     logger.info("This timed document has expired, cannot archive")
                     return None
                 media_id = msg.media.document.id
-                for attr in msg.media.document.attributes:
-                    if type(attr) == DocumentAttributeFilename:
-                        media_ext = attr.file_name.split(".")[-1]
+                media_ext = self._document_file_ext(msg.media.document) or media_ext
                 return MediaInfo(media_type_name, media_id, media_ext)
             if media_type in self.MEDIA_NO_ACTION_NEEDED:
                 logger.info("No action needed for data-only media type: %s", media_type_name)
@@ -94,6 +92,12 @@ class MediaDownloader(AbstractSubsystem):
             )
             return None
         return None
+
+    @staticmethod
+    def _document_file_ext(doc: telethon.tl.types.Document) -> Optional[str]:
+        for attr in doc.attributes:
+            if type(attr) == DocumentAttributeFilename:
+                return attr.file_name.split(".")[-1]
 
     async def _do_process(self) -> None:
         queue_entry = self.queue.get_nowait()
