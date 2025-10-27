@@ -43,6 +43,7 @@ class MediaDownloader(AbstractSubsystem):
     MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
     MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
+    UNKNOWN_FILE_EXT = "unknown_filetype"
 
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
@@ -53,7 +54,7 @@ class MediaDownloader(AbstractSubsystem):
         if not hasattr(msg, "media"):
             return None
         # Start checking media type
-        media_ext = "unknown_filetype"
+        media_ext = self.UNKNOWN_FILE_EXT
         if hasattr(msg, "media"):
             media_type = type(msg.media)
             media_type_name = media_type.__name__
