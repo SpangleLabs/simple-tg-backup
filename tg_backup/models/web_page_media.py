@@ -9,7 +9,7 @@ class WebPageMedia:
             archive_tl_schema_layer: Optional[int],
             web_page_id: int,
             media_id: int,
-            web_page_json_path: str,
+            media_json_path: str,
     ):
         # noinspection PyUnresolvedReferences
         current_scheme_layer = telethon.tl.alltlobjects.LAYER
@@ -17,4 +17,14 @@ class WebPageMedia:
         self.archive_tl_schema_layer = archive_tl_schema_layer or current_scheme_layer
         self.web_page_id = web_page_id
         self.media_id = media_id
-        self.web_page_json_path = web_page_json_path
+        self.media_json_path = media_json_path
+
+    @classmethod
+    def from_web_page(cls, web_page_id: int, media_id: int, media_json_path: str) -> "WebPageMedia":
+        return cls(
+            None,
+            None,
+            web_page_id,
+            media_id,
+            media_json_path,
+        )
