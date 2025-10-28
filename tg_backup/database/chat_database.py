@@ -9,6 +9,7 @@ from tg_backup.database.core_db_migrations import ExtraChatColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.message import Message
+from tg_backup.models.web_page_media import WebPageMedia
 from tg_backup.utils.json_encoder import encode_json_extra
 
 
@@ -159,6 +160,21 @@ class ChatDatabase(AbstractDatabase):
                 "DELETE FROM messages WHERE id = :msg_id",
                 {
                     "msg_id": msg_id,
+                }
+            )
+            self.conn.commit()
+
+    def save_web_page_media(self, web_page_media: WebPageMedia) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "INSERT INTO web_page_media (archive_datetime, archive_tl_scheme_later, web_page_id, media_id, media_json_path) "
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :web_page_id, :media_id, :media_json_path)",
+                {
+                    "archive_datetime": storable_date(web_page_media.archive_datetime),
+                    "archive_tl_scheme_layer": web_page_media.archive_tl_schema_layer,
+                    "web_page_id": web_page_media.web_page_id,
+                    "media_id": web_page_media.media_id,
+                    "media_json_path": web_page_media.media_json_path,
                 }
             )
             self.conn.commit()
