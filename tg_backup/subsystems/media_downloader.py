@@ -62,7 +62,8 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
 
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
-        self.queue: asyncio.Queue[MediaQueueEntry] = asyncio.Queue()
+        self.chat_seen_web_page_ids: dict[int, set[int]] = {}
+
 
     def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
