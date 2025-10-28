@@ -28,7 +28,6 @@ media_downloaded_count = Counter(
 
 @dataclasses.dataclass
 class MediaQueueEntry:
-    chat_id: int
     message: telethon.types.Message
 
 
@@ -102,13 +101,13 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
 
     async def _do_process(self) -> None:
         chat_queue, queue_entry = self._get_next_in_queue()
+        chat_id = chat_queue.chat_id
         media_processed_count.inc()
         # Determine media info
-        media_info = self._parse_media_info(queue_entry.message, queue_entry.chat_id)
+        media_info = self._parse_media_info(queue_entry.message, chat_id)
         if media_info is None:
             return
         # Determine media folder
-        chat_id = chat_queue.chat_id
         # TODO: Media directory as an attribute of media info
         media_dir = f"store/chats/{chat_id}/media"
         os.makedirs(media_dir, exist_ok=True)
@@ -130,5 +129,5 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             chat_db: ChatDatabase,
             message: telethon.types.Message,
     ) -> None:
-        entry = MediaQueueEntry(chat_id, message)
+        entry = MediaQueueEntry(message)
         await self._add_queue_entry(queue_key, chat_id, chat_db, entry)
