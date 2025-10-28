@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import os
-from typing import Optional
+import pathlib
 
 import telethon
 from prometheus_client import Counter
@@ -33,6 +33,7 @@ class MediaQueueEntry:
 
 @dataclasses.dataclass
 class MediaInfo:
+    media_subfolder: str
     media_type: str
     media_id: int
     file_ext: str
@@ -43,6 +44,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
     MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
     UNKNOWN_FILE_EXT = "unknown_filetype"
+    MEDIA_FOLDER = "media"
 
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
@@ -63,14 +65,14 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                     return None
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
-                return MediaInfo(media_type_name, media_id, media_ext)
+                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext)
             if isinstance(msg.media, MessageMediaDocument):
                 if msg.media.document is None:
                     logger.info("This timed document has expired, cannot archive")
                     return None
                 media_id = msg.media.document.id
                 media_ext = self._document_file_ext(msg.media.document) or media_ext
-                return MediaInfo(media_type_name, media_id, media_ext)
+                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext)
             if media_type in self.MEDIA_NO_ACTION_NEEDED:
                 logger.info("No action needed for data-only media type: %s", media_type_name)
                 return None
@@ -107,18 +109,16 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         media_info = self._parse_media_info(queue_entry.message, chat_id)
         if media_info is None:
             return
-        # Determine media folder
-        # TODO: Media directory as an attribute of media info
-        media_dir = f"store/chats/{chat_id}/media"
-        os.makedirs(media_dir, exist_ok=True)
         # Construct file path
-        target_path = f"{media_dir}/{media_info.media_id}.{media_info.file_ext}"
+        target_filename = f"{media_info.media_id}.{media_info.file_ext}"
+        target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
+        os.makedirs(target_path.parent, exist_ok=True)
         if os.path.exists(target_path):
             logger.info("Skipping download of pre-existing file")
             return
         # Download the media
         logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-        await self.client.download_media(queue_entry.message, target_path)
+        await self.client.download_media(queue_entry.message, str(target_path))
         media_downloaded_count.inc()
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
 
