@@ -55,10 +55,11 @@ class MediaInfo:
 
 class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
     MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
-    MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact]
+    MEDIA_TO_DO = [MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
     UNKNOWN_FILE_EXT = "unknown_filetype"
     MEDIA_FOLDER = "media"
+    WEB_PAGE_MEDIA_FOLDER = "web_page_media"
 
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
@@ -89,6 +90,14 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             media_id = msg.media.document.id
             media_ext = self._document_file_ext(msg.media.document) or media_ext
             return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
+        if isinstance(msg.media, MessageMediaWebPage):
+            if not isinstance(msg.media.webpage, telethon.tl.types.WebPage):
+                logger.warning(
+                    "This MessageMediaWebPage is missing the web page? chat_id %s, msg_id %s, date %s",
+                    chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+                )
+                return []
+            return self._parse_media_from_web_page(msg.media.webpage)
         if media_type in self.MEDIA_NO_ACTION_NEEDED:
             logger.info("No action needed for data-only media type: %s", media_type_name)
             return []
@@ -115,6 +124,43 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         for attr in doc.attributes:
             if type(attr) == DocumentAttributeFilename:
                 return attr.file_name.split(".")[-1]
+
+    def _parse_media_from_web_page(self, web_page: telethon.tl.types.WebPage) -> list[MediaInfo]:
+        web_page_id = web_page.id
+        folder = self.WEB_PAGE_MEDIA_FOLDER
+        photo_type = "MessageMediaWebPage.Photo"
+        doc_type = "MessageMediaWebPage.Document"
+        media_entries: list[MediaInfo] = []
+        # Add the preview photo and document
+        if web_page.photo is not None:
+            media_id = web_page.photo.id
+            file_ext = "jpg"
+            web_page_entry = WebPageMedia.from_web_page(web_page_id, media_id, "$.photo")
+            media_info = MediaInfo(folder, photo_type, media_id, file_ext, web_page.photo, web_page_entry)
+            media_entries.append(media_info)
+        if web_page.document is not None:
+            media_id = web_page.document.id
+            file_ext = self._document_file_ext(web_page.document) or self.UNKNOWN_FILE_EXT
+            web_page_entry = WebPageMedia.from_web_page(web_page_id, media_id, "$.document")
+            media_info = MediaInfo(folder, doc_type, media_id, file_ext, web_page.document, web_page_entry)
+            media_entries.append(media_info)
+        # Add in photos and documents inside instant view pages
+        if web_page.cached_page is not None:
+            for i, cached_photo in enumerate(web_page.cached_page.photos or []):
+                media_id = cached_photo.id
+                file_ext = "jpg"
+                json_path = f"$.cached_page.photos[{i}]"
+                web_media_entry = WebPageMedia.from_web_page(web_page_id, media_id, json_path)
+                media_info = MediaInfo(folder, photo_type, media_id, file_ext, cached_photo, web_media_entry)
+                media_entries.append(media_info)
+            for i, cached_document in enumerate(web_page.cached_page.documents or []):
+                media_id = cached_document.id
+                file_ext = self._document_file_ext(cached_document) or self.UNKNOWN_FILE_EXT
+                json_path = f"$.cached_page.documents[{i}]"
+                web_media_entry = WebPageMedia.from_web_page(web_page_id, media_id, json_path)
+                media_info = MediaInfo(folder, doc_type, media_id, file_ext, cached_document, web_media_entry)
+                media_entries.append(media_info)
+        return media_entries
 
     async def _do_process(self) -> None:
         chat_queue, queue_entry = self._get_next_in_queue()
