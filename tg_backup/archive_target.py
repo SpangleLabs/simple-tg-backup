@@ -132,15 +132,15 @@ class ArchiveTarget:
         return msg_obj
 
     async def _msg_to_subsystems(self, msg: telethon.tl.types.Message) -> None:
+        queue_key = self.run_record.archive_run_id
         if hasattr(msg, "from_id") and msg.from_id is not None:
-            queue_key = self.run_record.archive_run_id
             await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
             await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
         else:
             if hasattr(msg, "media") and msg.media is not None:
                 if self.behaviour.download_media:
-                    await self.archiver.media_dl.queue_media(self.chat_id, msg)
+                    await self.archiver.media_dl.queue_media(queue_key, self.chat_id, self.chat_db, msg)
                     self.run_record.archive_stats.inc_media_seen()
 
     async def _cleanup_duplicate_messages(
@@ -279,6 +279,9 @@ class ArchiveTarget:
         # Wait for user fetcher to be done before disconnecting database
         logger.info("Waiting for peer fetcher to complete for archive target")
         await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
+        # Wait for media downloader to be done before disconnecting database
+        logger.info("Waiting for media downloader to complete for archive target")
+        await self.archiver.media_dl.wait_until_queue_empty(self.run_record.archive_run_id)
         # Disconnect from chat DB
         logger.info("Disconnecting from chat database")
         self.chat_db.stop()

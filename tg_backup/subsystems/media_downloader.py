@@ -1,4 +1,3 @@
-import asyncio
 import dataclasses
 import logging
 import os
@@ -12,7 +11,8 @@ from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, Mess
     MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaInvoice, \
     MessageMediaVenue, MessageMediaGame
 
-from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
+from tg_backup.database.chat_database import ChatDatabase
+from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsystem
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class MediaInfo:
     file_ext: str
 
 
-class MediaDownloader(AbstractSubsystem):
+class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
     MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
     MEDIA_TO_DO = [MessageMediaWebPage, MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
@@ -101,14 +101,15 @@ class MediaDownloader(AbstractSubsystem):
                 return attr.file_name.split(".")[-1]
 
     async def _do_process(self) -> None:
-        queue_entry = self.queue.get_nowait()
+        chat_queue, queue_entry = self._get_next_in_queue()
         media_processed_count.inc()
         # Determine media info
         media_info = self._parse_media_info(queue_entry.message, queue_entry.chat_id)
         if media_info is None:
             return
         # Determine media folder
-        chat_id = queue_entry.chat_id
+        chat_id = chat_queue.chat_id
+        # TODO: Media directory as an attribute of media info
         media_dir = f"store/chats/{chat_id}/media"
         os.makedirs(media_dir, exist_ok=True)
         # Construct file path
@@ -122,10 +123,12 @@ class MediaDownloader(AbstractSubsystem):
         media_downloaded_count.inc()
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
 
-    def queue_size(self) -> int:
-        return self.queue.qsize()
-
-    async def queue_media(self, chat_id: int, message: telethon.types.Message) -> None:
-        if message is None:
-            return
-        await self.queue.put(MediaQueueEntry(chat_id, message))
+    async def queue_media(
+            self,
+            queue_key: str,
+            chat_id: int,
+            chat_db: ChatDatabase,
+            message: telethon.types.Message,
+    ) -> None:
+        entry = MediaQueueEntry(chat_id, message)
+        await self._add_queue_entry(queue_key, chat_id, chat_db, entry)
