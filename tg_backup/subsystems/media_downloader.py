@@ -62,10 +62,10 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         super().__init__(client)
         self.queue: asyncio.Queue[MediaQueueEntry] = asyncio.Queue()
 
-    def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> Optional[MediaInfo]:
+    def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
         if not hasattr(msg, "media"):
-            return None
+            return []
         # Start checking media type
         media_ext = self.UNKNOWN_FILE_EXT
         if hasattr(msg, "media"):
@@ -74,38 +74,38 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             if isinstance(msg.media, MessageMediaPhoto):
                 if msg.media.photo is None:
                     logger.info("This timed photo has expired, cannot archive")
-                    return None
+                    return []
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
-                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)
+                return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
             if isinstance(msg.media, MessageMediaDocument):
                 if msg.media.document is None:
                     logger.info("This timed document has expired, cannot archive")
-                    return None
+                    return []
                 media_id = msg.media.document.id
                 media_ext = self._document_file_ext(msg.media.document) or media_ext
-                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)
+                return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
             if media_type in self.MEDIA_NO_ACTION_NEEDED:
                 logger.info("No action needed for data-only media type: %s", media_type_name)
-                return None
+                return []
             if media_type in self.MEDIA_TO_DO:
                 logger.info(
                     "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
                     media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
                 ) # TODO: Implement these
-                return None
+                return []
             if media_type in self.MEDIA_IGNORE:
                 logger.info(
                     "Media type ignored: %s, chat ID: %s, msg ID: %s, date %s",
                     media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
                 )
-                return None
+                return []
             logger.warning(
                 "Unknown media type! %s, chat ID: %s, msg ID: %s, date %s",
                 media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
             )
-            return None
-        return None
+            return []
+        return []
 
     @staticmethod
     def _document_file_ext(doc: telethon.tl.types.Document) -> Optional[str]:
@@ -118,21 +118,26 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         chat_id = chat_queue.chat_id
         media_processed_count.inc()
         # Determine media info
-        media_info = self._parse_media_info(queue_entry.message, chat_id)
-        if media_info is None:
+        media_info_entries = self._parse_media_info(queue_entry.message, chat_id)
+        if not media_info_entries:
             return
-        # Construct file path
-        target_filename = f"{media_info.media_id}.{media_info.file_ext}"
-        target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
-        os.makedirs(target_path.parent, exist_ok=True)
-        if os.path.exists(target_path):
-            logger.info("Skipping download of pre-existing file")
-            return
-        # Download the media
-        logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-        await self.client.download_media(media_info.media_obj, str(target_path))
-        media_downloaded_count.inc()
-        logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+        logger.info(
+            "Found %s media entries in message ID % chat ID %s",
+            len(media_info_entries), queue_entry.message.id, chat_id
+        )
+        for media_info in media_info_entries:
+            # Construct file path
+            target_filename = f"{media_info.media_id}.{media_info.file_ext}"
+            target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
+            os.makedirs(target_path.parent, exist_ok=True)
+            if os.path.exists(target_path):
+                logger.info("Skipping download of pre-existing file")
+                return
+            # Download the media
+            logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+            await self.client.download_media(media_info.media_obj, str(target_path))
+            media_downloaded_count.inc()
+            logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
 
     async def queue_media(
             self,
