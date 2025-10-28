@@ -13,6 +13,7 @@ from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, Mess
     MessageMediaVenue, MessageMediaGame
 
 from tg_backup.database.chat_database import ChatDatabase
+from tg_backup.models.web_page_media import WebPageMedia
 from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsystem
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ class MediaInfo:
     media_id: int
     file_ext: str
     media_obj: Union[telethon.types.Message, telethon.tl.types.Photo, telethon.tl.types.Document]
+    web_page_media: Optional[WebPageMedia] = None
 
 
 class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
@@ -138,6 +140,11 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             await self.client.download_media(media_info.media_obj, str(target_path))
             media_downloaded_count.inc()
             logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+            # Save web page media to DB, if appropriate
+            chat_db = chat_queue.chat_db
+            web_page_media = media_info.web_page_media
+            if web_page_media is not None and chat_db is not None:
+                chat_db.save_web_page_media(web_page_media)
 
     async def queue_media(
             self,
