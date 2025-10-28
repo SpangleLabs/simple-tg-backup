@@ -68,43 +68,43 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             return []
         # Start checking media type
         media_ext = self.UNKNOWN_FILE_EXT
-        if hasattr(msg, "media"):
-            media_type = type(msg.media)
-            media_type_name = media_type.__name__
-            if isinstance(msg.media, MessageMediaPhoto):
-                if msg.media.photo is None:
-                    logger.info("This timed photo has expired, cannot archive")
-                    return []
-                media_id = msg.media.photo.id
-                media_ext = "jpg"
-                return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
-            if isinstance(msg.media, MessageMediaDocument):
-                if msg.media.document is None:
-                    logger.info("This timed document has expired, cannot archive")
-                    return []
-                media_id = msg.media.document.id
-                media_ext = self._document_file_ext(msg.media.document) or media_ext
-                return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
-            if media_type in self.MEDIA_NO_ACTION_NEEDED:
-                logger.info("No action needed for data-only media type: %s", media_type_name)
+        if not hasattr(msg, "media"):
+            return []
+        media_type = type(msg.media)
+        media_type_name = media_type.__name__
+        if isinstance(msg.media, MessageMediaPhoto):
+            if msg.media.photo is None:
+                logger.info("This timed photo has expired, cannot archive")
                 return []
-            if media_type in self.MEDIA_TO_DO:
-                logger.info(
-                    "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
-                    media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
-                ) # TODO: Implement these
+            media_id = msg.media.photo.id
+            media_ext = "jpg"
+            return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
+        if isinstance(msg.media, MessageMediaDocument):
+            if msg.media.document is None:
+                logger.info("This timed document has expired, cannot archive")
                 return []
-            if media_type in self.MEDIA_IGNORE:
-                logger.info(
-                    "Media type ignored: %s, chat ID: %s, msg ID: %s, date %s",
-                    media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
-                )
-                return []
-            logger.warning(
-                "Unknown media type! %s, chat ID: %s, msg ID: %s, date %s",
+            media_id = msg.media.document.id
+            media_ext = self._document_file_ext(msg.media.document) or media_ext
+            return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
+        if media_type in self.MEDIA_NO_ACTION_NEEDED:
+            logger.info("No action needed for data-only media type: %s", media_type_name)
+            return []
+        if media_type in self.MEDIA_TO_DO:
+            logger.info(
+                "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
+                media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+            ) # TODO: Implement these!
+            return []
+        if media_type in self.MEDIA_IGNORE:
+            logger.info(
+                "Media type ignored: %s, chat ID: %s, msg ID: %s, date %s",
                 media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
             )
             return []
+        logger.warning(
+            "Unknown media type! %s, chat ID: %s, msg ID: %s, date %s",
+            media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
+        )
         return []
 
     @staticmethod
