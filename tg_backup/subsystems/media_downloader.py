@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 import pathlib
+from typing import Optional, Union
 
 import telethon
 from prometheus_client import Counter
@@ -33,10 +34,21 @@ class MediaQueueEntry:
 
 @dataclasses.dataclass
 class MediaInfo:
+    """
+    Attributes:
+        media_subfolder: Which subfolder within the chat's folder, to write the media file into.
+        media_type: A vaguely-human-readable description of the media type, for logging and such.
+        media_id: Unique ID of the media object, will be used as the filename.
+        file_ext: Detected file extension of the media file.
+        media_obj: The message or media object to pass to Telethon's download_media() method. Prefer passing the Message
+        itself, if it's simple enough to be able to use that. In more niche types of media downloads, you may need to
+        pass a raw Photo or Document.
+    """
     media_subfolder: str
     media_type: str
     media_id: int
     file_ext: str
+    media_obj: Union[telethon.types.Message, telethon.tl.types.Photo, telethon.tl.types.Document]
 
 
 class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
@@ -65,14 +77,14 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                     return None
                 media_id = msg.media.photo.id
                 media_ext = "jpg"
-                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext)
+                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)
             if isinstance(msg.media, MessageMediaDocument):
                 if msg.media.document is None:
                     logger.info("This timed document has expired, cannot archive")
                     return None
                 media_id = msg.media.document.id
                 media_ext = self._document_file_ext(msg.media.document) or media_ext
-                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext)
+                return MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)
             if media_type in self.MEDIA_NO_ACTION_NEEDED:
                 logger.info("No action needed for data-only media type: %s", media_type_name)
                 return None
@@ -118,7 +130,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             return
         # Download the media
         logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-        await self.client.download_media(queue_entry.message, str(target_path))
+        await self.client.download_media(media_info.media_obj, str(target_path))
         media_downloaded_count.inc()
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
 
