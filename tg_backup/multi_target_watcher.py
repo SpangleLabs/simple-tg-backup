@@ -1,10 +1,15 @@
 import asyncio
 import logging
+from typing import TYPE_CHECKING, Optional
 
 from telethon import TelegramClient, events
 
 from tg_backup.archive_target import ArchiveTarget
+from tg_backup.chat_settings_store import ChatSettingsStore
+from tg_backup.models.dialog import Dialog
 
+if TYPE_CHECKING:
+    from tg_backup.archiver import Archiver
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +19,21 @@ class MultiTargetWatcher:
     This class provides callbacks for watching multiple archive targets at once, without overloading Telethon with different callback handlers.
     """
 
-    def __init__(self, client: TelegramClient, targets: list[ArchiveTarget], small_group_targets: list[ArchiveTarget]) -> None:
+    def __init__(
+            self,
+            client: TelegramClient,
+            archiver: Archiver,
+            chat_settings: ChatSettingsStore,
+            targets: list[ArchiveTarget],
+            not_watching_chat_ids: set[int],
+    ) -> None:
         self.client = client
+        self.archiver = archiver
+        self.chat_settings = chat_settings
+        # Construct the list of targets to watch and not watch
         self.targets: dict[int, ArchiveTarget] = {t.chat_id: t for t in targets if t.behaviour.follow_live}
+        self.not_watching_chat_ids = not_watching_chat_ids # We need to know which chats are not watched, so we know which are new
+        # Internal attributes
         self._small_group_targets: Optional[list[ArchiveTarget]] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
@@ -31,13 +48,27 @@ class MultiTargetWatcher:
         return self._small_group_targets
 
     @classmethod
-    async def from_targets(cls, client: TelegramClient, targets: list[ArchiveTarget]) -> "MultiTargetWatcher":
-        small_group_targets = []
+    def from_dialogs(
+            cls,
+            client: TelegramClient,
+            archiver: "Archiver",
+            chat_settings: ChatSettingsStore,
+            dialogs: list[Dialog],
+    ) -> "MultiTargetWatcher":
         # Figure out which chats are small group chats
-        for target in targets:
-            if await target.is_small_chat():
-                small_group_targets.append(target)
-        return cls(client, targets, small_group_targets)
+        follow_targets = []
+        not_watching_chat_ids = set()
+        for dialog in dialogs:
+            if not chat_settings.should_archive_dialog(dialog):
+                not_watching_chat_ids.add(dialog.resource_id)
+                continue
+            behaviour = chat_settings.behaviour_for_dialog(dialog, archiver.config.default_behaviour)
+            if not behaviour.follow_live:
+                not_watching_chat_ids.add(dialog.resource_id)
+                continue
+            target = ArchiveTarget(dialog, behaviour, archiver)
+            follow_targets.append(target)
+        return cls(client, archiver, chat_settings, follow_targets, not_watching_chat_ids)
 
     async def watch(self) -> None:
         await self._start_watch()

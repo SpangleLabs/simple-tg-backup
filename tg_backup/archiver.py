@@ -181,7 +181,7 @@ class Archiver:
             # Watch for new messages from applicable chats
             if follow_targets:
                 logger.info("Following %s dialogs live", len(follow_targets))
-                activity.watcher = await MultiTargetWatcher.from_targets(self.client, follow_targets)
+                activity.watcher = MultiTargetWatcher.from_dialogs(self.client, self, self.chat_settings, dialogs)
                 activity.watch_task = asyncio.create_task(activity.watcher.watch())
             # Archive the history of applicable chats
             if archive_history_targets:
