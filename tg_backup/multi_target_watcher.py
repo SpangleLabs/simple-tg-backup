@@ -17,9 +17,18 @@ class MultiTargetWatcher:
     def __init__(self, client: TelegramClient, targets: list[ArchiveTarget], small_group_targets: list[ArchiveTarget]) -> None:
         self.client = client
         self.targets: dict[int, ArchiveTarget] = {t.chat_id: t for t in targets if t.behaviour.follow_live}
-        self.small_group_targets = small_group_targets # Need passing in, because cannot async in init
+        self._small_group_targets: Optional[list[ArchiveTarget]] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
+
+    async def list_small_group_targets(self) -> list[ArchiveTarget]:
+        if self._small_group_targets is None:
+            small_group_targets = []
+            for target in self.targets.values():
+                if await target.is_small_chat():
+                    small_group_targets.append(target)
+            self._small_group_targets = small_group_targets
+        return self._small_group_targets
 
     @classmethod
     async def from_targets(cls, client: TelegramClient, targets: list[ArchiveTarget]) -> "MultiTargetWatcher":
@@ -93,5 +102,6 @@ class MultiTargetWatcher:
             await target.on_live_delete_message(event)
             return
         logger.info("Sending deleted message (without chat ID) to all monitored small chats")
-        for target in self.small_group_targets:
+        small_group_targets = await self.list_small_group_targets()
+        for target in small_group_targets:
             await target.on_live_delete_message(event)
