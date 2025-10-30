@@ -90,9 +90,8 @@ class MultiTargetWatcher:
             target.run_record.follow_live_timer.start()
             target.chat_db.start()
         # Register event handlers
-        chat_ids = list(self.targets.keys())
-        self.client.add_event_handler(self._watch_new_message, events.NewMessage(chats=chat_ids))
-        self.client.add_event_handler(self._watch_edit_message, events.MessageEdited(chats=chat_ids))
+        self.client.add_event_handler(self._watch_new_message, events.NewMessage())
+        self.client.add_event_handler(self._watch_edit_message, events.MessageEdited())
         self.client.add_event_handler(self._watch_delete_message, events.MessageDeleted())
         self.running = True
 
