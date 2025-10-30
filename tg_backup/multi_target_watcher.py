@@ -31,7 +31,7 @@ class MultiTargetWatcher:
         self.archiver = archiver
         self.chat_settings = chat_settings
         # Construct the list of targets to watch and not watch
-        self.targets: dict[int, ArchiveTarget] = {t.chat_id: t for t in targets if t.behaviour.follow_live}
+        self.follow_targets: dict[int, ArchiveTarget] = {t.chat_id: t for t in targets if t.behaviour.follow_live}
         self.not_watching_chat_ids = not_watching_chat_ids # We need to know which chats are not watched, so we know which are new
         # Internal attributes
         self._small_group_targets: Optional[list[ArchiveTarget]] = None
@@ -41,17 +41,17 @@ class MultiTargetWatcher:
     async def list_small_group_targets(self) -> list[ArchiveTarget]:
         if self._small_group_targets is None:
             small_group_targets = []
-            for target in self.targets.values():
+            for target in self.follow_targets.values():
                 if await target.is_small_chat():
                     small_group_targets.append(target)
             self._small_group_targets = small_group_targets
         return self._small_group_targets
 
     def count_watched_targets(self) -> int:
-        return len(self.targets)
+        return len(self.follow_targets)
 
     def watching_nothing(self) -> bool:
-        return len(self.targets) == 0
+        return len(self.follow_targets) == 0
 
     @classmethod
     def from_dialogs(
@@ -86,7 +86,7 @@ class MultiTargetWatcher:
 
     async def _start_watch(self) -> None:
         # Mark all archive targets as starting watch, and connect to their databases
-        for target in self.targets.values():
+        for target in self.follow_targets.values():
             target.run_record.follow_live_timer.start()
             target.chat_db.start()
         # Register event handlers
@@ -104,7 +104,7 @@ class MultiTargetWatcher:
         self.client.remove_event_handler(self._watch_edit_message)
         self.client.remove_event_handler(self._watch_delete_message)
         # Mark all targets as stopped and disconnect from databases
-        for target in self.targets.values():
+        for target in self.follow_targets.values():
             target.run_record.follow_live_timer.end()
             target.chat_db.stop()
 
@@ -113,14 +113,14 @@ class MultiTargetWatcher:
         self._shutdown_event.clear()
 
     async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
-        target = self.targets.get(event.chat_id)
+        target = self.follow_targets.get(chat_id)
         if target is None:
             logger.warning("Received new message from unknown chat")
             return
         await target.on_live_new_message(event)
 
     async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
-        target = self.targets.get(event.chat_id)
+        target = self.follow_targets.get(event.chat_id)
         if target is None:
             logger.warning("Received edited message from unknown chat")
             return
@@ -131,7 +131,7 @@ class MultiTargetWatcher:
         # with other users or in small group chats, because message IDs are unique and you can identify the chat with
         # the message ID alone if you saved it previously.
         if event.chat_id is not None:
-            target = self.targets.get(event.chat_id)
+            target = self.follow_targets.get(event.chat_id)
             if target is None:
                 logger.warning("Received deleted message from unknown chat")
                 return
