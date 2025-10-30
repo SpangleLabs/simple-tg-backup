@@ -47,6 +47,12 @@ class MultiTargetWatcher:
             self._small_group_targets = small_group_targets
         return self._small_group_targets
 
+    def count_watched_targets(self) -> int:
+        return len(self.targets)
+
+    def watching_nothing(self) -> bool:
+        return len(self.targets) == 0
+
     @classmethod
     def from_dialogs(
             cls,
