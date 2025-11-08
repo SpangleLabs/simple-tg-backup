@@ -167,7 +167,7 @@ class ChatDatabase(AbstractDatabase):
     def save_web_page_media(self, web_page_media: WebPageMedia) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
-                "INSERT INTO web_page_media (archive_datetime, archive_tl_scheme_later, web_page_id, media_id, media_json_path) "
+                "INSERT INTO web_page_media (archive_datetime, archive_tl_scheme_layer, web_page_id, media_id, media_json_path) "
                 " VALUES (:archive_datetime, :archive_tl_scheme_layer, :web_page_id, :media_id, :media_json_path)",
                 {
                     "archive_datetime": storable_date(web_page_media.archive_datetime),
