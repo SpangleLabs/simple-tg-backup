@@ -33,6 +33,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 - `store/chats/` Each chat goes in a directory in here, named by chat ID
 - `store/chats/<id>/` Each chat has its own directory
 - `store/chats/<id>/media/` Each chat has its own media directory. Media might be duplicated across multiple chats, that's fine.
+- `store/chats/<id>/web_page_media/` Each chat has a separate directory for web page media, which is any media in web previews and the like. This has a higher risk of duplication than `/media/`.
 - `store/chats/<id>/chat_db.sqlite` Each chat has its own database, with messages and such inside
 - `store/stickers/` Stickers get stored in a separate directory to chats
 - `store/stickers/<pack_id>/` Each sticker pack gets a directory by pack ID
