@@ -16,16 +16,14 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
   - Deduplicate users in the same way messages are
   - Deduplicate chats in the same way messages are
   - Double check how sticker and sticker set deduplication is working
-- Store shared locations, with history
 
 ### TODO: Later
 - Further work on the web UI
   - Implement form for setting behaviour config for individual dialogs
-- Behaviour setting to only download necessary stickers, rather than entire packs
+- Behaviour setting to only download necessary stickers, rather than entire packs?
 - HTML view of chats?
 - Archive user and chat profile photos
 - Ensure archiver can correctly archive targets with multiple usernames
-- Store web page previews?
 - Call GetPollResultsRequest and gather poll results `PollResults` after getting poll with MessageMediaPoll?
 
 
