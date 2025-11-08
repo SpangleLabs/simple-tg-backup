@@ -92,7 +92,11 @@ class AbstractDatabase(ABC):
                 if not migration.is_initial_setup:
                     self.save_migration_data(migration.migration_id, migration.migration_name, start_time, None)
                 logger.info("Running database migration %s on %s", migration.migration_name, type(self).__name__)
-                migration.execute(self.conn)
+                try:
+                    migration.execute(self.conn)
+                except Exception as e:
+                    logger.error(f"Failed to apply migration {migration.migration_name} on database {self.file_path()}")
+                    raise e
                 end_time = datetime.datetime.now(datetime.timezone.utc)
                 self.save_migration_data(migration.migration_id, migration.migration_name, start_time, end_time)
                 continue
