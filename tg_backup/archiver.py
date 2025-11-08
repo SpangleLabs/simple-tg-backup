@@ -45,10 +45,9 @@ class ArchiverActivity:
     history_targets_added = asyncio.Event()
     completed: bool = False
     watch_task: Optional[asyncio.Task] = None
-    watcher: Optional[MultiTargetWatcher] = None
 
     def count_all_targets(self) -> int:
-        return self.watcher.count_watched_targets() + len(self.history_targets)
+        return self.target_watcher.count_watched_targets() + len(self.history_targets)
 
     def has_history_targets(self) -> bool:
         return len(self.history_targets) > 0
@@ -195,7 +194,7 @@ class Archiver:
             # Watch for new messages from applicable chats
             if not target_watcher.watching_nothing():
                 logger.info("Following %s dialogs live", target_watcher.count_watched_targets())
-                activity.watch_task = asyncio.create_task(activity.watcher.watch())
+                activity.watch_task = asyncio.create_task(activity.target_watcher.watch())
             # Loop until we're complete
             while not activity.completed:
                 # Archive the history of any applicable chats

@@ -73,7 +73,7 @@ class WebServer:
             activity = self.archiver.current_activity
             if activity is None:
                 return web.Response(status=400, text="Archiver is not currently active")
-            watcher = activity.watcher
+            watcher = activity.target_watcher
             if watcher is None:
                 return web.Response(status=400, text="Archiver is not currently watching any targets")
             watcher.shutdown()
