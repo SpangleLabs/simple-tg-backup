@@ -27,7 +27,7 @@ class MultiTargetWatcher:
     def __init__(
             self,
             client: TelegramClient,
-            archiver: Archiver,
+            archiver: "Archiver",
             chat_settings: ChatSettingsStore,
             targets: list[ArchiveTarget],
             not_watching_chat_ids: set[int],
