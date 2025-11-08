@@ -1,6 +1,8 @@
 import datetime
 from typing import Optional
 
+import telethon
+
 
 class WebPageMedia:
     def __init__(
