@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import logging
 import os
@@ -189,8 +190,15 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                 logger.info("Skipping download of pre-existing file")
                 continue
             # Download the media
-            logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-            await self.client.download_media(media_info.media_obj, str(target_path))
+            while True:
+                logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+                try:
+                    await self.client.download_media(media_info.media_obj, str(target_path))
+                except Exception as e:
+                    logger.error("Failed to download media, (will retry) error:", exc_info=e)
+                    await asyncio.sleep(60)
+                else:
+                    break
             media_downloaded_count.inc()
             logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             # Save web page media to DB, if appropriate
