@@ -1,17 +1,22 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
+import telethon.tl.types
 from telethon import TelegramClient, events
+from telethon.tl.custom.chatgetter import ChatGetter
 
 from tg_backup.archive_target import ArchiveTarget
 from tg_backup.chat_settings_store import ChatSettingsStore
+from tg_backup.config import BehaviourConfig
 from tg_backup.models.dialog import Dialog
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
 
 logger = logging.getLogger(__name__)
+
+Peer = Union[telethon.tl.types.User, telethon.tl.types.Chat, telethon.tl.types.Channel]
 
 
 class MultiTargetWatcher:
@@ -52,6 +57,9 @@ class MultiTargetWatcher:
 
     def watching_nothing(self) -> bool:
         return len(self.follow_targets) == 0
+
+    def chat_is_known(self, chat_id: int) -> bool:
+        return chat_id in self.follow_targets or chat_id in self.not_watching_chat_ids
 
     @classmethod
     def from_dialogs(
@@ -112,17 +120,30 @@ class MultiTargetWatcher:
         self._shutdown_event.set()
         self._shutdown_event.clear()
 
-    async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
+    async def _target_if_watching(self, evt: ChatGetter) -> Optional[ArchiveTarget]:
+        chat_id = evt.chat_id
+        if not self.chat_is_known(chat_id):
+            logger.info(f"New message from unknown chat ID %s", chat_id)
+            await self._handle_new_chat(await evt.get_chat())
+        if chat_id in self.not_watching_chat_ids:
+            logger.debug("Ignoring message in unwatched chat ID %s", chat_id)
+            return None
         target = self.follow_targets.get(chat_id)
         if target is None:
-            logger.warning("Received new message from unknown chat")
+            logger.warning("Could not find whether to follow chat ID %s, after checking", chat_id)
+        return target
+
+    async def _watch_new_message(self, event: events.NewMessage.Event) -> None:
+        target = await self._target_if_watching(event)
+        if target is None:
+            logger.debug("Ignoring new message in unwatched chat ID %s", event.chat_id)
             return
         await target.on_live_new_message(event)
 
     async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
-        target = self.follow_targets.get(event.chat_id)
+        target = await self._target_if_watching(event)
         if target is None:
-            logger.warning("Received edited message from unknown chat")
+            logger.warning("Ignoring edited message in unwatched chat ID %s", event.chat_id)
             return
         await target.on_live_edit_message(event)
 
@@ -131,9 +152,9 @@ class MultiTargetWatcher:
         # with other users or in small group chats, because message IDs are unique and you can identify the chat with
         # the message ID alone if you saved it previously.
         if event.chat_id is not None:
-            target = self.follow_targets.get(event.chat_id)
+            target = await self._target_if_watching(event)
             if target is None:
-                logger.warning("Received deleted message from unknown chat")
+                logger.debug("Ignoring deleted message in unwatched chat ID %s", event.chat_id)
                 return
             await target.on_live_delete_message(event)
             return
@@ -141,3 +162,34 @@ class MultiTargetWatcher:
         small_group_targets = await self.list_small_group_targets()
         for target in small_group_targets:
             await target.on_live_delete_message(event)
+
+    async def _handle_new_chat(self, chat: Peer) -> None:
+        dialogs = await self.client.get_dialogs(offset_peer=chat, limit=1)
+        if len(dialogs) == 0:
+            logger.error("Did not find dialog matching new chat ID %s", chat.id)
+            return # TODO: exception, or what??? Test this somehow
+        dialog = dialogs[0]
+        if not self.chat_settings.should_archive_dialog(dialog):
+            logger.info("New chat ID %s does not match archive settings, noting not to archive it.", chat.id)
+            self.not_watching_chat_ids.add(chat.id)
+            return
+        behaviour = self.chat_settings.behaviour_for_dialog(dialog, self.archiver.config.default_behaviour)
+        if not behaviour.follow_live:
+            self.not_watching_chat_ids.add(dialog.resource_id)
+            if behaviour.needs_archive_run():
+                logger.info("New chat ID %s does not match follow live settings, but does need history archival. Sending to archiver for history archival.", chat.id)
+                history_target = ArchiveTarget(dialog, behaviour, self.archiver)
+                self.archiver.add_archive_history_target_while_running(history_target)
+            else:
+                logger.info("New chat ID %s does not match follow live settings, noting not to archive it.", chat.id)
+            return
+        follow_target = ArchiveTarget(dialog, behaviour, self.archiver)
+        self.follow_targets[chat.id] = follow_target
+        if behaviour.needs_archive_run():
+            logger.info("New chat ID %s has been followed, and needs history archival. Sending to archiver for history archival.", chat.id)
+            history_behaviour = BehaviourConfig.merge(behaviour, BehaviourConfig(follow_live=False))
+            history_target = ArchiveTarget(dialog, history_behaviour, self.archiver)
+            self.archiver.add_archive_history_target_while_running(history_target)
+        else:
+            logger.info("New chat ID %s has been followed", chat.id)
+        return
