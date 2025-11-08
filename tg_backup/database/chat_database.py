@@ -10,7 +10,7 @@ from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.message import Message
 from tg_backup.models.web_page_media import WebPageMedia
-from tg_backup.utils.json_encoder import encode_json_extra
+from tg_backup.utils.json_encoder import encode_json_extra, decode_json_dict, encode_json
 
 
 def message_from_row(row):
@@ -20,7 +20,7 @@ def message_from_row(row):
         resource_id=row["id"],
         resource_type=row["type"],
         str_repr=row["str_repr"],
-        dict_repr=json.loads(row["dict_repr"]),
+        dict_repr=decode_json_dict(row["dict_repr"]),
     )
     msg.datetime = parsable_date(row["datetime"])
     msg.text = row["text"]
@@ -61,7 +61,7 @@ class ChatDatabase(AbstractDatabase):
                     "id": admin_event.resource_id,
                     "type": admin_event.resource_type,
                     "str_repr": admin_event.str_repr,
-                    "dict_repr": json.dumps(admin_event.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(admin_event.dict_repr),
                     "datetime": storable_date(admin_event.datetime),
                     "message_id": admin_event.message_id
                 }
@@ -92,7 +92,7 @@ class ChatDatabase(AbstractDatabase):
                     "id": message.resource_id,
                     "type": message.resource_type,
                     "str_repr": message.str_repr,
-                    "dict_repr": json.dumps(message.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(message.dict_repr),
                     "datetime": storable_date(message.datetime),
                     "text": message.text,
                     "media_id": message.media_id,

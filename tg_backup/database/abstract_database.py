@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import os
 import pathlib
@@ -10,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from tg_backup.models.chat import Chat
 from tg_backup.models.user import User
-from tg_backup.utils.json_encoder import encode_json_extra
+from tg_backup.utils.json_encoder import encode_json, encode_optional_json, decode_optional_json, decode_json_dict
 
 if TYPE_CHECKING:
     from tg_backup.database.migration import DBMigration
@@ -114,7 +113,7 @@ class AbstractDatabase(ABC):
                     "id": chat.resource_id,
                     "type": chat.resource_type,
                     "str_repr": chat.str_repr,
-                    "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(chat.dict_repr),
                     "title": chat.title,
                     "creation_date": storable_date(chat.creation_date),
                     "is_creator": chat.is_creator,
@@ -123,7 +122,7 @@ class AbstractDatabase(ABC):
                     "participants_count": chat.participants_count,
                     "about": chat.about,
                     "username": chat.username,
-                    "other_usernames": json.dumps(chat.other_usernames, default=encode_json_extra),
+                    "other_usernames": encode_optional_json(chat.other_usernames),
                     "migrated_to_chat_id": chat.migrated_to_chat_id,
                     "migrated_from_chat_id": chat.migrated_from_chat_id,
                     "linked_chat_id": chat.linked_chat_id,
@@ -144,7 +143,7 @@ class AbstractDatabase(ABC):
                     resource_id=row["id"],
                     resource_type=row["type"],
                     str_repr=row["str_repr"],
-                    dict_repr=json.loads(row["dict_repr"]),
+                    dict_repr=decode_json_dict(row["dict_repr"]),
                 )
                 chat.title = row["title"]
                 chat.creation_date = parsable_date(row["creation_date"])
@@ -154,7 +153,7 @@ class AbstractDatabase(ABC):
                 chat.participants_count = row["participants_count"]
                 chat.about = row["about"]
                 chat.username = row["username"]
-                chat.other_usernames = json.loads(row["other_usernames"], default=encode_json_extra)
+                chat.other_usernames = decode_optional_json(row["other_usernames"])
                 chat.migrated_to_chat_id = row["migrated_to_chat_id"]
                 chat.migrated_from_chat_id = row["migrated_from_chat_id"]
                 chat.linked_chat_id = row["linked_chat_id"]
@@ -172,7 +171,7 @@ class AbstractDatabase(ABC):
                     "id": user.resource_id,
                     "type": user.resource_type,
                     "str_repr": user.str_repr,
-                    "dict_repr": json.dumps(user.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(user.dict_repr),
                     "bio": user.bio,
                     "birthday": storable_date(user.birthday),
                     "is_bot": user.is_bot,
@@ -182,7 +181,7 @@ class AbstractDatabase(ABC):
                     "phone_number": user.phone_number,
                     "has_premium": user.has_premium,
                     "username": user.username,
-                    "other_usernames": json.dumps(user.other_usernames, default=encode_json_extra),
+                    "other_usernames": encode_optional_json(user.other_usernames),
                 }
             )
             self.conn.commit()
@@ -200,7 +199,7 @@ class AbstractDatabase(ABC):
                     resource_id=row["id"],
                     resource_type=row["type"],
                     str_repr=row["str_repr"],
-                    dict_repr=json.loads(row["dict_repr"]),
+                    dict_repr=decode_json_dict(row["dict_repr"]),
                 )
                 user.bio = row["bio"]
                 user.birthday = parsable_date(row["birthday"])
@@ -211,6 +210,6 @@ class AbstractDatabase(ABC):
                 user.phone_number = row["phone_number"]
                 user.has_premium = row["has_premium"]
                 user.username = row["username"]
-                user.other_usernames = json.loads(row["other_usernames"])
+                user.other_usernames = decode_optional_json(row["other_usernames"])
                 users.append(user)
         return users

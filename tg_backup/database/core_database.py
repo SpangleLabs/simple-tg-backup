@@ -1,5 +1,4 @@
 import datetime
-import json
 from contextlib import closing
 
 from prometheus_client import Gauge
@@ -14,8 +13,7 @@ from tg_backup.utils.dialog_type import DialogType
 from tg_backup.models.dialog import Dialog
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
-from tg_backup.utils.json_encoder import encode_json_extra
-
+from tg_backup.utils.json_encoder import encode_json, decode_json_dict
 
 count_archive_runs = Gauge(
     "tgbackup_coredb_archive_runs_count",
@@ -57,7 +55,7 @@ class CoreDatabase(AbstractDatabase):
                     "id": sticker.resource_id,
                     "type": sticker.resource_type,
                     "str_repr": sticker.str_repr,
-                    "dict_repr": json.dumps(sticker.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(sticker.dict_repr),
                     "sticker_set_id": sticker.sticker_set_id,
                     "emoji": sticker.emoji,
                     "file_name": sticker.file_name,
@@ -77,7 +75,7 @@ class CoreDatabase(AbstractDatabase):
                     "id": sticker_set.resource_id,
                     "type": sticker_set.resource_type,
                     "str_repr": sticker_set.str_repr,
-                    "dict_repr": json.dumps(sticker_set.dict_repr, default=encode_json_extra),
+                    "dict_repr": encode_json(sticker_set.dict_repr),
                     "handle": sticker_set.handle,
                     "title": sticker_set.title,
                     "sticker_count": sticker_set.sticker_count,
@@ -98,7 +96,7 @@ class CoreDatabase(AbstractDatabase):
                     resource_id=row["id"],
                     resource_type=row["type"],
                     str_repr=row["str_repr"],
-                    dict_repr=json.loads(row["dict_repr"]),
+                    dict_repr=decode_json_dict(row["dict_repr"]),
                 )
                 sticker_set.handle = row["handle"]
                 sticker_set.title = row["title"]
@@ -128,10 +126,10 @@ class CoreDatabase(AbstractDatabase):
                     storable_date(archive_run.follow_live_timer.start_time),
                     storable_date(archive_run.follow_live_timer.latest_msg_time),
                     storable_date(archive_run.follow_live_timer.end_time),
-                    json.dumps(archive_run.behaviour_config.to_dict(), default=encode_json_extra),
+                    encode_json(archive_run.behaviour_config.to_dict()),
                     archive_run.completed,
                     archive_run.failure_reason,
-                    json.dumps(archive_run.archive_stats.to_dict(), default=encode_json_extra),
+                    encode_json(archive_run.archive_stats.to_dict()),
                 )
             )
             self.conn.commit()
@@ -163,12 +161,12 @@ class CoreDatabase(AbstractDatabase):
                     follow_time_start=parsable_date(row["follow_time_start"]),
                     follow_time_latest=parsable_date(row["follow_time_latest"]),
                     follow_time_end=parsable_date(row["follow_time_end"]),
-                    behaviour_config=BehaviourConfig.from_dict(json.loads(row["behaviour_config"])),
+                    behaviour_config=BehaviourConfig.from_dict(decode_json_dict(row["behaviour_config"])),
                     completed=row["completed"] == 1,
                     failure_reason=row["failure_reason"],
                     archive_run_id=row["archive_run_id"],
                 )
-                record.archive_stats = ArchiveRunStats.from_dict(record, json.loads(row["archive_stats"]))
+                record.archive_stats = ArchiveRunStats.from_dict(record, decode_json_dict(row["archive_stats"]))
                 records.append(record)
         count_archive_runs.set(len(records))
         return records
@@ -190,7 +188,7 @@ class CoreDatabase(AbstractDatabase):
                     dialog.resource_id,
                     dialog.resource_type,
                     dialog.str_repr,
-                    json.dumps(dialog.dict_repr, default=encode_json_extra),
+                    encode_json(dialog.dict_repr),
                     dialog.chat_type.value,
                     dialog.name,
                     dialog.pinned,
@@ -224,7 +222,7 @@ class CoreDatabase(AbstractDatabase):
                     resource_id=row["id"],
                     resource_type=row["type"],
                     str_repr=row["str_repr"],
-                    dict_repr=json.loads(row["dict_repr"]),
+                    dict_repr=decode_json_dict(row["dict_repr"]),
                 )
                 dialog.chat_type = DialogType.from_str(row["chat_type"])
                 dialog.name = row["name"]
