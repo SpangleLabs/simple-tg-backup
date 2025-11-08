@@ -48,11 +48,24 @@ class ArchiverActivity:
     def count_all_targets(self) -> int:
         return self.watcher.count_watched_targets() + len(self.history_targets)
 
+    def has_history_targets(self) -> bool:
+        return len(self.history_targets) > 0
+
+    def add_history_target(self, target: ArchiveTarget) -> None:
+        self.history_targets.append(target)
+        self.history_targets_added.set()
+        self.history_targets_added.clear()
+
     def update_history_targets(self, targets: list[ArchiveTarget]) -> None:
         self.history_targets = targets
+        self.history_targets_added.set()
+        self.history_targets_added.clear()
 
-    def completed_archive_targets(self) -> list[ArchiveTarget]:
-        return [t for t in self.history_targets if t.run_record.archive_history_timer.has_ended()]
+    def list_unfinished_history_targets(self) -> list[ArchiveTarget]:
+        return [t for t in self.history_targets if not t.run_record.archive_history_timer.has_ended()]
+
+    def count_completed_history_targets(self) -> int:
+        return len([t for t in self.history_targets if t.run_record.archive_history_timer.has_ended()])
 
 
 class Archiver:
@@ -69,7 +82,7 @@ class Archiver:
         self.chat_settings = ChatSettingsStore.load_from_file()
         archiver_running.set_function(lambda: int(self.running))
         archiver_current_targets.set_function(lambda: self.current_activity.count_all_targets() if self.current_activity else 0)
-        archiver_completed_targets.set_function(lambda: len(self.current_activity.completed_archive_targets()) if self.current_activity else 0)
+        archiver_completed_targets.set_function(lambda: self.current_activity.count_completed_history_targets() if self.current_activity else 0)
 
     async def start(self) -> None:
         if self.running:
