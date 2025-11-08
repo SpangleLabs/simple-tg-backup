@@ -174,6 +174,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         # Determine media info
         media_info_entries = self._parse_media_info(queue_entry.message, chat_id)
         if not media_info_entries:
+            chat_queue.queue.task_done()
             return
         logger.info(
             "Found %s media entries in message ID %s chat ID %s",
@@ -186,7 +187,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             os.makedirs(target_path.parent, exist_ok=True)
             if os.path.exists(target_path):
                 logger.info("Skipping download of pre-existing file")
-                return
+                continue
             # Download the media
             logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             await self.client.download_media(media_info.media_obj, str(target_path))
@@ -197,6 +198,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             web_page_media = media_info.web_page_media
             if web_page_media is not None and chat_db is not None:
                 chat_db.save_web_page_media(web_page_media)
+        chat_queue.queue.task_done()
 
     async def queue_media(
             self,
