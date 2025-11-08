@@ -251,7 +251,7 @@ class ArchiveTarget:
             try:
                 await self._archive_admin_log()
             except telethon.errors.rpcerrorlist.ChatAdminRequiredError as e:
-                logger.warning("Do not have sufficient permissions to archive admin log of chat.", exc_info=e)
+                logger.warning("Do not have sufficient permissions to archive admin log of chat.")
         # Gather messages from chat
         if self.behaviour.archive_history:
             await self._archive_message_history()
