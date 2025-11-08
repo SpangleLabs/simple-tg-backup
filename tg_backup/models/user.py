@@ -64,7 +64,7 @@ class User(AbstractResource):
             user_obj.has_premium = user.premium
         if hasattr(user, "username"):
             user_obj.username = user.username
-        if hasattr(user, "usernames"):
+        if hasattr(user, "usernames") and user.usernames is not None:
             other_usernames = []
             for username in user.usernames:
                 if hasattr(username, "username"):

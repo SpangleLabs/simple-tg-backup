@@ -75,7 +75,7 @@ class Chat(AbstractResource):
             chat_obj.participants_count = chat.participants_count
         if hasattr(chat, "username"):
             chat_obj.username = chat.username
-        if hasattr(chat, "usernames"):
+        if hasattr(chat, "usernames") and chat.usernames is not None:
             other_usernames = []
             for username in chat.usernames:
                 if hasattr(username, "username"):
