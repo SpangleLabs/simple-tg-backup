@@ -107,7 +107,7 @@ class AbstractDatabase(ABC):
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
                 "INSERT INTO chats (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title, creation_date, is_creator, have_left, is_broadcast_channel, participants_count, about, username, other_usernames, migrated_to_chat_id, migrated_from_chat_id, linked_chat_id)"
-                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :title, :creation_date, :is_creator, :have_left, :is_broadcast_channel, :participants_count, :about, :username, :other_usernames, :migrated_to_chat_id, :migration_from_chat_id, :linked_chat_id)",
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :title, :creation_date, :is_creator, :have_left, :is_broadcast_channel, :participants_count, :about, :username, :other_usernames, :migrated_to_chat_id, :migrated_from_chat_id, :linked_chat_id)",
                 {
                     "archive_datetime": storable_date(chat.archive_datetime),
                     "archive_tl_scheme_layer": chat.archive_tl_schema_layer,
