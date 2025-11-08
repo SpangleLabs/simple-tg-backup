@@ -127,8 +127,16 @@ class StickerDownloader(AbstractSubsystem):
         # Download sticker
         sticker_file_path = f"{sticker_set_directory}/{sticker_id}.{sticker_file_ext}"
         if not os.path.exists(sticker_file_path):
-            # noinspection PyTypeChecker
-            await self.client.download_media(sticker_doc, sticker_file_path)
+            while True:
+                logger.info("Downloading sticker, ID: %s, set ID: %s", sticker_id, sticker_set_id)
+                try:
+                    # noinspection PyTypeChecker
+                    await self.client.download_media(sticker_doc, sticker_file_path)
+                except Exception as e:
+                    logger.error("Failed to download sticker, (will retry) error:", exc_info=e)
+                    await asyncio.sleep(60)
+                else:
+                    break
         # Save to database
         logger.info("Saving sticker ID %s to database", sticker_id)
         self.core_db.save_sticker(sticker_obj)
