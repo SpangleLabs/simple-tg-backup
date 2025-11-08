@@ -218,7 +218,7 @@ class Archiver:
                 done, pending = await asyncio.wait(
                     [
                         activity.watch_task,
-                        activity.history_targets_added.wait(),
+                        asyncio.create_task(activity.history_targets_added.wait()),
                     ],
                     return_when=asyncio.FIRST_COMPLETED,
                 )
