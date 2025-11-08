@@ -142,6 +142,21 @@ class ChatSettingsStore:
         # Return combined behaviours
         return reduce(BehaviourConfig.merge, behaviour_configs)
 
+    def behaviour_for_dialogs(
+            self,
+            dialogs: list[Dialog],
+            default_behaviour: BehaviourConfig,
+            override_behaviour: Optional[BehaviourConfig] = None,
+    ) -> dict[int, BehaviourConfig]:
+        result = {}
+        for dialog in dialogs:
+            behaviour = BehaviourConfig.merge(
+                override_behaviour,
+                self.behaviour_for_dialog(dialog, default_behaviour),
+            )
+            result[dialog.resource_id] = behaviour
+        return result
+
     def list_archive_enabled(self, dialogs: list[Dialog]) -> list[Dialog]:
         should_archive: list[Dialog] = []
         for dialog in dialogs:
@@ -164,21 +179,6 @@ class ChatSettingsStore:
             if behaviour.needs_archive_run():
                 needs_archive_run.append(dialog)
         return needs_archive_run
-
-    def behaviour_for_dialogs(
-            self,
-            dialogs: list[Dialog],
-            default_behaviour: BehaviourConfig,
-            override_behaviour: Optional[BehaviourConfig] = None,
-    ) -> dict[int, BehaviourConfig]:
-        result = {}
-        for dialog in dialogs:
-            behaviour = BehaviourConfig.merge(
-                override_behaviour,
-                self.behaviour_for_dialog(dialog, default_behaviour),
-            )
-            result[dialog.resource_id] = behaviour
-        return result
 
     def to_dict(self) -> dict:
         return {
