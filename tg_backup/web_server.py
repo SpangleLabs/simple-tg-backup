@@ -229,12 +229,12 @@ class WebServer:
             web.post("/settings/new_dialogs", self.settings_new_dialogs_post),
         ])
 
-    def run(self) -> None:
+    def run(self, port: int = 2000) -> None:
         try:
             webserver_running.set(1)
             self.core_db.start()
             self._setup_routes()
-            web.run_app(self.app, host='127.0.0.1', port=2000)
+            web.run_app(self.app, host='127.0.0.1', port=port)
         finally:
             self.core_db.stop()
             webserver_running.set(0)

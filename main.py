@@ -34,6 +34,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 
 @click.command()
 @click.option("--log-level", type=str, help="Log level for the logger", default="INFO")
+@click.option("--web-port", type=int, help="Web server port", default=2000)
 @click.option("--prom-port", type=int, help="Port to expose prometheus metrics on", default=8384)
 @click.option("--chat-id", type=int, help="ID of the telegram chat to emergency save deleted messages")
 @click.option("--download-media/--no-media", default=None, help="Whether to download media or not")
@@ -45,6 +46,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.option("--msg_history_overlap", default=None, type=int, help="Number of days worth of overlapping non-modified messages to scrape before exiting re-archival early. (0 to archive entire history every time)")
 def main(
         log_level: str,
+        web_port: int,
         prom_port: int,
         chat_id: Optional[int],
         download_media: Optional[bool],
@@ -70,7 +72,7 @@ def main(
     )
     if chat_id is None:
         web_server = WebServer(archiver)
-        web_server.run()
+        web_server.run(port=web_port)
     else:
         asyncio.run(archiver.archive_chat(chat_id, chat_archive_behaviour))
 
