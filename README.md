@@ -34,6 +34,7 @@ You can also use the `main.py` command line arguments to specify an individual c
   - Deduplicate chats in the same way messages are
   - Double check how sticker and sticker set deduplication is working
 - Add time limits to the peer and sticker cache and such
+- Ability to specify notes on dialogs archive settings. (Like, why are you overriding defaults)
 
 ### TODO: Later
 - Further work on the web UI
