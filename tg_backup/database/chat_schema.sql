@@ -82,7 +82,7 @@ create table if not exists main.users
     phone_number            text,
     has_premium             boolean,
     username                text,
-    other_usernames         text§
+    other_usernames         text
 );
 create index if not exists users_id_index
     on users (id);
