@@ -106,8 +106,8 @@ class AbstractDatabase(ABC):
     def save_chat(self, chat: Chat) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
-                "INSERT INTO chats (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title)"
-                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :title)",
+                "INSERT INTO chats (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title, creation_date, is_creator, have_left, is_broadcast_channel, participants_count, about, username, other_usernames, migrated_to_chat_id, migrated_from_chat_id, linked_chat_id)"
+                " VALUES (:archive_datetime, :archive_tl_scheme_layer, :id, :type, :str_repr, :dict_repr, :title, :creation_date, :is_creator, :have_left, :is_broadcast_channel, :participants_count, :about, :username, :other_usernames, :migrated_to_chat_id, :migration_from_chat_id, :linked_chat_id)",
                 {
                     "archive_datetime": storable_date(chat.archive_datetime),
                     "archive_tl_scheme_layer": chat.archive_tl_schema_layer,
@@ -116,6 +116,17 @@ class AbstractDatabase(ABC):
                     "str_repr": chat.str_repr,
                     "dict_repr": json.dumps(chat.dict_repr, default=encode_json_extra),
                     "title": chat.title,
+                    "creation_date": storable_date(chat.creation_date),
+                    "is_creator": chat.is_creator,
+                    "have_left": chat.have_left,
+                    "is_broadcast_channel": chat.broadcast_channel,
+                    "participants_count": chat.participants_count,
+                    "about": chat.about,
+                    "username": chat.username,
+                    "other_usernames": json.dumps(chat.other_usernames, default=encode_json_extra),
+                    "migrated_to_chat_id": chat.migrated_to_chat_id,
+                    "migrated_from_chat_id": chat.migrated_from_chat_id,
+                    "linked_chat_id": chat.linked_chat_id,
                 }
             )
             self.conn.commit()
@@ -124,7 +135,7 @@ class AbstractDatabase(ABC):
         chats: list[Chat] = []
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
-                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title FROM chats",
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, title, creation_date, is_creator, have_left, is_broadcast_channel, participants_count, about, username, other_usernames, migrated_to_chat_id, migrated_from_chat_id, linked_chat_id FROM chats",
             )
             for row in resp.fetchall():
                 chat = Chat(
@@ -136,6 +147,17 @@ class AbstractDatabase(ABC):
                     dict_repr=json.loads(row["dict_repr"]),
                 )
                 chat.title = row["title"]
+                chat.creation_date = parsable_date(row["creation_date"])
+                chat.is_creator = row["is_creator"]
+                chat.have_left = row["have_left"]
+                chat.broadcast_channel = row["is_broadcast_channel"]
+                chat.participants_count = row["participants_count"]
+                chat.about = row["about"]
+                chat.username = row["username"]
+                chat.other_usernames = json.loads(row["other_usernames"], default=encode_json_extra)
+                chat.migrated_to_chat_id = row["migrated_to_chat_id"]
+                chat.migrated_from_chat_id = row["migrated_from_chat_id"]
+                chat.linked_chat_id = row["linked_chat_id"]
                 chats.append(chat)
         return chats
 
