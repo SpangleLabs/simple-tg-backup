@@ -269,7 +269,7 @@ class ArchiveTarget:
         if self.behaviour.follow_live:
             logger.info("Following live chat")
             watch_task = asyncio.create_task(self.watch_chat())
-        # Gather data from admin log
+        # Gather data from admin log and chat messages
         if self.behaviour.needs_archive_run():
             await self._archive_history()
         # Continue watching if relevant
