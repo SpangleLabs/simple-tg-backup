@@ -176,7 +176,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         if not media_info_entries:
             return
         logger.info(
-            "Found %s media entries in message ID % chat ID %s",
+            "Found %s media entries in message ID %s chat ID %s",
             len(media_info_entries), queue_entry.message.id, chat_id
         )
         for media_info in media_info_entries:
