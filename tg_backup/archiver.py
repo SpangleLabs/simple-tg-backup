@@ -3,7 +3,7 @@ import dataclasses
 import datetime
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
+from typing import Optional, AsyncIterator
 
 from prometheus_client import Gauge
 from telethon import TelegramClient
@@ -134,7 +134,7 @@ class Archiver:
         logger.info("Archiver stopped")
 
     @asynccontextmanager
-    async def run(self) -> AsyncGenerator[None]:
+    async def run(self) -> AsyncIterator[None]:
         await self.start()
         # noinspection PyBroadException
         try:
