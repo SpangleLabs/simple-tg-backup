@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import datetime
 import logging
 import os
 from typing import Optional
@@ -13,8 +14,7 @@ from telethon.tl.types import DocumentAttributeSticker, InputStickerSetID, Docum
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
-from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem
-
+from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem, TimedCache
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,26 @@ class StickerQueueEntry:
 
 
 class StickerDownloader(AbstractSubsystem):
+    CACHE_EXPIRY = datetime.timedelta(days=1)
+
     def __init__(self, client: TelegramClient, core_db: CoreDatabase):
         super().__init__(client)
         self.core_db = core_db
         self.queue: asyncio.Queue[StickerQueueEntry] = asyncio.Queue()
-        self.seen_sticker_set_ids: set[int] = set() # Which sticker sets have been seen and listed
-        self.seen_sticker_ids: set[int] = set() # Which stickers have already been saved in the database
+        self._seen_sticker_set_ids = TimedCache[int](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed
+        self._seen_sticker_ids = TimedCache[int](self.CACHE_EXPIRY) # Which stickers have already been saved in the database
+
+    def is_sticker_set_cached(self, sticker_set_id: int) -> bool:
+        return self._seen_sticker_set_ids.is_resource_id_cached(sticker_set_id)
+
+    def cache_sticker_set_id(self, sticker_set_id: int) -> None:
+        self._seen_sticker_set_ids.cache_resource_id(sticker_set_id)
+
+    def is_sticker_cached(self, sticker_id: int) -> bool:
+        return self._seen_sticker_ids.is_resource_id_cached(sticker_id)
+
+    def cache_sticker_id(self, sticker_id: int) -> None:
+        self._seen_sticker_ids.cache_resource_id(sticker_id)
 
     @staticmethod
     def _find_file_ext(sticker_doc: Document) -> Optional[str]:
@@ -66,7 +80,7 @@ class StickerDownloader(AbstractSubsystem):
         if input_sticker_set is None:
             return
         sticker_set_id = input_sticker_set.id if hasattr(input_sticker_set, "id") else None
-        if sticker_set_id in self.seen_sticker_set_ids:
+        if self.is_sticker_set_cached(sticker_set_id):
             return
         sticker_sets_processed_count.inc()
         # Fetch sticker set data
@@ -87,7 +101,7 @@ class StickerDownloader(AbstractSubsystem):
         # Put the rest of the pack in the queue
         for sticker_doc in sticker_set.documents:
             await self.queue_sticker(sticker_doc)
-        self.seen_sticker_set_ids.add(sticker_set_id)
+        self.cache_sticker_set_id(sticker_set_id)
 
     async def _do_process(self) -> None:
         queue_entry = self.queue.get_nowait()
@@ -97,7 +111,7 @@ class StickerDownloader(AbstractSubsystem):
         sticker_id = sticker_doc.id if hasattr(sticker_doc, "id") else None
         stickers_processed_count.inc()
         # Check if sticker has been saved
-        if sticker_id in self.seen_sticker_ids:
+        if self.is_sticker_cached(sticker_id):
             return
         # Find sticker set and file extension
         input_sticker_set = self._find_input_sticker_set(sticker_doc)
@@ -119,7 +133,7 @@ class StickerDownloader(AbstractSubsystem):
         logger.info("Saving sticker ID %s to database", sticker_id)
         self.core_db.save_sticker(sticker_obj)
         # Update cache
-        self.seen_sticker_ids.add(sticker_id)
+        self.cache_sticker_id(sticker_id)
         # Process the sticker set
         if input_sticker_set is not None:
             await self._process_sticker_set(input_sticker_set)

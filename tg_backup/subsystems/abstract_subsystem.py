@@ -1,5 +1,6 @@
 import asyncio
 import dataclasses
+import datetime
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, TypeVar, Generic
@@ -132,3 +133,33 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
         # Add to chat queue
         logger.info(f"Added queue entry to {self.name()} queue")
         await self.queues[queue_key].queue.put(entry)
+
+
+C = TypeVar("C")
+
+
+@dataclasses.dataclass
+class TimedCacheEntry(Generic[C]):
+    resource_id: C
+    date_cached: datetime.datetime
+
+
+class TimedCache(Generic[C]):
+    def __init__(self, cache_expiry: datetime.timedelta) -> None:
+        self.cache_expiry = cache_expiry
+        self._cache: dict[C, TimedCacheEntry[C]] = {}
+
+    def is_resource_id_cached(self, resource_id: C) -> bool:
+        cache_entry = self._cache.get(resource_id)
+        if cache_entry is None:
+            return False
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if (now - cache_entry.date_cached) > self.cache_expiry:
+            del self._cache[resource_id]
+            return False
+        return True
+
+    def cache_resource_id(self, resource_id: C) -> None:
+        if not self.is_resource_id_cached(resource_id):
+            now = datetime.datetime.now(datetime.timezone.utc)
+            self._cache[resource_id] = TimedCacheEntry(resource_id, now)

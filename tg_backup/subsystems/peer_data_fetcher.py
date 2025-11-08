@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import logging
 from typing import Union, NewType, Optional
 
@@ -13,7 +14,7 @@ from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.chat import Chat
 from tg_backup.models.user import User
-from tg_backup.subsystems.abstract_subsystem import ArchiveRunQueue, AbstractTargetQueuedSubsystem
+from tg_backup.subsystems.abstract_subsystem import ArchiveRunQueue, AbstractTargetQueuedSubsystem, TimedCache
 
 peers_processed = Counter(
     "tgbackup_peerdatafetcher_peers_processed_count",
@@ -41,14 +42,16 @@ class PeerQueueEntry:
 
 
 class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
+    CACHE_EXPIRY = datetime.timedelta(days=1)
+
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(client)
         self.core_db = core_db
-        self.core_seen_peer_ids: set[PeerCacheID] = set()
-        self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {}
+        self._core_seen_peer_ids = TimedCache[PeerCacheID](self.CACHE_EXPIRY)
+        self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {} # Not timed, because we just want at least one entry for the peer in each chat DB
 
     def peer_id_seen_core(self, peer: Peer) -> bool:
-        return peer_cache_key(peer) in self.core_seen_peer_ids
+        return self._core_seen_peer_ids.is_resource_id_cached(peer_cache_key(peer))
 
     def peer_id_seen_in_chat(self, peer: Peer, chat_id: Optional[int]) -> bool:
         if chat_id is None:
@@ -56,7 +59,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         return peer_cache_key(peer) in self.chat_seen_peer_ids.get(chat_id, set())
 
     def record_peer_id_seen_core(self, peer: Peer) -> None:
-        self.core_seen_peer_ids.add(peer_cache_key(peer))
+        self._core_seen_peer_ids.cache_resource_id(peer_cache_key(peer))
 
     def record_peer_id_seen_in_chat(self, peer: Peer, chat_id: Optional[int]) -> None:
         if chat_id is None:
