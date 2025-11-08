@@ -195,7 +195,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                 try:
                     await self.client.download_media(media_info.media_obj, str(target_path))
                 except Exception as e:
-                    logger.error("Failed to download media, (will retry) error:", exc_info=e)
+                    logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", queue_entry.message.id, chat_id, getattr(queue_entry.message, "date", None), exc_info=e)
                     await asyncio.sleep(60)
                 else:
                     break
