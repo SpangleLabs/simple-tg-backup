@@ -42,18 +42,18 @@ def setup_logging(log_level: str = "INFO") -> None:
 @click.option("--archive-history/--no-archive-history", default=None, help="Whether to archive the history of the chat before this point")
 @click.option("--cleanup_duplicates/--no_cleanup_duplicates", default=None, help="Whether to clean up duplicate messages in the database")
 @click.option("--recheck_media/--no_recheck_media", default=None, help="Whether to recheck media of previously archived messages which have not been edited")
-@click.option("--msg_history_overlap", default=0, type=int, help="Number of days worth of overlapping non-modified messages to scrape before exiting re-archival early. (0 to archive entire history every time)")
+@click.option("--msg_history_overlap", default=None, type=int, help="Number of days worth of overlapping non-modified messages to scrape before exiting re-archival early. (0 to archive entire history every time)")
 def main(
         log_level: str,
         prom_port: int,
         chat_id: Optional[int],
-        download_media: bool,
-        check_admin_log: bool,
-        follow_live: bool,
-        archive_history: bool,
-        cleanup_duplicates: bool,
-        recheck_media: bool,
-        msg_history_overlap: int
+        download_media: Optional[bool],
+        check_admin_log: Optional[bool],
+        follow_live: Optional[bool],
+        archive_history: Optional[bool],
+        cleanup_duplicates: Optional[bool],
+        recheck_media: Optional[bool],
+        msg_history_overlap: Optional[int]
 ) -> None:
     setup_logging(log_level)
     start_http_server(prom_port)
