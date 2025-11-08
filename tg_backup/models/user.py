@@ -65,8 +65,11 @@ class User(AbstractResource):
         if hasattr(user, "username"):
             user_obj.username = user.username
         if hasattr(user, "usernames"):
-            # TODO: this will probably fail tbh
-            user_obj.other_usernames = user.usernames
+            other_usernames = []
+            for username in user.usernames:
+                if hasattr(username, "username"):
+                    other_usernames.append(username.username)
+            user_obj.other_usernames = other_usernames
         # TODO: profile photos?
         return user_obj
 

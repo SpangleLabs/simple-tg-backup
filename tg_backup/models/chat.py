@@ -76,8 +76,11 @@ class Chat(AbstractResource):
         if hasattr(chat, "username"):
             chat_obj.username = chat.username
         if hasattr(chat, "usernames"):
-            # TODO: this will probably fail tbh
-            chat_obj.usernames = chat.usernames
+            other_usernames = []
+            for username in chat.usernames:
+                if hasattr(username, "username"):
+                    other_usernames.append(username.username)
+            chat_obj.other_usernames = other_usernames
         if hasattr(chat, "migrated_to"):
             if hasattr(chat.migrated_to, "channel_id"):
                 chat_obj.migrated_to_chat_id = chat.migrated_to.channel_id

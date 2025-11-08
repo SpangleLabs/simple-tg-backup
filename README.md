@@ -23,7 +23,6 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
 - Behaviour setting to only download necessary stickers, rather than entire packs?
 - HTML view of chats?
 - Archive user and chat profile photos
-- Ensure archiver can correctly archive targets with multiple usernames
 - Call GetPollResultsRequest and gather poll results `PollResults` after getting poll with MessageMediaPoll?
 
 
