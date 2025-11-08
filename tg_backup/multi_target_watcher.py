@@ -168,27 +168,28 @@ class MultiTargetWatcher:
         if len(dialogs) == 0:
             logger.error("Did not find dialog matching new chat ID %s", chat.id)
             return # TODO: exception, or what??? Test this somehow
-        dialog = dialogs[0]
-        if not self.chat_settings.should_archive_dialog(dialog):
+        raw_dialog = dialogs[0]
+        dialog_obj = Dialog.from_dialog(raw_dialog)
+        if not self.chat_settings.should_archive_dialog(dialog_obj):
             logger.info("New chat ID %s does not match archive settings, noting not to archive it.", chat.id)
             self.not_watching_chat_ids.add(chat.id)
             return
-        behaviour = self.chat_settings.behaviour_for_dialog(dialog, self.archiver.config.default_behaviour)
+        behaviour = self.chat_settings.behaviour_for_dialog(dialog_obj, self.archiver.config.default_behaviour)
         if not behaviour.follow_live:
-            self.not_watching_chat_ids.add(dialog.resource_id)
+            self.not_watching_chat_ids.add(dialog_obj.resource_id)
             if behaviour.needs_archive_run():
                 logger.info("New chat ID %s does not match follow live settings, but does need history archival. Sending to archiver for history archival.", chat.id)
-                history_target = ArchiveTarget(dialog, behaviour, self.archiver)
+                history_target = ArchiveTarget(dialog_obj, behaviour, self.archiver)
                 self.archiver.add_archive_history_target_while_running(history_target)
             else:
                 logger.info("New chat ID %s does not match follow live settings, noting not to archive it.", chat.id)
             return
-        follow_target = ArchiveTarget(dialog, behaviour, self.archiver)
+        follow_target = ArchiveTarget(dialog_obj, behaviour, self.archiver)
         self.follow_targets[chat.id] = follow_target
         if behaviour.needs_archive_run():
             logger.info("New chat ID %s has been followed, and needs history archival. Sending to archiver for history archival.", chat.id)
             history_behaviour = BehaviourConfig.merge(behaviour, BehaviourConfig(follow_live=False))
-            history_target = ArchiveTarget(dialog, history_behaviour, self.archiver)
+            history_target = ArchiveTarget(dialog_obj, history_behaviour, self.archiver)
             self.archiver.add_archive_history_target_while_running(history_target)
         else:
             logger.info("New chat ID %s has been followed", chat.id)
