@@ -89,7 +89,7 @@
                 Start: {{ target.run_record.follow_live_timer.start_time }}</li>
         {% endfor %}
         </ul>
-        {% if not current_activity.completed %}
+        {% if target_watcher.running %}
             <form action="/archiver/" method="post">
             <input type="hidden" name="action" value="stop_watcher" />
             <input type="submit" value="Stop following targets" />
