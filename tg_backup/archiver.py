@@ -41,6 +41,8 @@ class ArchiverActivity:
     target_watcher: Optional[MultiTargetWatcher]
     history_targets: list[ArchiveTarget]
     start_time: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    completed_history_targets = False
+    history_targets_added = asyncio.Event()
     completed: bool = False
     watch_task: Optional[asyncio.Task] = None
     watcher: Optional[MultiTargetWatcher] = None
@@ -63,6 +65,15 @@ class ArchiverActivity:
 
     def list_unfinished_history_targets(self) -> list[ArchiveTarget]:
         return [t for t in self.history_targets if not t.run_record.archive_history_timer.has_ended()]
+
+    def next_unfinished_history_target(self) -> Optional[ArchiveTarget]:
+        unfinished_targets = self.list_unfinished_history_targets()
+        if unfinished_targets:
+            return unfinished_targets[0]
+        return None
+
+    def has_unfinished_history_targets(self) -> bool:
+        return len(self.list_unfinished_history_targets()) > 0
 
     def count_completed_history_targets(self) -> int:
         return len([t for t in self.history_targets if t.run_record.archive_history_timer.has_ended()])
@@ -185,19 +196,37 @@ class Archiver:
             if not target_watcher.watching_nothing():
                 logger.info("Following %s dialogs live", target_watcher.count_watched_targets())
                 activity.watch_task = asyncio.create_task(activity.watcher.watch())
-            # Archive the history of applicable chats
-            if archive_history_targets:
-                logger.info("Archiving dialogs")
-                for archive_target in archive_history_targets:
-                    dialog = archive_target.dialog
-                    logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
-                    await archive_target.archive_chat()
-                logger.info("Completed archiving chat history of all targets")
-            # Continue watching if relevant
-            if activity.watch_task:
+            # Loop until we're complete
+            while not activity.completed:
+                # Archive the history of any applicable chats
+                if activity.has_unfinished_history_targets():
+                    logger.info("Archiving dialogs")
+                    next_target = activity.next_unfinished_history_target()
+                    while next_target is not None:
+                        dialog = next_target.dialog
+                        logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
+                        await next_target.archive_chat()
+                        next_target = activity.next_unfinished_history_target()
+                    activity.completed_history_targets = True
+                    logger.info("Completed archiving chat history of all targets")
+                # If there's no watching to do, break the loop
+                if activity.watch_task is None:
+                    logger.info("History archival done, and not following any chats, shutting down archiver.")
+                    activity.complete = True
+                    break
+                # Otherwise, watch the watcher until new history targets appear
                 logger.info("Watching dialogs for live updates")
-                await activity.watch_task
-            activity.completed = True
+                done, pending = await asyncio.wait(
+                    [
+                        activity.watch_task,
+                        activity.history_targets_added.wait(),
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if not activity.has_unfinished_history_targets() and activity.watch_task.done():
+                    logger.info("Archive targets complete, and chat watcher is complete, shutting down archiver.")
+                    activity.complete = True
+                    break
 
     async def archive_chat(self, chat_id: int, archive_behaviour: BehaviourConfig) -> None:
         activity = ArchiverActivity(f"Archiving individual chat: {chat_id}", None, [])
@@ -218,3 +247,22 @@ class Archiver:
             target = ArchiveTarget(matching_dialogs[0], behaviour, self)
             activity.update_history_targets([target])
             await target.archive_chat()
+
+    def add_archive_history_target_while_running(self, history_target: ArchiveTarget) -> None:
+        activity = self.current_activity
+        if activity is None:
+            raise ValueError("Not currently running, can't add a history target")
+        if activity.completed:
+            raise ValueError("Archiver has already finished, can't add a history target")
+        # I don't know why I split this up with if statements, but it felt right, so, log lines I guess.
+        if activity.has_history_targets():
+            if activity.completed_history_targets:
+                logger.info("History archival complete, adding a new target (which should resume history archival)")
+                activity.add_history_target(history_target)
+                return
+            logger.info("History archival is active, added a new target to history archive list")
+            activity.add_history_target(history_target)
+            return
+        logger.info("History archival was not previously needed, added a new target (which should trigger history archival)")
+        activity.add_history_target(history_target)
+        return
