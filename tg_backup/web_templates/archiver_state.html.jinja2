@@ -67,12 +67,12 @@
 {% if current_activity is none %}
     <p>The archiver has not yet been run (since last startup).</p>
 {% else %}
-    {% set archive_targets = current_activity.archive_targets %}
-    {% if archive_targets | length > 0 %}
+    {% set history_targets = current_activity.history_targets %}
+    {% if history_targets | length > 0 %}
         <h3>Archive targets</h3>
         Downloading chat history of these targets:
         <ul>
-        {% for target in archive_targets %}
+        {% for target in history_targets %}
             <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
                 Start: {{ target.run_record.archive_history_timer.start_time }}
                 End: {{ target.run_record.archive_history_timer.end_time }}</li>

@@ -39,20 +39,20 @@ archiver_completed_targets = Gauge(
 class ArchiverActivity:
     name: str
     target_watcher: Optional[MultiTargetWatcher]
-    archive_targets: list[ArchiveTarget]
+    history_targets: list[ArchiveTarget]
     start_time: datetime.datetime = dataclasses.field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
     completed: bool = False
     watch_task: Optional[asyncio.Task] = None
     watcher: Optional[MultiTargetWatcher] = None
 
     def count_all_targets(self) -> int:
-        return self.watcher.count_watched_targets() + len(self.archive_targets)
+        return self.watcher.count_watched_targets() + len(self.history_targets)
 
     def update_history_targets(self, targets: list[ArchiveTarget]) -> None:
-        self.archive_targets = targets
+        self.history_targets = targets
 
     def completed_archive_targets(self) -> list[ArchiveTarget]:
-        return [t for t in self.archive_targets if t.run_record.archive_history_timer.has_ended()]
+        return [t for t in self.history_targets if t.run_record.archive_history_timer.has_ended()]
 
 
 class Archiver:
