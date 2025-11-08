@@ -16,6 +16,7 @@ Unsure how simple, yet. It's a work in progress, and not very functional yet.
   - Deduplicate users in the same way messages are
   - Deduplicate chats in the same way messages are
   - Double check how sticker and sticker set deduplication is working
+- Add time limits to the peer and sticker cache and such
 
 ### TODO: Later
 - Further work on the web UI
