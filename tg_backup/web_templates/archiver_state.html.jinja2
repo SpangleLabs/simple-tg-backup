@@ -85,8 +85,13 @@
         Watching these targets for live updates:
         <ul>
         {% for target in target_watcher.follow_targets.values() %}
-            <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
-                Start: {{ target.run_record.follow_live_timer.start_time }}</li>
+            <li>
+                {{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
+                Start: {{ target.run_record.follow_live_timer.start_time }}
+            {% if target.run_record.follow_live_timer.end_time is not none %}
+                End: {{ target.run_record.follow_live_timer.end_time }}
+            {% endif %}
+            </li>
         {% endfor %}
         </ul>
         {% if target_watcher.running %}
