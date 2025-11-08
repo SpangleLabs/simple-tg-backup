@@ -48,6 +48,11 @@
         <td>Whether the archiver should attempt to cleanup duplicate objects in the database when saving new objects</td>
     </tr>
     <tr>
+        <td>Re-check media</td>
+        <td><input type="checkbox" name="recheck_media" {{ "checked" if behaviour.recheck_media else "" }}/></td>
+        <td>Whether the archiver should pass media to media subsystems for messages which have already been archived and have not been edited. (This is useful if the media download systems have been modified).</td>
+    </tr>
+    <tr>
         <td>Message history overlap (days)</td>
         <td><input type="number" step="1" name="msg_history_overlap_days" value="{{ behaviour.msg_history_overlap_days }}"/></td>
         <td>How many days of overlapping messages to check when re-archiving a target, before exiting early. (0 to scrape entire chat history every time)</td>

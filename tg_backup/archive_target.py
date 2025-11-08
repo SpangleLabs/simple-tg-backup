@@ -117,6 +117,8 @@ class ArchiveTarget:
             latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
                 logger.debug("Already have message ID %s archived sufficiently", msg.id)
+                if self.behaviour.recheck_media:
+                    await self._msg_to_subsystems(msg)
                 return None
             else:
                 logger.info("Message ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
