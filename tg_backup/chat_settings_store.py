@@ -101,6 +101,14 @@ class ChatSettingsStore:
         return count
 
     def should_archive_dialog(self, dialog: Dialog, return_default: bool = False) -> bool:
+        """
+        Tells whether a dialog should be archived or not.
+        This checks the chat's specific settings, then check whether the chat matches any new chat filters, then return
+        the default value for all chats.
+
+        If `return_default` is `True`, then it will not check chat-specific settings, and return what the default would
+        be without chat-specific settings.
+        """
         if not return_default:
             # Check for chat-specific settings
             chat_settings = self.chat_settings.get(dialog.resource_id)
