@@ -79,12 +79,12 @@
         {% endfor %}
         </ul>
     {% endif %}
-    {% set follow_targets = current_activity.follow_targets %}
-    {% if follow_targets | length > 0 %}
+    {% set target_watcher = current_activity.target_watcher %}
+    {% if target_watcher is not none %}
         <h3>Follow targets</h3>
         Watching these targets for live updates:
         <ul>
-        {% for target in follow_targets %}
+        {% for target in target_watcher.follow_targets.values() %}
             <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
                 Start: {{ target.run_record.follow_live_timer.start_time }}</li>
         {% endfor %}
