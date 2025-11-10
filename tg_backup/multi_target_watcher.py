@@ -164,17 +164,19 @@ class MultiTargetWatcher:
             await target.on_live_delete_message(event)
 
     async def _handle_new_chat(self, chat: Peer) -> None:
-        dialogs = await self.client.get_dialogs(offset_peer=chat, limit=1)
-        if len(dialogs) == 0:
-            logger.error("Did not find dialog matching new chat ID %s", chat.id)
-            return # TODO: exception, or what??? Test this somehow
-        raw_dialog = dialogs[0]
-        dialog_obj = Dialog.from_dialog(raw_dialog)
+        # Fetch the appropriate dialog object
+        dialog_obj = await self.archiver.dialog_fetcher.get_dialog(chat.id)
+        if dialog_obj is None:
+            logger.error("Could not find dialog matching new chat ID %s", chat.id)
+            return
+        # Figure out whether to archive the dialog
         if not self.chat_settings.should_archive_dialog(dialog_obj):
             logger.info("New chat ID %s does not match archive settings, noting not to archive it.", chat.id)
             self.not_watching_chat_ids.add(chat.id)
             return
+        # Figure out the archive behaviour for the dialog
         behaviour = self.chat_settings.behaviour_for_dialog(dialog_obj, self.archiver.config.default_behaviour)
+        # If we're not following the dialog, tell the archiver or not
         if not behaviour.follow_live:
             self.not_watching_chat_ids.add(dialog_obj.resource_id)
             if behaviour.needs_archive_run():
@@ -184,6 +186,7 @@ class MultiTargetWatcher:
             else:
                 logger.info("New chat ID %s does not match follow live settings, noting not to archive it.", chat.id)
             return
+        # We are meant to follow this chat, so add an archive target
         follow_target = ArchiveTarget(dialog_obj, behaviour, self.archiver)
         self.follow_targets[chat.id] = follow_target
         if behaviour.needs_archive_run():

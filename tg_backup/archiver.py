@@ -12,6 +12,7 @@ from tg_backup.archive_target import ArchiveTarget
 from tg_backup.chat_settings_store import ChatSettingsStore
 from tg_backup.config import Config, BehaviourConfig
 from tg_backup.database.core_database import CoreDatabase
+from tg_backup.dialog_fetcher import DialogFetcher
 from tg_backup.models.dialog import Dialog
 from tg_backup.multi_target_watcher import MultiTargetWatcher
 from tg_backup.subsystems.media_downloader import MediaDownloader
@@ -83,13 +84,13 @@ class Archiver:
         self.config = conf
         self.client = TelegramClient("simple_backup", conf.client.api_id, conf.client.api_hash)
         self.running = False
-        self.running_list_dialogs = False
         self.current_activity: Optional[ArchiverActivity] = None
         self.core_db = CoreDatabase()
         self.media_dl = MediaDownloader(self.client)
         self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
         self.sticker_downloader = StickerDownloader(self.client, self.core_db)
         self.chat_settings = ChatSettingsStore.load_from_file()
+        self.dialog_fetcher = DialogFetcher(self)
         archiver_running.set_function(lambda: int(self.running))
         archiver_current_targets.set_function(lambda: self.current_activity.count_all_targets() if self.current_activity else 0)
         archiver_completed_targets.set_function(lambda: self.current_activity.count_completed_history_targets() if self.current_activity else 0)
@@ -144,24 +145,6 @@ class Archiver:
             await self.stop(fast=True)
         finally:
             await self.stop(fast=False)
-
-    async def save_dialogs(self) -> list[Dialog]:
-        if self.running_list_dialogs:
-            raise ValueError("Save dialogs is already running")
-        self.running_list_dialogs = True
-        dialogs = []
-        async with self.run():
-            logger.info("Fetching dialog list from Telegram")
-            raw_dialogs = await self.client.get_dialogs()
-            logger.info("Found %s dialogs", len(raw_dialogs))
-            for dialog in raw_dialogs:
-                dialog_obj = Dialog.from_dialog(dialog)
-                dialogs.append(dialog_obj)
-                self.core_db.save_dialog(dialog_obj)
-                peer = dialog.dialog.peer
-                await self.peer_fetcher.queue_peer(None, None, None, peer)
-        self.running_list_dialogs = False
-        return dialogs
 
     def dialogs_to_archive_targets(
             self,
@@ -232,18 +215,13 @@ class Archiver:
         self.current_activity = activity
         async with self.run():
             # Find the dialog of the target chat
-            dialogs = self.core_db.list_dialogs()
-            matching_dialogs = [d for d in dialogs if d.resource_id == chat_id]
-            if not matching_dialogs:
-                logger.info("Cannot find dialog for specified chat ID, re-scanning dialog list")
-                dialogs = await self.save_dialogs()
-                matching_dialogs = [d for d in dialogs if d.resource_id == chat_id]
-                if not matching_dialogs:
-                    logger.error("Cannot find dialog matching the given chat ID, after re-scanning")
-                    raise ValueError("Cannot find dialog matching the given chat ID, after re-scanning")
+            dialog = await self.dialog_fetcher.get_dialog(chat_id)
+            if not dialog:
+                logger.error("Cannot find dialog matching the given chat ID.")
+                raise ValueError("Cannot find dialog matching the given chat ID.")
             # Archive the target chat
             behaviour = BehaviourConfig.merge(archive_behaviour, self.config.default_behaviour)
-            target = ArchiveTarget(matching_dialogs[0], behaviour, self)
+            target = ArchiveTarget(dialog, behaviour, self)
             activity.update_history_targets([target])
             await target.archive_chat()
 

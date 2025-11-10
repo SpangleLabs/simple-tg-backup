@@ -122,7 +122,7 @@ class WebServer:
             {
                 "settings": self.archiver.chat_settings,
                 "dialogs": self.core_db.list_dialogs(),
-                "running_list_dialogs": self.archiver.running_list_dialogs,
+                "running_list_dialogs": self.archiver.dialog_fetcher.is_fetching_dialogs(),
                 "newest_dialog_date": newest_dialog_date,
             }
         )
@@ -144,9 +144,9 @@ class WebServer:
             self.archiver.chat_settings.save_to_file()
             return await self.settings_known_dialogs(req)
         if data.get("action") == "list_dialogs":
-            if self.archiver.running_list_dialogs:
+            if self.archiver.dialog_fetcher.is_fetching_dialogs():
                 return web.Response(status=403, text="List dialogs request is already running")
-            asyncio.create_task(self.archiver.save_dialogs())
+            asyncio.create_task(self.archiver.dialog_fetcher.fetch_dialogs_list())
             return await self.settings_known_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
 
