@@ -178,6 +178,10 @@ class ArchiveTarget:
                 return None
             else:
                 logger.info("Message ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
+            # If the previous version was deleted, and this version isn't, delete the old record claiming it was deleted
+            if latest_msg_obj.deleted and not msg_obj.deleted:
+                logger.info("Message ID %s was previously thought to be deleted. Removing records of it being deleted")
+                self.chat_db.delete_deleted_messages(msg_obj.resource_id)
         else:
             logger.debug("Processing new message ID: %s in chat ID: %s", msg.id, self.chat_id)
         # Save the message

@@ -164,6 +164,17 @@ class ChatDatabase(AbstractDatabase):
             )
             self.conn.commit()
 
+    def delete_deleted_messages(self, msg_id: int) -> None:
+        """
+        Deletes records of a message which indicate that it was deleted, if it's confirmed that the message was not deleted.
+        """
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "DELETE FROM messages WHERE id = :msg_id AND deleted = True",
+                {"msg_id": msg_id}
+            )
+            self.conn.commit()
+
     def save_web_page_media(self, web_page_media: WebPageMedia) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
