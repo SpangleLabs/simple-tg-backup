@@ -5,6 +5,7 @@ from typing import Union, NewType, Optional
 
 from prometheus_client import Counter
 from telethon import TelegramClient
+from telethon.errors import ChannelPrivateError
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.functions.users import GetFullUserRequest
@@ -125,8 +126,12 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         chat_db = chat_queue.chat_db
         logger.info("Fetching full channel data from telegram for channel ID %s", peer_cache_key(channel))
         # Get full channel info
-        # noinspection PyTypeChecker
-        full = await self.client(GetFullChannelRequest(channel))
+        try:
+            # noinspection PyTypeChecker
+            full = await self.client(GetFullChannelRequest(channel))
+        except ChannelPrivateError:
+            logger.warning("Could not fetch full channel data as channel is private or banned: %s", peer_cache_key(channel))
+            return
         # Convert channel to storable object
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats
