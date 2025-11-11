@@ -234,7 +234,7 @@ class WebServer:
             webserver_running.set(1)
             self.core_db.start()
             self._setup_routes()
-            web.run_app(self.app, host='127.0.0.1', port=port)
+            web.run_app(self.app, host='0.0.0.0', port=port)
         finally:
             self.core_db.stop()
             webserver_running.set(0)
