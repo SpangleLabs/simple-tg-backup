@@ -72,7 +72,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         # Fetch item from queue
         chat_queue, queue_entry = self._get_next_in_queue()
         peers_processed.inc()
-        logger.info("Processing peer to fetch")
+        logger.info("Processing peer to fetch: %s", peer_cache_key(queue_entry.peer))
         # Check whether cache wants update
         if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_queue.chat_id):
             chat_queue.queue.task_done()
@@ -86,7 +86,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
 
     async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], user: PeerUser) -> None:
         chat_id = chat_queue.chat_id
-        logger.info("Fetching full user info from telegram for user ID %s", getattr(user, "id", None))
+        logger.info("Fetching full user info from telegram for user ID %s", peer_cache_key(user))
         # Get full user info
         # noinspection PyTypeChecker
         full = await self.client(GetFullUserRequest(user))
@@ -107,7 +107,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
-        logger.info("Fetching full chat data from telegram for chat ID %s", getattr(chat, "id", None))
+        logger.info("Fetching full chat data from telegram for chat ID %s", peer_cache_key(chat))
         # Get full chat info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChatRequest(chat.chat_id))
@@ -123,7 +123,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
-        logger.info("Fetching full channel data from telegram for channel ID %s", getattr(channel, "id", None))
+        logger.info("Fetching full channel data from telegram for channel ID %s", peer_cache_key(channel))
         # Get full channel info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChannelRequest(channel))
