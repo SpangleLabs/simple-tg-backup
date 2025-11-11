@@ -72,7 +72,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         # Fetch item from queue
         chat_queue, queue_entry = self._get_next_in_queue()
         peers_processed.inc()
-        logger.info("Processing peer to fetch: %s", peer_cache_key(queue_entry.peer))
+        logger.info("Processing peer to fetch: %s, mentioned in chat ID %s", peer_cache_key(queue_entry.peer), chat_queue.chat_id)
         # Check whether cache wants update
         if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_queue.chat_id):
             chat_queue.queue.task_done()
