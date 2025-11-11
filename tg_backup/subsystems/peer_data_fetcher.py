@@ -86,7 +86,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
 
     async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], user: PeerUser) -> None:
         chat_id = chat_queue.chat_id
-        logger.info("Fetching full user info from telegram")
+        logger.info("Fetching full user info from telegram for user ID %s", getattr(user, "id", None))
         # Get full user info
         # noinspection PyTypeChecker
         full = await self.client(GetFullUserRequest(user))
@@ -107,7 +107,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
-        logger.info("Fetching full chat data from telegram")
+        logger.info("Fetching full chat data from telegram for chat ID %s", getattr(chat, "id", None))
         # Get full chat info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChatRequest(chat.chat_id))
@@ -123,7 +123,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         queue_key = chat_queue.queue_key
         chat_id = chat_queue.chat_id
         chat_db = chat_queue.chat_db
-        logger.info("Fetching full channel data from telegram")
+        logger.info("Fetching full channel data from telegram for channel ID %s", getattr(channel, "id", None))
         # Get full channel info
         # noinspection PyTypeChecker
         full = await self.client(GetFullChannelRequest(channel))
