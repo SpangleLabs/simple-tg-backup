@@ -70,6 +70,7 @@ def main(
         recheck_media=recheck_media,
         msg_history_overlap_days=msg_history_overlap,
     )
+    start_time.set_to_current_time()
     if chat_id is None:
         web_server = WebServer(archiver)
         web_server.run(port=web_port)
