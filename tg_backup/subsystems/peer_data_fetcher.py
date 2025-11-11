@@ -131,6 +131,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
             full = await self.client(GetFullChannelRequest(channel))
         except ChannelPrivateError:
             logger.warning("Could not fetch full channel data as channel is private or banned: %s", peer_cache_key(channel))
+            chat_queue.queue.task_done()
             return
         # Convert channel to storable object
         chat_obj = Chat.from_full_chat(full)
