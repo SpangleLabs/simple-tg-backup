@@ -60,6 +60,9 @@ class AbstractSubsystem(ABC):
                     return
                 await asyncio.sleep(1)
                 continue
+            except Exception as e:
+                logger.critical("Subsystem %s has failed with exception: ", self.name(), exc_info=e)
+                raise e
             logger.info("There are %s remaining items in the %s queue", self.queue_size(), self.name())
 
     @abstractmethod
