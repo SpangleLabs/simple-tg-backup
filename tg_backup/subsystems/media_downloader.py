@@ -9,6 +9,7 @@ from typing import Optional, Union
 import telethon
 from prometheus_client import Counter
 from telethon import TelegramClient
+from telethon.errors import FileReferenceExpiredError
 from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage, \
     MessageMediaGeo, MessageMediaGeoLive, MessageMediaPoll, MessageMediaDice, MessageMediaContact, MessageMediaToDo, \
     MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaInvoice, \
@@ -17,6 +18,7 @@ from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, Mess
 from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.web_page_media import WebPageMedia
 from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsystem
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
         self.chat_seen_web_page_ids: dict[int, set[int]] = defaultdict(set)
+        self.message_refresher = MessageRefreshCache(client)
 
     def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
@@ -172,41 +175,57 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         chat_queue, queue_entry = self._get_next_in_queue()
         chat_id = chat_queue.chat_id
         media_processed_count.inc()
+        # Process the message
+        await self._process_message(chat_id, chat_queue.chat_db, queue_entry.message)
+        # Mark task as done
+        chat_queue.queue.task_done()
+
+    async def _process_message(self, chat_id: int, chat_db: ChatDatabase, message: telethon.types.Message) -> None:
         # Determine media info
-        media_info_entries = self._parse_media_info(queue_entry.message, chat_id)
+        media_info_entries = self._parse_media_info(message, chat_id)
         if not media_info_entries:
-            chat_queue.queue.task_done()
             return
         logger.info(
             "Found %s media entries in message ID %s chat ID %s",
-            len(media_info_entries), queue_entry.message.id, chat_id
+            len(media_info_entries), message.id, chat_id
         )
         for media_info in media_info_entries:
-            # Construct file path
-            target_filename = f"{media_info.media_id}.{media_info.file_ext}"
-            target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
-            os.makedirs(target_path.parent, exist_ok=True)
-            if os.path.exists(target_path):
-                logger.info("Skipping download of pre-existing file")
-                continue
-            # Download the media
-            while True:
-                logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-                try:
-                    await self.client.download_media(media_info.media_obj, str(target_path))
-                except Exception as e:
-                    logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", queue_entry.message.id, chat_id, getattr(queue_entry.message, "date", None), exc_info=e)
-                    await asyncio.sleep(60)
+            await self._process_media(chat_id, chat_db, message, media_info)
+
+    async def _process_media(self, chat_id: int, chat_db: ChatDatabase, message: telethon.types.Message, media_info: MediaInfo) -> None:
+        # Construct file path
+        target_filename = f"{media_info.media_id}.{media_info.file_ext}"
+        target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
+        os.makedirs(target_path.parent, exist_ok=True)
+        if os.path.exists(target_path):
+            logger.info("Skipping download of pre-existing file")
+            return
+        # Download the media
+        while True:
+            logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+            try:
+                await self.client.download_media(media_info.media_obj, str(target_path))
+            except FileReferenceExpiredError as e:
+                logger.warning("File reference expired for message ID %s, will refresh message")
+                new_msg = await self.message_refresher.get_message(chat_id, message.id, message)
+                logger.info("Fetched new message for message ID %s", new_msg.id)
+                media_info_entries = self._parse_media_info(new_msg, chat_id)
+                media_info_matches = [m for m in media_info_entries if m.media_id == media_info.media_id]
+                if media_info_matches:
+                    media_info = media_info_matches[0]
                 else:
-                    break
-            media_downloaded_count.inc()
-            logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
-            # Save web page media to DB, if appropriate
-            chat_db = chat_queue.chat_db
-            web_page_media = media_info.web_page_media
-            if web_page_media is not None and chat_db is not None:
-                chat_db.save_web_page_media(web_page_media)
-        chat_queue.queue.task_done()
+                    logger.warning("Could not find media after message refresh")
+            except Exception as e:
+                logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", message.id, chat_id, getattr(message, "date", None), exc_info=e)
+                await asyncio.sleep(60)
+            else:
+                break
+        media_downloaded_count.inc()
+        logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+        # Save web page media to DB, if appropriate
+        web_page_media = media_info.web_page_media
+        if web_page_media is not None and chat_db is not None:
+            chat_db.save_web_page_media(web_page_media)
 
     async def queue_media(
             self,
