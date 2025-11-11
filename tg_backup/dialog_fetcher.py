@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 import telethon.tl.types
+from prometheus_client import Counter, Summary
 
 from tg_backup.models.dialog import Dialog
 
@@ -12,6 +13,20 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+count_get_dialog_requests = Counter(
+    "tgbackup_dialogfetcher_get_dialog_calls_count",
+    "Number of times an individual dialog gets requested from the DialogFetcher",
+    labelnames=["mechanism"],
+)
+count_get_dialog_request__cached = count_get_dialog_requests.labels(mechanism="already_cached")
+count_get_dialog_request__from_db = count_get_dialog_requests.labels(mechanism="from_db")
+count_get_dialog_request__newly_fetched = count_get_dialog_requests.labels(mechanism="newly_fetched")
+count_get_dialog_request__not_found = count_get_dialog_requests.labels(mechanism="not_found")
+list_dialogs_call_timer = Summary(
+    "tgbackup_dialogfetcher_fetch_dialogs_call_time_seconds",
+    "Time taken to fetch the list of dialogs from Telegram",
+)
 
 
 class DialogFetcher:
@@ -43,7 +58,8 @@ class DialogFetcher:
                 return list(self._dialogs.values())
             dialogs: list[Dialog] = []
             # Request the list of dialogs from Telegram
-            raw_dialogs = await self.client.get_dialogs()
+            with list_dialogs_call_timer.time():
+                raw_dialogs = await self.client.get_dialogs()
             self._raw_dialogs = raw_dialogs
             self._latest_raw_dialog_request_time = datetime.datetime.now(datetime.timezone.utc)
             # Log the new count
@@ -83,18 +99,25 @@ class DialogFetcher:
         # If it's in the dictionary already, return that
         dialog = self._dialogs.get(chat_id)
         if dialog is not None:
+            count_get_dialog_request__cached.inc()
             return dialog
         # If no list has been fetched yet, fetch Dialogs from the database
         if len(self._dialogs) == 0:
             self._list_dialogs_from_db()
             dialog = self._dialogs.get(chat_id)
             if dialog is not None:
+                count_get_dialog_request__from_db.inc()
                 return dialog
         # If we can, re-fetch the list from Telegram
         if self._can_request_dialogs_again():
             await self.fetch_dialogs_list()
         # Attempt to return from the dictionary again
-        return self._dialogs.get(chat_id)
+        dialog = self._dialogs.get(chat_id)
+        if dialog is None:
+            count_get_dialog_request__not_found.inc()
+        else:
+            count_get_dialog_request__newly_fetched.inc()
+        return dialog
 
     def is_fetching_dialogs(self) -> bool:
         return self._fetching_raw_dialogs_lock.locked()
