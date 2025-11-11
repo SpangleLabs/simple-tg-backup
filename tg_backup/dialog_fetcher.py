@@ -115,6 +115,7 @@ class DialogFetcher:
         dialog = self._dialogs.get(chat_id)
         if dialog is None:
             count_get_dialog_request__not_found.inc()
+            logger.info("Could not find dialog for chat_id %s", chat_id)
         else:
             count_get_dialog_request__newly_fetched.inc()
         return dialog
