@@ -123,7 +123,8 @@ class MessageRefreshCache:
             msg_id = refresh_request.msg_id
             chat_cache = self._get_chat_cache(chat_id)
             # If the cache already has an updated version, skip this request
-            if chat_cache.get_message_only(msg_id) != refresh_request.old_msg:
+            cached_msg = chat_cache.get_message_only(msg_id)
+            if cached_msg is not None and cached_msg != refresh_request.old_msg:
                 chat_cache.signal_message_updated(msg_id)
                 logger.info("Discarding expired refresh request for chat ID %s, message ID %s", chat_id, msg_id)
                 continue
