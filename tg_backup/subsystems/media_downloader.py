@@ -206,7 +206,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             try:
                 await self.client.download_media(media_info.media_obj, str(target_path))
             except FileReferenceExpiredError as e:
-                logger.warning("File reference expired for message ID %s, will refresh message")
+                logger.warning("File reference expired for message ID %s, will refresh message", message.id)
                 new_msg = await self.message_refresher.get_message(chat_id, message.id, message)
                 logger.info("Fetched new message for message ID %s", new_msg.id)
                 media_info_entries = self._parse_media_info(new_msg, chat_id)

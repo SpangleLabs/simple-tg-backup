@@ -74,23 +74,35 @@ class MessageRefreshCache:
             message_id: int,
             old_msg: telethon.types.Message,
     ) -> Optional[telethon.types.Message]:
+        # First, check if a new version already exists in cache
         chat_cache = self._get_chat_cache(chat_id)
         new_msg = chat_cache.get_message_only(message_id)
         if new_msg is not None and new_msg != old_msg:
             return new_msg
+        # Fetch a wait event, and request the message be refreshed
         wait_event = chat_cache.wait_event_for_msg(message_id)
+        logger.debug("Requesting message ID %s be refreshed", message_id)
         await self._queue_refresh(chat_id, message_id, old_msg)
+        # Wait for the request to populate the new message
+        logger.debug("Waiting for message ID %s to be refreshed", message_id)
         await wait_event.wait()
+        logger.debug("Wait for message ID %s is over, getting and checking message", message_id)
+        # Check the new message is actually different
         new_msg = chat_cache.get_message_only(message_id)
         if new_msg is not None and new_msg != old_msg:
             return new_msg
-        raise ValueError(f"Attempted to update message ID {message_id}, but the new message is not an update")
+        # Otherwise, failed to update, raise an exception
+        logger.warning("Message ID %s was requested for refresh, but new version was not different", message_id)
+        msg_date = getattr(old_msg, "date", None)
+        raise ValueError(f"Attempted to update message ID {message_id}, (chat ID {chat_id}, message date {msg_date}) but the new message is not an update")
 
     async def _queue_refresh(self, chat_id: int, message_id: int, old_msg: telethon.types.Message) -> None:
-        refresh_request = RefreshRequest(chat_id, message_id, old_msg)
-        await self._refresh_queue.put(refresh_request)
-        # Check if task is running, and start it if not
+        # Acquire the lock before modifying queue and task
         async with self._refresh_task_lock:
+            # Queue up the request
+            refresh_request = RefreshRequest(chat_id, message_id, old_msg)
+            await self._refresh_queue.put(refresh_request)
+            # Check if task is running, and start it if not
             if self._refresh_task is None or self._refresh_task.done():
                 logger.info("Starting up message refresher task")
                 self._refresh_task = asyncio.create_task(self._run_refreshes())
@@ -105,6 +117,7 @@ class MessageRefreshCache:
                 try:
                     refresh_request = self._refresh_queue.get_nowait()
                 except QueueEmpty:
+                    logger.info("Message refresh request queue is empty")
                     break
             chat_id = refresh_request.chat_id
             msg_id = refresh_request.msg_id
