@@ -89,12 +89,15 @@ class MessageRefreshCache:
         logger.debug("Wait for message ID %s is over, getting and checking message", message_id)
         # Check the new message is actually different
         new_msg = chat_cache.get_message_only(message_id)
-        if new_msg is not None and new_msg != old_msg:
-            return new_msg
-        # Otherwise, failed to update, raise an exception
-        logger.warning("Message ID %s was requested for refresh, but new version was not different", message_id)
-        msg_date = getattr(old_msg, "date", None)
-        raise ValueError(f"Attempted to update message ID {message_id}, (chat ID {chat_id}, message date {msg_date}) but the new message is not an update")
+        if new_msg is None:
+            logger.warning("Message ID %s was requested for refresh, but no message was found in cache after refresh", message_id)
+            raise ValueError(f"Attempted to update message ID {message_id}, (chat ID {chat_id}), but the new message was not found in cache afterwards")
+        if new_msg == old_msg:
+            logger.warning("Message ID %s was requested for refresh, but new version was not different", message_id)
+            msg_date = getattr(old_msg, "date", None)
+            raise ValueError(f"Attempted to update message ID {message_id}, (chat ID {chat_id}, message date {msg_date}) but the new message is not an update")
+        # Otherwise, return the new message
+        return new_msg
 
     async def _queue_refresh(self, chat_id: int, message_id: int, old_msg: telethon.types.Message) -> None:
         # Acquire the lock before modifying queue and task
