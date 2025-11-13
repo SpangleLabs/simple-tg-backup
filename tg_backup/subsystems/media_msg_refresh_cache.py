@@ -147,6 +147,8 @@ class MessageRefreshCache:
                 continue
             # Add them to the message cache
             chat_cache.add_message_to_cache(msg)
+            # Signal that the message is updated
+            chat_cache.signal_message_updated(msg.id)
             # Increment counter
             num_msgs += 1
             # If there's more than a thousand messages, quit here. We don't want to get the whole chat history
