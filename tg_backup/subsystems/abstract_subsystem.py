@@ -9,6 +9,7 @@ from prometheus_client import Gauge
 from telethon import TelegramClient
 
 from tg_backup.database.chat_database import ChatDatabase
+from tg_backup.utils.split_list import split_list
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,10 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
         self.queues: dict[Optional[str], ArchiveRunQueue[Q]] = {}
 
     def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[Q], Q]:
-        for queue in self.queues.values():
+        targeted, non_targeted = split_list(self.queues.items(), lambda i: i.queue_key is not None)
+        stopping, not_stopping = split_list(targeted, lambda i: i.stop_when_empty)
+        queues_prioritised = stopping + not_stopping + non_targeted
+        for queue in queues_prioritised:
             try:
                 return queue, queue.queue.get_nowait()
             except asyncio.QueueEmpty:
