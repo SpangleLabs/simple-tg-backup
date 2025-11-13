@@ -99,7 +99,7 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
         self.queues: dict[Optional[str], ArchiveRunQueue[Q]] = {}
 
     def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[Q], Q]:
-        targeted, non_targeted = split_list(self.queues.items(), lambda i: i.queue_key is not None)
+        targeted, non_targeted = split_list(self.queues.values(), lambda i: i.queue_key is not None)
         stopping, not_stopping = split_list(targeted, lambda i: i.stop_when_empty)
         queues_prioritised = stopping + not_stopping + non_targeted
         for queue in queues_prioritised:
