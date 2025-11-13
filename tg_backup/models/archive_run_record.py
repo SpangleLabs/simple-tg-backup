@@ -82,6 +82,27 @@ class ArchiveRunTimer:
         self.end_time = datetime.datetime.now(datetime.timezone.utc)
         self.record.save(force=True)
 
+    def duration(self) -> Optional[datetime.timedelta]:
+        if self.start_time is None:
+            return None
+        if self.end_time is None:
+            return None
+        return self.end_time - self.start_time
+
+    def duration_str(self) -> str:
+        if self.start_time is None:
+            return ""
+        if self.end_time is None:
+            return "Running"
+        duration = self.duration()
+        if duration is None:
+            return "Error calculating duration"
+        hours, remainder = divmod(duration.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m {int(seconds)}s"
+        return f"{minutes}m {int(seconds)}s"
+
 
 class ArchiveRunRecord:
     def __init__(
