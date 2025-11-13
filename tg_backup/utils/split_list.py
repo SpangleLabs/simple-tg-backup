@@ -1,7 +1,9 @@
-from typing import NewType, Callable, Iterable
+from typing import Callable, Iterable
 
-Item = NewType("Item")
-ItemKey = NewType("ItemKey")
+from typing_extensions import TypeVar
+
+Item = TypeVar("Item")
+ItemKey = TypeVar("ItemKey")
 
 def split_list(items: Iterable[Item], condition: Callable[[Item], ItemKey]) -> dict[ItemKey, list[Item]]:
     results = {}
