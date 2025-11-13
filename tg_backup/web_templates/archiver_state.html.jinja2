@@ -71,13 +71,26 @@
     {% if history_targets | length > 0 %}
         <h3>Archive targets</h3>
         Downloading chat history of these targets:
-        <ul>
+        <table>
+        <thead>
+            <tr>
+                <th>Target</th>
+                <th>Target title</th>
+                <th>Start time</th>
+                <th>End time</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
         {% for target in history_targets %}
-            <li>{{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
-                Start: {{ target.run_record.archive_history_timer.start_time }}
-                End: {{ target.run_record.archive_history_timer.end_time }}</li>
+            <tr>
+                <td>{{ target.dialog.chat_type }} {{ target.chat_id }}</td>
+                <td>{{ target.dialog.name }}</td>
+                <td>{{ target.run_record.archive_history_timer.start_time }}</td>
+                <td>{{ target.run_record.archive_history_timer.end_time }}</td>
+                <td>??[WIP]</td> {# TODO: calculate and display durations #}
+            </tr>
         {% endfor %}
-        </ul>
+        </table>
     {% endif %}
     {% set target_watcher = current_activity.target_watcher %}
     {% if target_watcher is not none %}
