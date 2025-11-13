@@ -97,11 +97,11 @@ class ArchiveRunTimer:
         duration = self.duration()
         if duration is None:
             return "Error calculating duration"
-        hours, remainder = divmod(duration.total_seconds(), 3600)
+        hours, remainder = divmod(int(duration.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
         if hours > 0:
-            return f"{hours}h {minutes}m {int(seconds)}s"
-        return f"{minutes}m {int(seconds)}s"
+            return f"{hours}h {minutes}m {seconds}s"
+        return f"{minutes}m {seconds}s"
 
 
 class ArchiveRunRecord:
