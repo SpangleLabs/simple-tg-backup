@@ -36,13 +36,16 @@ class ChatMessageRefreshCache:
     def signal_message_updated(self, message_id: int) -> None:
         wait_event = self._waiting_for_msg.get(message_id, None)
         if wait_event is not None:
+            logger.info("Signalling that message ID %s has been refreshed", message_id)
             wait_event.set()
             wait_event.clear()
 
     def wait_event_for_msg(self, message_id: int) -> asyncio.Event:
         wait_event = self._waiting_for_msg.get(message_id, None)
         if wait_event is not None:
+            logger.info("Returning existing wait event for message ID %s", message_id)
             return wait_event
+        logger.info("Creating new wait event for message ID %s", message_id)
         wait_event = asyncio.Event()
         self._waiting_for_msg[message_id] = wait_event
         return wait_event
@@ -81,12 +84,12 @@ class MessageRefreshCache:
             return new_msg
         # Fetch a wait event, and request the message be refreshed
         wait_event = chat_cache.wait_event_for_msg(message_id)
-        logger.debug("Requesting message ID %s be refreshed", message_id)
+        logger.info("Requesting message ID %s be refreshed", message_id)
         await self._queue_refresh(chat_id, message_id, old_msg)
         # Wait for the request to populate the new message
-        logger.debug("Waiting for message ID %s to be refreshed", message_id)
+        logger.info("Waiting for message ID %s to be refreshed", message_id)
         await wait_event.wait()
-        logger.debug("Wait for message ID %s is over, getting and checking message", message_id)
+        logger.info("Wait for message ID %s is over, getting and checking message", message_id)
         # Check the new message is actually different
         new_msg = chat_cache.get_message_only(message_id)
         if new_msg is None:
