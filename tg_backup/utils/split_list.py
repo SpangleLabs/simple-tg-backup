@@ -18,4 +18,4 @@ def partition_list(items: Iterable[Item], condition: Callable[[Item], ItemKey]) 
 
 def split_list(items: Iterable[Item], condition: Callable[[Item], bool]) -> tuple[list[Item], list[Item]]:
     results = partition_list(items, condition)
-    return results.get(True), results.get(False)
+    return results.get(True, []), results.get(False, [])
