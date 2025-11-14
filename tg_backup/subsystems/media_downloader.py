@@ -189,8 +189,17 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             "Found %s media entries in message ID %s chat ID %s",
             len(media_info_entries), message.id, chat_id
         )
-        for media_info in media_info_entries:
-            await self._process_media(chat_id, chat_db, message, media_info)
+        while True:
+            try:
+                for media_info in media_info_entries:
+                    await self._process_media(chat_id, chat_db, message, media_info)
+                return
+            except FileReferenceExpiredError as e:
+                logger.warning("File reference expired for message ID %s, will refresh message and re-download all media", message.id)
+                # New message should be grabbed already, so this should return fast
+                message = await self.message_refresher.get_message(chat_id, message.id, message)
+                logger.info("Fetched new message for message ID %s", message.id)
+                media_info_entries = self._parse_media_info(message, chat_id)
 
     async def _process_media(self, chat_id: int, chat_db: ChatDatabase, message: telethon.types.Message, media_info: MediaInfo) -> None:
         # Construct file path
@@ -215,6 +224,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                     media_info = media_info_matches[0]
                 else:
                     logger.warning("Could not find media after message refresh")
+                    raise e
             except Exception as e:
                 logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", message.id, chat_id, getattr(message, "date", None), exc_info=e)
                 await asyncio.sleep(60)
