@@ -146,7 +146,7 @@ class MessageRefreshCache:
         chat_cache = self._get_chat_cache(chat_id)
         logger.info("Fetching refreshed message objects for chat %s", chat_id)
         num_msgs = 0
-        async for msg in self.client.iter_messages(chat_id, max_id=max_message_id):
+        async for msg in self.client.iter_messages(chat_id, max_id=max_message_id+1):
             # Skip any messages without media
             if getattr(msg, "media", None) is None:
                 continue
