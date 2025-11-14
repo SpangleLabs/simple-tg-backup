@@ -19,6 +19,7 @@ class RefreshRequest:
     chat_id: int
     msg_id: int
     old_msg: telethon.types.Message
+    archive_target: ArchiveTarget
 
 
 class ChatMessageRefreshCache:
@@ -92,7 +93,7 @@ class MessageRefreshCache:
         # Fetch a wait event, and request the message be refreshed
         wait_event = chat_cache.wait_event_for_msg(message_id)
         logger.info("Requesting message ID %s be refreshed", message_id)
-        await self._queue_refresh(chat_id, message_id, old_msg)
+        await self._queue_refresh(chat_id, message_id, old_msg, archive_target)
         # Wait for the request to populate the new message
         logger.info("Waiting for message ID %s to be refreshed", message_id)
         await wait_event.wait()
@@ -109,11 +110,17 @@ class MessageRefreshCache:
         # Otherwise, return the new message
         return new_msg
 
-    async def _queue_refresh(self, chat_id: int, message_id: int, old_msg: telethon.types.Message) -> None:
+    async def _queue_refresh(
+            self,
+            chat_id: int,
+            message_id: int,
+            old_msg: telethon.types.Message,
+            archive_target: ArchiveTarget,
+    ) -> None:
         # Acquire the lock before modifying queue and task
         async with self._refresh_task_lock:
             # Queue up the request
-            refresh_request = RefreshRequest(chat_id, message_id, old_msg)
+            refresh_request = RefreshRequest(chat_id, message_id, old_msg, archive_target)
             await self._refresh_queue.put(refresh_request)
             # Check if task is running, and start it if not
             if self._refresh_task is None or self._refresh_task.done():
@@ -134,6 +141,7 @@ class MessageRefreshCache:
                     break
             chat_id = refresh_request.chat_id
             msg_id = refresh_request.msg_id
+            archive_target = refresh_request.archive_target
             chat_cache = self._get_chat_cache(chat_id)
             # If the cache already has an updated version, skip this request
             cached_msg = chat_cache.get_message_only(msg_id)
@@ -143,11 +151,11 @@ class MessageRefreshCache:
                 continue
             # Refresh messages
             logger.info("Refreshing message ID %s from chat ID %s", msg_id, chat_id)
-            await self._refresh_from_msg(chat_id, msg_id)
+            await self._refresh_from_msg(chat_id, msg_id, archive_target)
         # Left the loop, must have emptied queue
         logger.info("Shutting down message refresher, as the request queue is clear")
 
-    async def _refresh_from_msg(self, chat_id: int, max_message_id: int) -> None:
+    async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: ArchiveTarget) -> None:
         chat_cache = self._get_chat_cache(chat_id)
         logger.info("Fetching refreshed message objects for chat %s", chat_id)
         num_msgs = 0
@@ -157,6 +165,8 @@ class MessageRefreshCache:
             chat_cache.add_message_to_cache(msg)
             # Signal that the message is updated
             chat_cache.signal_message_updated(msg.id)
+            # Send the message back to the archive target for saving
+            await archive_target._process_message(msg) # TODO: make public
             # Increment counter
             num_msgs += 1
             # If there's more than a thousand messages, quit here. We don't want to get the whole chat history
