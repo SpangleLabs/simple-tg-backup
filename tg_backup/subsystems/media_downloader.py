@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Optional, Union
 
 import telethon
+import typing_extensions
 from prometheus_client import Counter
 from telethon import TelegramClient
 from telethon.errors import FileReferenceExpiredError
@@ -20,6 +21,8 @@ from tg_backup.models.web_page_media import WebPageMedia
 from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsystem
 from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 
+if typing_extensions.TYPE_CHECKING:
+    from tg_backup.archive_target import ArchiveTarget
 logger = logging.getLogger(__name__)
 
 media_processed_count = Counter(
@@ -35,6 +38,7 @@ media_downloaded_count = Counter(
 @dataclasses.dataclass
 class MediaQueueEntry:
     message: telethon.types.Message
+    archive_target: ArchiveTarget
 
 
 @dataclasses.dataclass
@@ -243,6 +247,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             chat_id: int,
             chat_db: ChatDatabase,
             message: telethon.types.Message,
+            archive_target: ArchiveTarget,
     ) -> None:
-        entry = MediaQueueEntry(message)
+        entry = MediaQueueEntry(message, archive_target)
         await self._add_queue_entry(queue_key, chat_id, chat_db, entry)

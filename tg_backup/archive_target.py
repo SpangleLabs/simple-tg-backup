@@ -202,7 +202,7 @@ class ArchiveTarget:
         else:
             if hasattr(msg, "media") and msg.media is not None:
                 if self.behaviour.download_media:
-                    await self.archiver.media_dl.queue_media(queue_key, self.chat_id, self.chat_db, msg)
+                    await self.archiver.media_dl.queue_media(queue_key, self.chat_id, self.chat_db, msg, self)
                     self.run_record.archive_stats.inc_media_seen()
 
     async def _cleanup_duplicate_messages(
