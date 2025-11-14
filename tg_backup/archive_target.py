@@ -154,7 +154,7 @@ class ArchiveTarget:
                 self.chat_db.save_message(prev_msg_obj)
                 self.chat_db.save_message(new_msg_obj)
 
-    async def _process_message(self, msg: telethon.tl.types.Message) -> Optional[Message]:
+    async def process_message(self, msg: telethon.tl.types.Message) -> Optional[Message]:
         """
         Processes a new message, returning the model Message object, if it was saved
         """
@@ -234,7 +234,7 @@ class ArchiveTarget:
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
             # Process and save the message
-            new_msg_obj = await self._process_message(msg)
+            new_msg_obj = await self.process_message(msg)
             # If the message was updated, update the high water mark
             if new_msg_obj is not None:
                 self.high_water_mark.bump_high_water_mark(new_msg_obj.datetime)
@@ -334,12 +334,12 @@ class ArchiveTarget:
     async def on_live_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")
         self.run_record.follow_live_timer.latest_msg()
-        await self._process_message(event.message)
+        await self.process_message(event.message)
 
     async def on_live_edit_message(self, event: events.MessageEdited.Event) -> None:
         logger.info("Edited message received")
         self.run_record.follow_live_timer.latest_msg()
-        await self._process_message(event.message)
+        await self.process_message(event.message)
 
     async def on_live_delete_message(self, event: events.MessageDeleted.Event) -> None:
         # Telegram does not send information about where a message was deleted if it occurs in private conversations

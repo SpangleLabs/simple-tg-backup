@@ -166,7 +166,7 @@ class MessageRefreshCache:
             # Signal that the message is updated
             chat_cache.signal_message_updated(msg.id)
             # Send the message back to the archive target for saving
-            await archive_target._process_message(msg) # TODO: make public
+            await archive_target.process_message(msg)
             # Increment counter
             num_msgs += 1
             # If there's more than a thousand messages, quit here. We don't want to get the whole chat history
