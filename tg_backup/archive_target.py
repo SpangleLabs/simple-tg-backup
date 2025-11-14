@@ -230,6 +230,7 @@ class ArchiveTarget:
             logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff)
         prev_msg_id: Optional[int] = None
         initial_known_msg_ids = self.known_msg_ids()
+        logger.info("Chat ID %s currently contains %s messages", chat_entity.id, len(initial_known_msg_ids))
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.archive_history_timer.latest_msg()
             # Process and save the message
