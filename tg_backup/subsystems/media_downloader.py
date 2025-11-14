@@ -180,11 +180,17 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         chat_id = chat_queue.chat_id
         media_processed_count.inc()
         # Process the message
-        await self._process_message(chat_id, chat_queue.chat_db, queue_entry.message)
+        await self._process_message(chat_id, chat_queue.chat_db, queue_entry.message, queue_entry.archive_target)
         # Mark task as done
         chat_queue.queue.task_done()
 
-    async def _process_message(self, chat_id: int, chat_db: ChatDatabase, message: telethon.types.Message) -> None:
+    async def _process_message(
+            self,
+            chat_id: int,
+            chat_db: ChatDatabase,
+            message: telethon.types.Message,
+            archive_target: ArchiveTarget,
+    ) -> None:
         # Determine media info
         media_info_entries = self._parse_media_info(message, chat_id)
         if not media_info_entries:
@@ -196,16 +202,23 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
         while True:
             try:
                 for media_info in media_info_entries:
-                    await self._process_media(chat_id, chat_db, message, media_info)
+                    await self._process_media(chat_id, chat_db, message, media_info, archive_target)
                 return
             except FileReferenceExpiredError as e:
                 logger.warning("File reference expired for message ID %s, will refresh message and re-download all media", message.id)
                 # New message should be grabbed already, so this should return fast
-                message = await self.message_refresher.get_message(chat_id, message.id, message)
+                message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
                 logger.info("Fetched new message for message ID %s", message.id)
                 media_info_entries = self._parse_media_info(message, chat_id)
 
-    async def _process_media(self, chat_id: int, chat_db: ChatDatabase, message: telethon.types.Message, media_info: MediaInfo) -> None:
+    async def _process_media(
+            self,
+            chat_id: int,
+            chat_db: ChatDatabase,
+            message: telethon.types.Message,
+            media_info: MediaInfo,
+            archive_target: ArchiveTarget
+    ) -> None:
         # Construct file path
         target_filename = f"{media_info.media_id}.{media_info.file_ext}"
         target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
@@ -220,7 +233,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
                 await self.client.download_media(media_info.media_obj, str(target_path))
             except FileReferenceExpiredError as e:
                 logger.warning("File reference expired for message ID %s, will refresh message", message.id)
-                message = await self.message_refresher.get_message(chat_id, message.id, message)
+                message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
                 logger.info("Fetched new message for message ID %s", message.id)
                 media_info_entries = self._parse_media_info(message, chat_id)
                 media_info_matches = [m for m in media_info_entries if m.media_id == media_info.media_id]

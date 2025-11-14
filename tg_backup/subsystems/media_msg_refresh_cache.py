@@ -1,11 +1,15 @@
 import asyncio
 import dataclasses
 import logging
+import typing
 from asyncio import QueueEmpty
 from typing import Optional
 
 import telethon
 from telethon import TelegramClient
+
+if typing.TYPE_CHECKING:
+    from tg_backup.archive_target import ArchiveTarget
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +82,7 @@ class MessageRefreshCache:
             chat_id: int,
             message_id: int,
             old_msg: telethon.types.Message,
+            archive_target: ArchiveTarget,
     ) -> Optional[telethon.types.Message]:
         # First, check if a new version already exists in cache
         chat_cache = self._get_chat_cache(chat_id)
