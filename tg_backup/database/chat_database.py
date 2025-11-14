@@ -127,7 +127,7 @@ class ChatDatabase(AbstractDatabase):
                 "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime, web_page_id"
                 " FROM messages "
                 " WHERE id = ("
-                " SELECT id FROM messages ORDER BY date DESC LIMIT 1"
+                " SELECT id FROM messages ORDER BY datetime DESC LIMIT 1"
                 " )"
                 " ORDER BY archive_datetime DESC"
                 " LIMIT 1"
