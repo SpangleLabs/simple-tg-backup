@@ -55,7 +55,7 @@ class ChatMessageRefreshCache:
 
 
 class MessageRefreshCache:
-    MSG_REFRESH_BATCH_SIZE = 1000
+    MSG_REFRESH_BATCH_SIZE = 3000
 
     """
     If the media queue has gotten quite long, file references may go out of date before the media is downloaded.
