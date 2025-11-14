@@ -55,6 +55,8 @@ class ChatMessageRefreshCache:
 
 
 class MessageRefreshCache:
+    MSG_REFRESH_BATCH_SIZE = 1000
+
     """
     If the media queue has gotten quite long, file references may go out of date before the media is downloaded.
     This refresh cache allows us to re-fetch all the messages of a chat (from a given message ID), and then return those refreshed message objects for future media downloads in that chat.
@@ -155,7 +157,7 @@ class MessageRefreshCache:
             # Increment counter
             num_msgs += 1
             # If there's more than a thousand messages, quit here. We don't want to get the whole chat history
-            if num_msgs > 1000:
+            if num_msgs >= self.MSG_REFRESH_BATCH_SIZE:
                 break
         logger.info(
             "Finished refreshing messages for chat %s. Added %s messages to cache (cache is now %s messages)",
