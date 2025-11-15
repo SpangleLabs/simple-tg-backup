@@ -79,18 +79,27 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         # Fetch item from queue
         chat_queue, queue_entry = self._get_next_in_queue()
         chat_id = chat_queue.info.chat_id
+        peer = queue_entry.peer
         peers_processed.inc()
-        logger.info("Processing peer to fetch: %s, mentioned in chat ID %s", peer_cache_key(queue_entry.peer), chat_id)
+        logger.info("Processing peer to fetch: %s, mentioned in chat ID %s", peer_cache_key(peer), chat_id)
         # Check whether cache wants update
-        if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_id):
+        if self.peer_id_seen_core(peer) and self.peer_id_seen_in_chat(peer, chat_id):
             chat_queue.queue.task_done()
             return
-        if isinstance(queue_entry.peer, PeerUser):
-            return await self._process_user(chat_queue, queue_entry.peer)
-        if isinstance(queue_entry.peer, PeerChat):
-            return await self._process_chat(chat_queue, queue_entry.peer)
-        if isinstance(queue_entry.peer, PeerChannel):
-            return await self._process_channel(chat_queue, queue_entry.peer)
+        # Process the peer in whichever way is appropriate
+        if isinstance(peer, PeerUser):
+            await self._process_user(chat_queue, peer)
+        elif isinstance(peer, PeerChat):
+            await self._process_chat(chat_queue, peer)
+        elif isinstance(peer, PeerChannel):
+            await self._process_channel(chat_queue, peer)
+        else:
+            raise ValueError(f"Unrecognised peer type {type(peer)}")
+        # Save to cache
+        self.record_peer_id_seen_core(peer)
+        self.record_peer_id_seen_in_chat(peer, chat_id)
+        # Mark done in queue
+        chat_queue.queue.task_done()
 
     async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], user: PeerUser) -> None:
         chat_id = chat_queue.info.chat_id
@@ -106,11 +115,6 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             self.core_db.save_user(user_obj)
         if not self.peer_id_seen_in_chat(user, chat_id) and chat_db is not None:
             chat_db.save_user(user_obj)
-        # Save to cache
-        self.record_peer_id_seen_core(user)
-        self.record_peer_id_seen_in_chat(user, chat_id)
-        # Mark done in queue
-        chat_queue.queue.task_done()
 
     async def _process_chat(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], chat: PeerChat) -> None:
         queue_key = chat_queue.queue_key
@@ -126,7 +130,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         if chat_obj.migrated_to_chat_id is not None:
             await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.migrated_to_chat_id, force_add=True)
         # Save to chat DB and core DB
-        await self._save_chat(chat, chat_id, chat_queue, chat_obj)
+        await self._save_chat(chat, chat_id, chat_db, chat_obj)
 
     async def _process_channel(
             self,
@@ -143,7 +147,6 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             full = await self.client(GetFullChannelRequest(channel))
         except ChannelPrivateError:
             logger.warning("Could not fetch full channel data as channel is private or banned: %s", peer_cache_key(channel))
-            chat_queue.queue.task_done()
             return
         # Convert channel to storable object
         chat_obj = Chat.from_full_chat(full)
@@ -153,24 +156,19 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         if chat_obj.migrated_from_chat_id is not None:
             await self.queue_chat(queue_key, chat_id, chat_db, chat_obj.migrated_from_chat_id, force_add=True)
         # Save to chat DB and core DB
-        await self._save_chat(channel, chat_id, chat_queue, chat_obj)
+        await self._save_chat(channel, chat_id, chat_db, chat_obj)
 
     async def _save_chat(
             self,
             peer: Peer,
             chat_id: Optional[int],
-            chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry],
-            chat_obj: Chat,
+            chat_db: Optional[ChatDatabase],
+            peer_chat_obj: Chat,
     ) -> None:
         if not self.peer_id_seen_core(peer):
-            self.core_db.save_chat(chat_obj)
-        if not self.peer_id_seen_in_chat(peer, chat_id) and chat_queue.info.chat_db is not None:
-            chat_queue.info.chat_db.save_chat(chat_obj)
-        # Save to cache
-        self.record_peer_id_seen_core(peer)
-        self.record_peer_id_seen_in_chat(peer, chat_id)
-        # Mark done in queue
-        chat_queue.queue.task_done()
+            self.core_db.save_chat(peer_chat_obj)
+        if not self.peer_id_seen_in_chat(peer, chat_id) and chat_db is not None:
+            chat_db.save_chat(peer_chat_obj)
 
     async def queue_user(
             self,
