@@ -262,6 +262,12 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         if web_page_media is not None and chat_db is not None:
             chat_db.save_web_page_media(web_page_media)
 
+    async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
+        queue = self.queues.get(queue_key, None)
+        await super().wait_until_queue_empty(queue_key)
+        if queue is not None:
+            await self.message_refresher.wait_until_target_done(queue.info.archive_target)
+
     async def queue_media(
             self,
             queue_key: str,

@@ -72,6 +72,8 @@ class MessageRefreshCache:
         self._refresh_task_lock = asyncio.Lock() # This lock regulates whether the refresh task is running
         self._refresh_task: Optional[asyncio.Task] = None
         self._refresh_queue: asyncio.Queue[RefreshRequest] = asyncio.Queue()
+        self._refresh_queue_empty: asyncio.Event = asyncio.Event()
+        self._refresh_queue_empty.set()
 
     def _get_chat_cache(self, chat_id: int) -> ChatMessageRefreshCache:
         if chat_id not in self.chat_caches:
@@ -121,6 +123,7 @@ class MessageRefreshCache:
         async with self._refresh_task_lock:
             # Queue up the request
             refresh_request = RefreshRequest(chat_id, message_id, old_msg, archive_target)
+            self._refresh_queue_empty.clear()
             await self._refresh_queue.put(refresh_request)
             # Check if task is running, and start it if not
             if self._refresh_task is None or self._refresh_task.done():
@@ -154,6 +157,7 @@ class MessageRefreshCache:
             await self._refresh_from_msg(chat_id, msg_id, archive_target)
         # Left the loop, must have emptied queue
         logger.info("Shutting down message refresher, as the request queue is clear")
+        self._refresh_queue_empty.set()
 
     async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: ArchiveTarget) -> None:
         chat_cache = self._get_chat_cache(chat_id)
@@ -176,3 +180,8 @@ class MessageRefreshCache:
             "Finished refreshing messages for chat %s. Added %s messages to cache (cache is now %s messages)",
             chat_id, num_msgs, chat_cache.size()
         )
+
+    async def wait_until_target_done(self, archive_target: ArchiveTarget) -> None:
+        logger.info("Waiting until MessageRefreshCache queue is done with target with chat ID %s", archive_target.chat_id)
+        # This could be optimised to check for the specific target, but, it is not likely this will wait long for the entire queue to empty
+        await self._refresh_queue_empty.wait()
