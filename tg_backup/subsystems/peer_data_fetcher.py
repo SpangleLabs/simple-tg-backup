@@ -38,11 +38,17 @@ def peer_cache_key(peer: Peer) -> PeerCacheID:
 
 
 @dataclasses.dataclass
+class PeerQueueInfo:
+    chat_id: Optional[int]
+    chat_db: Optional[ChatDatabase]
+
+
+@dataclasses.dataclass
 class PeerQueueEntry:
     peer: Peer
 
 
-class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
+class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntry]):
     CACHE_EXPIRY = datetime.timedelta(days=1)
 
     def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
@@ -72,10 +78,11 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
     async def _do_process(self) -> None:
         # Fetch item from queue
         chat_queue, queue_entry = self._get_next_in_queue()
+        chat_id = chat_queue.info.chat_id
         peers_processed.inc()
-        logger.info("Processing peer to fetch: %s, mentioned in chat ID %s", peer_cache_key(queue_entry.peer), chat_queue.chat_id)
+        logger.info("Processing peer to fetch: %s, mentioned in chat ID %s", peer_cache_key(queue_entry.peer), chat_id)
         # Check whether cache wants update
-        if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_queue.chat_id):
+        if self.peer_id_seen_core(queue_entry.peer) and self.peer_id_seen_in_chat(queue_entry.peer, chat_id):
             chat_queue.queue.task_done()
             return
         if isinstance(queue_entry.peer, PeerUser):
@@ -85,8 +92,9 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         if isinstance(queue_entry.peer, PeerChannel):
             return await self._process_channel(chat_queue, queue_entry.peer)
 
-    async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], user: PeerUser) -> None:
-        chat_id = chat_queue.chat_id
+    async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], user: PeerUser) -> None:
+        chat_id = chat_queue.info.chat_id
+        chat_db = chat_queue.info.chat_db
         logger.info("Fetching full user info from telegram for user ID %s", peer_cache_key(user))
         # Get full user info
         # noinspection PyTypeChecker
@@ -96,18 +104,18 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         # Save to chat DB and core DB
         if not self.peer_id_seen_core(user):
             self.core_db.save_user(user_obj)
-        if not self.peer_id_seen_in_chat(user, chat_id) and chat_queue.chat_db is not None:
-            chat_queue.chat_db.save_user(user_obj)
+        if not self.peer_id_seen_in_chat(user, chat_id) and chat_db is not None:
+            chat_db.save_user(user_obj)
         # Save to cache
         self.record_peer_id_seen_core(user)
         self.record_peer_id_seen_in_chat(user, chat_id)
         # Mark done in queue
         chat_queue.queue.task_done()
 
-    async def _process_chat(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], chat: PeerChat) -> None:
+    async def _process_chat(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], chat: PeerChat) -> None:
         queue_key = chat_queue.queue_key
-        chat_id = chat_queue.chat_id
-        chat_db = chat_queue.chat_db
+        chat_id = chat_queue.info.chat_id
+        chat_db = chat_queue.info.chat_db
         logger.info("Fetching full chat data from telegram for chat ID %s", peer_cache_key(chat))
         # Get full chat info
         # noinspection PyTypeChecker
@@ -120,10 +128,14 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         # Save to chat DB and core DB
         await self._save_chat(chat, chat_id, chat_queue, chat_obj)
 
-    async def _process_channel(self, chat_queue: ArchiveRunQueue[PeerQueueEntry], channel: PeerChannel) -> None:
+    async def _process_channel(
+            self,
+            chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry],
+            channel: PeerChannel,
+    ) -> None:
         queue_key = chat_queue.queue_key
-        chat_id = chat_queue.chat_id
-        chat_db = chat_queue.chat_db
+        chat_id = chat_queue.info.chat_id
+        chat_db = chat_queue.info.chat_db
         logger.info("Fetching full channel data from telegram for channel ID %s", peer_cache_key(channel))
         # Get full channel info
         try:
@@ -143,11 +155,17 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         # Save to chat DB and core DB
         await self._save_chat(channel, chat_id, chat_queue, chat_obj)
 
-    async def _save_chat(self, peer: Peer, chat_id: Optional[int], chat_queue: ArchiveRunQueue[PeerQueueEntry], chat_obj: Chat) -> None:
+    async def _save_chat(
+            self,
+            peer: Peer,
+            chat_id: Optional[int],
+            chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry],
+            chat_obj: Chat,
+    ) -> None:
         if not self.peer_id_seen_core(peer):
             self.core_db.save_chat(chat_obj)
-        if not self.peer_id_seen_in_chat(peer, chat_id) and chat_queue.chat_db is not None:
-            chat_queue.chat_db.save_chat(chat_obj)
+        if not self.peer_id_seen_in_chat(peer, chat_id) and chat_queue.info.chat_db is not None:
+            chat_queue.info.chat_db.save_chat(chat_obj)
         # Save to cache
         self.record_peer_id_seen_core(peer)
         self.record_peer_id_seen_in_chat(peer, chat_id)
@@ -214,4 +232,6 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueEntry]):
         if self.peer_id_seen_core(peer) and self.peer_id_seen_in_chat(peer, chat_id):
             return
         logger.info("Adding peer %s to peer queue", peer_cache_key(peer))
-        await self._add_queue_entry(queue_key, chat_id, chat_db, PeerQueueEntry(peer), force_add)
+        queue_info = PeerQueueInfo(chat_id, chat_db)
+        queue_entry = PeerQueueEntry(peer)
+        await self._add_queue_entry(queue_key, queue_info, queue_entry, force_add)

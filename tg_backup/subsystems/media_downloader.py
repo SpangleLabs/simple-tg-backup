@@ -36,6 +36,12 @@ media_downloaded_count = Counter(
 
 
 @dataclasses.dataclass
+class MediaQueueInfo:
+    chat_id: int
+    chat_db: ChatDatabase
+
+
+@dataclasses.dataclass
 class MediaQueueEntry:
     message: telethon.types.Message
     archive_target: ArchiveTarget
@@ -61,7 +67,7 @@ class MediaInfo:
     web_page_media: Optional[WebPageMedia] = None
 
 
-class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
+class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEntry]):
     MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
     MEDIA_TO_DO = [MessageMediaPoll, MessageMediaContact]
     MEDIA_IGNORE = [MessageMediaGiveaway, MessageMediaGiveawayResults, MessageMediaPaidMedia, MessageMediaStory, MessageMediaGame, MessageMediaInvoice, MessageMediaVenue]
@@ -177,10 +183,11 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
 
     async def _do_process(self) -> None:
         chat_queue, queue_entry = self._get_next_in_queue()
-        chat_id = chat_queue.chat_id
+        chat_id = chat_queue.info.chat_id
+        chat_db = chat_queue.info.chat_db
         media_processed_count.inc()
         # Process the message
-        await self._process_message(chat_id, chat_queue.chat_db, queue_entry.message, queue_entry.archive_target)
+        await self._process_message(chat_id, chat_db, queue_entry.message, queue_entry.archive_target)
         # Mark task as done
         chat_queue.queue.task_done()
 
@@ -262,5 +269,6 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueEntry]):
             message: telethon.types.Message,
             archive_target: ArchiveTarget,
     ) -> None:
+        info = MediaQueueInfo(chat_id, chat_db)
         entry = MediaQueueEntry(message, archive_target)
-        await self._add_queue_entry(queue_key, chat_id, chat_db, entry)
+        await self._add_queue_entry(queue_key, info, entry)

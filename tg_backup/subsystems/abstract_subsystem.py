@@ -81,24 +81,24 @@ class AbstractSubsystem(ABC):
         self.stop_when_empty = True
 
 
-Q = TypeVar("Q")
+QueueInfo = TypeVar("QueueInfo")
+QueueEntry = TypeVar("QueueEntry")
 
 
 @dataclasses.dataclass
-class ArchiveRunQueue(Generic[Q]):
+class ArchiveRunQueue(Generic[QueueInfo, QueueEntry]):
     queue_key: Optional[str]
-    chat_id: Optional[int]
-    chat_db: Optional[ChatDatabase]
-    queue: asyncio.Queue[Q]
+    info: QueueInfo
+    queue: asyncio.Queue[QueueEntry]
     stop_when_empty: bool = False
 
 
-class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
+class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, QueueEntry]):
     def __init__(self, client: TelegramClient):
         super().__init__(client)
-        self.queues: dict[Optional[str], ArchiveRunQueue[Q]] = {}
+        self.queues: dict[Optional[str], ArchiveRunQueue[QueueInfo, QueueEntry]] = {}
 
-    def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[Q], Q]:
+    def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[QueueInfo, QueueEntry], QueueEntry]:
         targeted, non_targeted = split_list(self.queues.values(), lambda i: i.queue_key is not None)
         stopping, not_stopping = split_list(targeted, lambda i: i.stop_when_empty)
         queues_prioritised = stopping + not_stopping + non_targeted
@@ -123,15 +123,14 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[Q]):
     async def _add_queue_entry(
             self,
             queue_key: Optional[str],
-            chat_id: Optional[int],
-            chat_db: Optional[ChatDatabase],
-            entry: Q,
+            info: QueueInfo,
+            entry: QueueEntry,
             force_add: bool = False,
     ) -> None:
         # Set up chat queue if needed
         if queue_key not in self.queues:
-            raw_queue: asyncio.Queue[Q] = asyncio.Queue()
-            self.queues[queue_key] = ArchiveRunQueue(queue_key, chat_id, chat_db, raw_queue)
+            raw_queue: asyncio.Queue[QueueEntry] = asyncio.Queue()
+            self.queues[queue_key] = ArchiveRunQueue(queue_key, info, raw_queue)
         # Ensure chat queue isn't being emptied
         if not force_add and self.queues[queue_key].stop_when_empty:
             raise ValueError(
