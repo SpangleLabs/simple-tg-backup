@@ -27,24 +27,17 @@ logger = logging.getLogger(__name__)
 
 media_processed_count = Counter(
     "tgbackup_mediadownloader_media_processed_count",
-    "Total number of media-containing messages which have been picked from the queue by the MediaDownloader",
+    "Total number of media files which have been picked from the queue by the MediaDownloader",
 )
 media_downloaded_count = Counter(
     "tgbackup_mediadownloader_media_downloaded_count",
     "Total number of media files which have been downloaded by the MediaDownloader",
 )
 
-
-@dataclasses.dataclass
-class MediaQueueInfo:
-    chat_id: int
-    chat_db: ChatDatabase
-    archive_target: "ArchiveTarget"
-
-
-@dataclasses.dataclass
-class MediaQueueEntry:
-    message: telethon.types.Message
+class RefreshedMessageMissingMedia(Exception):
+    def __init__(self, refreshed_message: telethon.types.Message):
+        super().__init__()
+        self.refreshed_message = refreshed_message
 
 
 @dataclasses.dataclass
@@ -67,6 +60,19 @@ class MediaInfo:
     web_page_media: Optional[WebPageMedia] = None
 
 
+@dataclasses.dataclass
+class MediaQueueInfo:
+    chat_id: int
+    chat_db: ChatDatabase
+    archive_target: "ArchiveTarget"
+
+
+@dataclasses.dataclass
+class MediaQueueEntry:
+    message: telethon.types.Message
+    media_info: MediaInfo
+
+
 class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEntry]):
     MEDIA_NO_ACTION_NEEDED = [MessageMediaGeo, MessageMediaGeoLive, MessageMediaDice, MessageMediaToDo]
     MEDIA_TO_DO = [MessageMediaPoll, MessageMediaContact]
@@ -79,6 +85,15 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         super().__init__(client)
         self.chat_seen_web_page_ids: dict[int, set[int]] = defaultdict(set)
         self.message_refresher = MessageRefreshCache(client)
+        self._chat_media_id_cache: dict[int, set[int]] = {}
+
+    def _cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
+        return media_id in self._chat_media_id_cache.get(chat_id, {})
+
+    def _cache_media_id(self, chat_id: int, media_id: int) -> None:
+        if chat_id not in self._chat_media_id_cache:
+            self._chat_media_id_cache[chat_id] = set()
+        self._chat_media_id_cache[chat_id].add(media_id)
 
     def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
@@ -186,38 +201,21 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         chat_id = chat_queue.info.chat_id
         chat_db = chat_queue.info.chat_db
         archive_target = chat_queue.info.archive_target
+        message = queue_entry.message
+        media_info = queue_entry.media_info
         media_processed_count.inc()
-        # Process the message
-        await self._process_message(chat_id, chat_db, queue_entry.message, archive_target)
+        # Process the media info
+        try:
+            await self._process_media(chat_id, chat_db, message, media_info, archive_target)
+        except RefreshedMessageMissingMedia as e:
+            logger.warning("Refreshed message ID %s is missing searched media, will process all media in refreshed message", message.id)
+            # New message should be grabbed already, so this should return fast
+            new_message = e.refreshed_message
+            media_info_entries = self._parse_media_info(new_message, chat_id)
+            for media_info in media_info_entries:
+                await self._process_media(chat_id, chat_db, new_message, media_info, archive_target)
         # Mark task as done
         chat_queue.queue.task_done()
-
-    async def _process_message(
-            self,
-            chat_id: int,
-            chat_db: ChatDatabase,
-            message: telethon.types.Message,
-            archive_target: "ArchiveTarget",
-    ) -> None:
-        # Determine media info
-        media_info_entries = self._parse_media_info(message, chat_id)
-        if not media_info_entries:
-            return
-        logger.info(
-            "Found %s media entries in message ID %s chat ID %s",
-            len(media_info_entries), message.id, chat_id
-        )
-        while True:
-            try:
-                for media_info in media_info_entries:
-                    await self._process_media(chat_id, chat_db, message, media_info, archive_target)
-                return
-            except FileReferenceExpiredError as e:
-                logger.warning("File reference expired for message ID %s, will refresh message and re-download all media", message.id)
-                # New message should be grabbed already, so this should return fast
-                message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
-                logger.info("Fetched new message for message ID %s", message.id)
-                media_info_entries = self._parse_media_info(message, chat_id)
 
     async def _process_media(
             self,
@@ -227,6 +225,9 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             media_info: MediaInfo,
             archive_target: "ArchiveTarget"
     ) -> None:
+        # Skip if already in cache
+        if self._cache_has_media_id(chat_id, media_info.media_id):
+            return
         # Construct file path
         target_filename = f"{media_info.media_id}.{media_info.file_ext}"
         target_path = pathlib.Path("store") / "chats" / f"{chat_id}" / media_info.media_subfolder / target_filename
@@ -249,7 +250,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                     media_info = media_info_matches[0]
                 else:
                     logger.warning("Could not find media after message refresh")
-                    raise e
+                    raise RefreshedMessageMissingMedia(message)
             except Exception as e:
                 logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", message.id, chat_id, getattr(message, "date", None), exc_info=e)
                 await asyncio.sleep(60)
@@ -257,6 +258,8 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 break
         media_downloaded_count.inc()
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+        # Mark media in cache
+        self._cache_media_id(chat_id, media_info.media_id)
         # Save web page media to DB, if appropriate
         web_page_media = media_info.web_page_media
         if web_page_media is not None and chat_db is not None:
@@ -277,5 +280,18 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             archive_target: "ArchiveTarget",
     ) -> None:
         info = MediaQueueInfo(chat_id, chat_db, archive_target)
-        entry = MediaQueueEntry(message)
-        await self._add_queue_entry(queue_key, info, entry)
+        # Determine media info entries
+        media_info_entries = self._parse_media_info(message, chat_id)
+        if not media_info_entries:
+            return
+        logger.info(
+            "Found %s media entries in message ID %s chat ID %s",
+            len(media_info_entries), message.id, chat_id
+        )
+        # Queue up each of the media info entries
+        for media_info in media_info_entries:
+            if self._cache_has_media_id(chat_id, media_info.media_id):
+                logger.debug("Media ID %s has already been downloaded")
+                continue
+            queue_entry = MediaQueueEntry(message, media_info)
+            await self._add_queue_entry(queue_key, info, queue_entry)
