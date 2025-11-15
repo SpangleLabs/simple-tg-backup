@@ -167,7 +167,9 @@ class MultiTargetWatcher:
         # Fetch the appropriate dialog object
         dialog_obj = await self.archiver.dialog_fetcher.get_dialog(chat.id)
         if dialog_obj is None:
-            logger.error("Could not find dialog matching new chat ID %s", chat.id)
+            # Sometimes messages are delivered for chats which you are not in. For example, you may receive events for
+            # messages in the linked discussion group, when you are subscribed to a channel.
+            logger.info("Could not find dialog matching new chat ID %s, skipping event", chat.id)
             return
         # Figure out whether to archive the dialog
         if not self.chat_settings.should_archive_dialog(dialog_obj):
