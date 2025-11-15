@@ -128,7 +128,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats
         if chat_obj.migrated_to_chat_id is not None:
-            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.migrated_to_chat_id, force_add=True)
+            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.migrated_to_chat_id)
         # Save to chat DB and core DB
         await self._save_chat(chat, chat_id, chat_db, chat_obj)
 
@@ -152,9 +152,9 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         chat_obj = Chat.from_full_chat(full)
         # Queue up any linked chats
         if chat_obj.linked_chat_id is not None:
-            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.linked_chat_id, force_add=True)
+            await self.queue_channel(queue_key, chat_id, chat_db, chat_obj.linked_chat_id)
         if chat_obj.migrated_from_chat_id is not None:
-            await self.queue_chat(queue_key, chat_id, chat_db, chat_obj.migrated_from_chat_id, force_add=True)
+            await self.queue_chat(queue_key, chat_id, chat_db, chat_obj.migrated_from_chat_id)
         # Save to chat DB and core DB
         await self._save_chat(channel, chat_id, chat_db, chat_obj)
 
@@ -176,13 +176,12 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             user: Union[PeerUser, int],
-            force_add: bool = False,
     ) -> None:
         if user is None:
             return
         if isinstance(user, int):
             user = PeerUser(user)
-        await self.queue_peer(queue_key, chat_id, chat_db, user, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, user)
 
     async def queue_chat(
             self,
@@ -190,13 +189,12 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             chat: Union[PeerChat, int],
-            force_add: bool = False,
     ) -> None:
         if chat is None:
             return
         if isinstance(chat, int):
             chat = PeerChat(chat)
-        await self.queue_peer(queue_key, chat_id, chat_db, chat, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, chat)
 
     async def queue_channel(
             self,
@@ -204,13 +202,12 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             channel: Union[PeerChannel, int],
-            force_add: bool = False,
     ) -> None:
         if channel is None:
             return
         if isinstance(channel, int):
             channel = PeerChannel(channel)
-        await self.queue_peer(queue_key, chat_id, chat_db, channel, force_add=force_add)
+        await self.queue_peer(queue_key, chat_id, chat_db, channel)
 
     async def queue_peer(
             self,
@@ -218,7 +215,6 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_id: Optional[int],
             chat_db: Optional[ChatDatabase],
             peer: Peer,
-            force_add: bool = False,
     ) -> None:
         # Ensure a peer is given
         if peer is None:
@@ -232,4 +228,4 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
         logger.info("Adding peer %s to peer queue", peer_cache_key(peer))
         queue_info = PeerQueueInfo(chat_id, chat_db)
         queue_entry = PeerQueueEntry(peer)
-        await self._add_queue_entry(queue_key, queue_info, queue_entry, force_add)
+        await self._add_queue_entry(queue_key, queue_info, queue_entry)

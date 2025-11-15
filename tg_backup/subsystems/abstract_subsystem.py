@@ -125,17 +125,14 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
             queue_key: Optional[str],
             info: QueueInfo,
             entry: QueueEntry,
-            force_add: bool = False,
     ) -> None:
         # Set up chat queue if needed
         if queue_key not in self.queues:
             raw_queue: asyncio.Queue[QueueEntry] = asyncio.Queue()
             self.queues[queue_key] = ArchiveRunQueue(queue_key, info, raw_queue)
         # Ensure chat queue isn't being emptied
-        if not force_add and self.queues[queue_key].stop_when_empty:
-            raise ValueError(
-                f"{self.name()} has been told to stop for that archive run when empty, cannot queue more entries for it"
-            )
+        if self.queues[queue_key].stop_when_empty:
+            logger.warning(f"Adding to {self.name()} queue which is due to stop when empty")
         # Add to chat queue
         logger.info(f"Added queue entry to {self.name()} queue")
         await self.queues[queue_key].queue.put(entry)
