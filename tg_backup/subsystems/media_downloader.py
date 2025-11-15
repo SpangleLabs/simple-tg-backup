@@ -39,7 +39,7 @@ media_downloaded_count = Counter(
 class MediaQueueInfo:
     chat_id: int
     chat_db: ChatDatabase
-    archive_target: ArchiveTarget
+    archive_target: "ArchiveTarget"
 
 
 @dataclasses.dataclass
@@ -197,7 +197,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             chat_id: int,
             chat_db: ChatDatabase,
             message: telethon.types.Message,
-            archive_target: ArchiveTarget,
+            archive_target: "ArchiveTarget",
     ) -> None:
         # Determine media info
         media_info_entries = self._parse_media_info(message, chat_id)
@@ -225,7 +225,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             chat_db: ChatDatabase,
             message: telethon.types.Message,
             media_info: MediaInfo,
-            archive_target: ArchiveTarget
+            archive_target: "ArchiveTarget"
     ) -> None:
         # Construct file path
         target_filename = f"{media_info.media_id}.{media_info.file_ext}"
@@ -274,7 +274,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             chat_id: int,
             chat_db: ChatDatabase,
             message: telethon.types.Message,
-            archive_target: ArchiveTarget,
+            archive_target: "ArchiveTarget",
     ) -> None:
         info = MediaQueueInfo(chat_id, chat_db, archive_target)
         entry = MediaQueueEntry(message)
