@@ -290,7 +290,6 @@ class ArchiveTarget:
 
     async def archive_chat(self) -> None:
         logger.info("Starting archive of chat %s", self.chat_id)
-        self.run_record.mark_queued()
         self.run_record.target_type = self.dialog.chat_type
         # Connect to chat database
         self.chat_db.start()
