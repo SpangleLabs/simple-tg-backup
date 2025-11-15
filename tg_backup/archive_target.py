@@ -40,7 +40,10 @@ class HighWaterMark:
         self._high_water_mark: Optional[datetime.datetime] = None
 
     def initialise(self) -> None:
-        newest_msg = self.archive_target.chat_db.get_newest_message()
+        # Make sure to set a cutoff for the latest timestamp, otherwise live messages for this chat might have been
+        # picked up before this archive target got to run.
+        latest_cutoff = self.archive_target.run_record.time_queued - datetime.timedelta(minutes=5)
+        newest_msg = self.archive_target.chat_db.get_newest_message(latest_cutoff=latest_cutoff)
         if newest_msg is None:
             self._archive_target_started_empty = True
             return None

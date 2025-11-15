@@ -120,16 +120,19 @@ class ChatDatabase(AbstractDatabase):
                 msgs.append(msg)
         return msgs
 
-    def get_newest_message(self) -> Optional[Message]:
+    def get_newest_message(self, latest_cutoff: Optional[datetime.datetime] = None) -> Optional[Message]:
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
                 "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, datetime, text, media_id, user_id, sticker_id, sticker_set_id, deleted, edit_datetime, web_page_id"
                 " FROM messages "
                 " WHERE id = ("
-                " SELECT id FROM messages ORDER BY datetime DESC LIMIT 1"
+                " SELECT id FROM messages WHERE datetime < :latest_cutoff ORDER BY datetime DESC LIMIT 1"
                 " )"
                 " ORDER BY archive_datetime DESC"
-                " LIMIT 1"
+                " LIMIT 1",
+                (
+                    latest_cutoff.isoformat() if latest_cutoff is not None else "A" # "A" will be larger than any number
+                )
             )
             for row in resp.fetchall():
                 return message_from_row(row)
