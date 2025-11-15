@@ -39,12 +39,12 @@ media_downloaded_count = Counter(
 class MediaQueueInfo:
     chat_id: int
     chat_db: ChatDatabase
+    archive_target: ArchiveTarget
 
 
 @dataclasses.dataclass
 class MediaQueueEntry:
     message: telethon.types.Message
-    archive_target: ArchiveTarget
 
 
 @dataclasses.dataclass
@@ -185,9 +185,10 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         chat_queue, queue_entry = self._get_next_in_queue()
         chat_id = chat_queue.info.chat_id
         chat_db = chat_queue.info.chat_db
+        archive_target = chat_queue.info.archive_target
         media_processed_count.inc()
         # Process the message
-        await self._process_message(chat_id, chat_db, queue_entry.message, queue_entry.archive_target)
+        await self._process_message(chat_id, chat_db, queue_entry.message, archive_target)
         # Mark task as done
         chat_queue.queue.task_done()
 
@@ -269,6 +270,6 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             message: telethon.types.Message,
             archive_target: ArchiveTarget,
     ) -> None:
-        info = MediaQueueInfo(chat_id, chat_db)
-        entry = MediaQueueEntry(message, archive_target)
+        info = MediaQueueInfo(chat_id, chat_db, archive_target)
+        entry = MediaQueueEntry(message)
         await self._add_queue_entry(queue_key, info, entry)
