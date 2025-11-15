@@ -19,7 +19,7 @@ class RefreshRequest:
     chat_id: int
     msg_id: int
     old_msg: telethon.types.Message
-    archive_target: ArchiveTarget
+    archive_target: "ArchiveTarget"
 
 
 class ChatMessageRefreshCache:
@@ -85,7 +85,7 @@ class MessageRefreshCache:
             chat_id: int,
             message_id: int,
             old_msg: telethon.types.Message,
-            archive_target: ArchiveTarget,
+            archive_target: "ArchiveTarget",
     ) -> Optional[telethon.types.Message]:
         # First, check if a new version already exists in cache
         chat_cache = self._get_chat_cache(chat_id)
@@ -117,7 +117,7 @@ class MessageRefreshCache:
             chat_id: int,
             message_id: int,
             old_msg: telethon.types.Message,
-            archive_target: ArchiveTarget,
+            archive_target: "ArchiveTarget",
     ) -> None:
         # Acquire the lock before modifying queue and task
         async with self._refresh_task_lock:
@@ -159,7 +159,7 @@ class MessageRefreshCache:
         logger.info("Shutting down message refresher, as the request queue is clear")
         self._refresh_queue_empty.set()
 
-    async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: ArchiveTarget) -> None:
+    async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: "ArchiveTarget") -> None:
         chat_cache = self._get_chat_cache(chat_id)
         logger.info("Fetching refreshed message objects for chat %s", chat_id)
         num_msgs = 0
@@ -181,7 +181,7 @@ class MessageRefreshCache:
             chat_id, num_msgs, chat_cache.size()
         )
 
-    async def wait_until_target_done(self, archive_target: ArchiveTarget) -> None:
+    async def wait_until_target_done(self, archive_target: "ArchiveTarget") -> None:
         logger.info("Waiting until MessageRefreshCache queue is done with target with chat ID %s", archive_target.chat_id)
         # This could be optimised to check for the specific target, but, it is not likely this will wait long for the entire queue to empty
         await self._refresh_queue_empty.wait()
