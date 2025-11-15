@@ -1,5 +1,4 @@
 import datetime
-import json
 from contextlib import closing
 from typing import Optional
 
