@@ -166,8 +166,6 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             return []
         # Start checking media type
         media_ext = self.UNKNOWN_FILE_EXT
-        if not hasattr(msg, "media"):
-            return []
         media_type = type(msg.media)
         media_type_name = media_type.__name__
         if isinstance(msg.media, MessageMediaPhoto):
