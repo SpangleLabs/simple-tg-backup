@@ -139,7 +139,8 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         self.message_refresher = MessageRefreshCache(client)
         self._chat_processed_media_id_cache: dict[int, set[int]] = {}
         self._chat_queued_media_id_cache: dict[int, set[int]] = {} # Cache of which media IDs have been queued for each chat
-        media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_processed_media_id_cache.values()))
+        processed_media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_processed_media_id_cache.values()))
+        queued_media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_queued_media_id_cache.values()))
 
     def _processed_cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
         return media_id in self._chat_processed_media_id_cache.get(chat_id, set())
