@@ -6,12 +6,43 @@ from asyncio import QueueEmpty
 from typing import Optional
 
 import telethon
+from prometheus_client import Counter, Gauge
 from telethon import TelegramClient
 
 if typing.TYPE_CHECKING:
     from tg_backup.archive_target import ArchiveTarget
 
 logger = logging.getLogger(__name__)
+
+
+count_refresh_requests = Counter(
+    "tgbackup_messagerefresh_refresh_request_count",
+    "Count of the number of message refresh requests that the MessageRefreshCache handles",
+)
+count_already_refreshed_msgs = Counter(
+    "tgbackup_messagerefresh_refresh_already_exists_count",
+    "Count of how many times a message requested for refresh, already exists refreshed in the cache",
+)
+count_refreshed_messages = Counter(
+    "tgbackup_messagerefresh_messages_refreshed_count",
+    "Count of the number of messages which were refreshed by the MessageRefreshCache",
+)
+size_message_refresh_cache = Gauge(
+    "tgbackup_messagerefresh_total_cache_size",
+    "Total number of messages in the message refresh cache",
+)
+refresh_task_active = Gauge(
+    "tgbackup_messagerefresh_refresh_task_active",
+    "Whether or not the message refresh task is active",
+)
+message_refresh_request_queue_size = Gauge(
+    "tgbackup_messagerefresh_refresh_queue_size",
+    "Number of refresh requests in the refresh request queue",
+)
+message_refresh_request_queue_empty = Gauge(
+    "tgbackup_messagerefresh_refresh_queue_empty",
+    "Whether the message refresh cache queue is considered to be empty",
+)
 
 
 @dataclasses.dataclass
@@ -74,6 +105,10 @@ class MessageRefreshCache:
         self._refresh_queue: asyncio.Queue[RefreshRequest] = asyncio.Queue()
         self._refresh_queue_empty: asyncio.Event = asyncio.Event()
         self._refresh_queue_empty.set()
+        size_message_refresh_cache.set_function(lambda: sum(c.size() for c in self.chat_caches.values()))
+        refresh_task_active.set_function(lambda: self._refresh_task is not None and not self._refresh_task.done())
+        message_refresh_request_queue_size.set_function(lambda: self._refresh_queue.qsize())
+        message_refresh_request_queue_empty.set_function(lambda: self._refresh_queue_empty.is_set())
 
     def _get_chat_cache(self, chat_id: int) -> ChatMessageRefreshCache:
         if chat_id not in self.chat_caches:
@@ -91,6 +126,7 @@ class MessageRefreshCache:
         chat_cache = self._get_chat_cache(chat_id)
         new_msg = chat_cache.get_message_only(message_id)
         if new_msg is not None and new_msg != old_msg:
+            count_already_refreshed_msgs.inc()
             return new_msg
         # Fetch a wait event, and request the message be refreshed
         wait_event = chat_cache.wait_event_for_msg(message_id)
@@ -119,6 +155,7 @@ class MessageRefreshCache:
             old_msg: telethon.types.Message,
             archive_target: "ArchiveTarget",
     ) -> None:
+        count_refresh_requests.inc()
         # Acquire the lock before modifying queue and task
         async with self._refresh_task_lock:
             # Queue up the request
@@ -164,6 +201,7 @@ class MessageRefreshCache:
         logger.info("Fetching refreshed message objects for chat %s", chat_id)
         num_msgs = 0
         async for msg in self.client.iter_messages(chat_id, max_id=max_message_id+1):
+            count_refreshed_messages.inc()
             # Include all messages, including without media, because they might have previously had media when requested
             # Add them to the message cache
             chat_cache.add_message_to_cache(msg)
