@@ -3,7 +3,6 @@ import dataclasses
 import logging
 import os
 import pathlib
-from collections import defaultdict
 from typing import Optional, Union
 
 import telethon
@@ -137,7 +136,6 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
 
     def __init__(self, client: TelegramClient) -> None:
         super().__init__(client)
-        self.chat_seen_web_page_ids: dict[int, set[int]] = defaultdict(set)
         self.message_refresher = MessageRefreshCache(client)
         self._chat_processed_media_id_cache: dict[int, set[int]] = {}
         self._chat_queued_media_id_cache: dict[int, set[int]] = {} # Cache of which media IDs have been queued for each chat
@@ -194,11 +192,6 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 )
                 parsed_media_type_count.labels(media_type="web_page_missing").inc()
                 return []
-            web_page_id = msg.media.webpage.id
-            if web_page_id in self.chat_seen_web_page_ids.get(chat_id, set()):
-                logger.debug("Skipping already-handled web page ID %s", web_page_id)
-            else:
-                self.chat_seen_web_page_ids[chat_id].add(web_page_id)
             parsed_media_type_count.labels(media_type="web_page").inc()
             return self._parse_media_from_web_page(msg.media.webpage)
         if media_type in self.MEDIA_NO_ACTION_NEEDED:
