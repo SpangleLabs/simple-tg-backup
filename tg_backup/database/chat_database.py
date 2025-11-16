@@ -130,9 +130,9 @@ class ChatDatabase(AbstractDatabase):
                 " )"
                 " ORDER BY archive_datetime DESC"
                 " LIMIT 1",
-                (
-                    latest_cutoff.isoformat() if latest_cutoff is not None else "A" # "A" will be larger than any number
-                )
+                {
+                    "latest_cutoff": latest_cutoff.isoformat() if latest_cutoff is not None else "A" # "A" will be larger than any number
+                }
             )
             for row in resp.fetchall():
                 return message_from_row(row)
