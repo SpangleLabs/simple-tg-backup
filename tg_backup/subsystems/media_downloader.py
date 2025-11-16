@@ -49,6 +49,10 @@ media_download_failures = Counter(
     "tgbackup_mediadownloader_media_download_failure_count",
     "Number of exceptions raised when a media download fails to complete. (Excluding file reference expiration)",
 )
+total_media_download_attempts = Counter(
+    "tgbackup_mediadownloader_total_media_download_attempts_count",
+    "Total number of media download attempts in the MediaDownloader",
+)
 media_download_attempts_required = Histogram(
     "tgbackup_mediadownloader_download_attempts_required",
     "Number of attempts required to complete a media download",
@@ -69,6 +73,18 @@ queued_media_id_cache_size = Gauge(
 queued_media_id_cache_rejections = Counter(
     "tgbackup_mediadownloader_queued_media_id_cache_rejections_count",
     "Number of media queue requests which were rejected due to already having been queued",
+)
+parsed_media_type_count = Counter(
+    "tgbackup_mediadownloader_parsed_media_type_count",
+    "Number of times each type of media has been parsed from observed messages",
+    labelnames=["media_type"],
+)
+for media_type in ["no_media", "photo_expired", "photo", "document_expired", "document", "web_page_missing", "web_page", "data_only", "to_do", "ignored", "unknown"]:
+    parsed_media_type_count.labels(media_type=media_type)
+parsed_media_per_web_page = Histogram(
+    "tgbackup_mediadownloader_parsed_media_per_web_page_count",
+    "Number of media files found within a web page preview",
+    buckets=[0, 1, 2, 5, 10, 20, 50],
 )
 
 
@@ -146,6 +162,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
     def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
         if not hasattr(msg, "media"):
+            parsed_media_type_count.labels(media_type="no_media").inc()
             return []
         # Start checking media type
         media_ext = self.UNKNOWN_FILE_EXT
@@ -156,16 +173,20 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         if isinstance(msg.media, MessageMediaPhoto):
             if msg.media.photo is None:
                 logger.info("This timed photo has expired, cannot archive")
+                parsed_media_type_count.labels(media_type="photo_expired").inc()
                 return []
             media_id = msg.media.photo.id
             media_ext = "jpg"
+            parsed_media_type_count.labels(media_type="photo").inc()
             return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
         if isinstance(msg.media, MessageMediaDocument):
             if msg.media.document is None:
                 logger.info("This timed document has expired, cannot archive")
+                parsed_media_type_count.labels(media_type="document_expired").inc()
                 return []
             media_id = msg.media.document.id
             media_ext = self._document_file_ext(msg.media.document) or media_ext
+            parsed_media_type_count.labels(media_type="document").inc()
             return [MediaInfo(self.MEDIA_FOLDER, media_type_name, media_id, media_ext, msg)]
         if isinstance(msg.media, MessageMediaWebPage):
             if not isinstance(msg.media.webpage, telethon.tl.types.WebPage):
@@ -173,32 +194,38 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                     "This MessageMediaWebPage is missing the web page? chat_id %s, msg_id %s, date %s",
                     chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
                 )
+                parsed_media_type_count.labels(media_type="web_page_missing").inc()
                 return []
             web_page_id = msg.media.webpage.id
             if web_page_id in self.chat_seen_web_page_ids.get(chat_id, set()):
                 logger.debug("Skipping already-handled web page ID %s", web_page_id)
             else:
                 self.chat_seen_web_page_ids[chat_id].add(web_page_id)
+            parsed_media_type_count.labels(media_type="web_page").inc()
             return self._parse_media_from_web_page(msg.media.webpage)
         if media_type in self.MEDIA_NO_ACTION_NEEDED:
             logger.info("No action needed for data-only media type: %s", media_type_name)
+            parsed_media_type_count.labels(media_type="data_only").inc()
             return []
         if media_type in self.MEDIA_TO_DO:
             logger.info(
                 "Media type not yet implemented: %s, chat ID: %s, msg ID: %s, date %s",
                 media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
             ) # TODO: Implement these!
+            parsed_media_type_count.labels(media_type="to_do").inc()
             return []
         if media_type in self.MEDIA_IGNORE:
             logger.info(
                 "Media type ignored: %s, chat ID: %s, msg ID: %s, date %s",
                 media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
             )
+            parsed_media_type_count.labels(media_type="ignored").inc()
             return []
         logger.warning(
             "Unknown media type! %s, chat ID: %s, msg ID: %s, date %s",
             media_type_name, chat_id, getattr(msg, "id", None), getattr(msg, "date", None)
         )
+        parsed_media_type_count.labels(media_type="unknown").inc()
         return []
 
     @staticmethod
@@ -242,6 +269,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 web_media_entry = WebPageMedia.from_web_page(web_page_id, media_id, json_path)
                 media_info = MediaInfo(folder, doc_type, media_id, file_ext, cached_document, web_media_entry)
                 media_entries.append(media_info)
+        parsed_media_per_web_page.observe(len(media_entries))
         return media_entries
 
     async def _do_process(self) -> None:
@@ -288,6 +316,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         while True:
             attempt_count += 1
             logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
+            total_media_download_attempts.inc()
             try:
                 await self.client.download_media(media_info.media_obj, str(target_path))
             except FileReferenceExpiredError as e:
