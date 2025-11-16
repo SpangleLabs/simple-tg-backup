@@ -54,9 +54,21 @@ media_download_attempts_required = Histogram(
     "Number of attempts required to complete a media download",
     buckets=[1, 2, 3, 5, 10],
 )
-media_id_cache_size = Gauge(
-    "tgbackup_mediadownloader_media_id_cache_size",
-    "Number of media IDs in the MediaDownloader cache",
+processed_media_id_cache_size = Gauge(
+    "tgbackup_mediadownloader_processed_media_id_cache_size",
+    "Number of media IDs in the MediaDownloader processed media cache",
+)
+processed_media_id_cache_rejections = Counter(
+    "tgbackup_mediadownloader_processed_media_id_cache_rejections_count",
+    "Number of media queue requests which were rejected due to already having been processed",
+)
+queued_media_id_cache_size = Gauge(
+    "tgbackup_mediadownloader_queued_media_id_cache_size",
+    "Number of media IDs in the MediaDownloader queued media cache",
+)
+queued_media_id_cache_rejections = Counter(
+    "tgbackup_mediadownloader_queued_media_id_cache_rejections_count",
+    "Number of media queue requests which were rejected due to already having been queued",
 )
 
 
@@ -111,16 +123,25 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         super().__init__(client)
         self.chat_seen_web_page_ids: dict[int, set[int]] = defaultdict(set)
         self.message_refresher = MessageRefreshCache(client)
-        self._chat_media_id_cache: dict[int, set[int]] = {}
-        media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_media_id_cache.values()))
+        self._chat_processed_media_id_cache: dict[int, set[int]] = {}
+        self._chat_queued_media_id_cache: dict[int, set[int]] = {} # Cache of which media IDs have been queued for each chat
+        media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_processed_media_id_cache.values()))
 
-    def _cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
-        return media_id in self._chat_media_id_cache.get(chat_id, {})
+    def _processed_cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
+        return media_id in self._chat_processed_media_id_cache.get(chat_id, set())
 
-    def _cache_media_id(self, chat_id: int, media_id: int) -> None:
-        if chat_id not in self._chat_media_id_cache:
-            self._chat_media_id_cache[chat_id] = set()
-        self._chat_media_id_cache[chat_id].add(media_id)
+    def _add_media_id_to_processed_cache(self, chat_id: int, media_id: int) -> None:
+        if chat_id not in self._chat_processed_media_id_cache:
+            self._chat_processed_media_id_cache[chat_id] = set()
+        self._chat_processed_media_id_cache[chat_id].add(media_id)
+
+    def _queued_cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
+        return media_id in self._chat_queued_media_id_cache.get(chat_id, set())
+
+    def _add_media_id_to_queued_cache(self, chat_id: int, media_id: int) -> None:
+        if chat_id not in self._chat_queued_media_id_cache:
+            self._chat_queued_media_id_cache[chat_id] = set()
+        self._chat_queued_media_id_cache[chat_id].add(media_id)
 
     def _parse_media_info(self, msg: telethon.types.Message, chat_id: int) -> list[MediaInfo]:
         # Skip if not media
@@ -253,7 +274,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             archive_target: "ArchiveTarget"
     ) -> None:
         # Skip if already in cache
-        if self._cache_has_media_id(chat_id, media_info.media_id):
+        if self._processed_cache_has_media_id(chat_id, media_info.media_id):
             return
         # Construct file path
         target_filename = f"{media_info.media_id}.{media_info.file_ext}"
@@ -293,7 +314,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         media_download_attempts_required.observe(attempt_count)
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
         # Mark media in cache
-        self._cache_media_id(chat_id, media_info.media_id)
+        self._add_media_id_to_processed_cache(chat_id, media_info.media_id)
         # Save web page media to DB, if appropriate
         web_page_media = media_info.web_page_media
         if web_page_media is not None and chat_db is not None:
@@ -324,8 +345,14 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         )
         # Queue up each of the media info entries
         for media_info in media_info_entries:
-            if self._cache_has_media_id(chat_id, media_info.media_id):
+            if self._processed_cache_has_media_id(chat_id, media_info.media_id):
                 logger.debug("Media ID %s has already been downloaded")
+                processed_media_id_cache_rejections.inc()
+                continue
+            if self._queued_cache_has_media_id(chat_id, media_info.media_id):
+                logger.debug("Media ID %s has already been queued")
+                queued_media_id_cache_rejections.inc()
                 continue
             queue_entry = MediaQueueEntry(message, media_info)
             await self._add_queue_entry(queue_key, info, queue_entry)
+            self._add_media_id_to_queued_cache(chat_id, media_info.media_id)
