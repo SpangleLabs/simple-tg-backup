@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import telethon
 import typing_extensions
-from prometheus_client import Counter
+from prometheus_client import Counter, Summary, Histogram, Gauge
 from telethon import TelegramClient
 from telethon.errors import FileReferenceExpiredError
 from telethon.tl.types import DocumentAttributeFilename, MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage, \
@@ -33,6 +33,32 @@ media_downloaded_count = Counter(
     "tgbackup_mediadownloader_media_downloaded_count",
     "Total number of media files which have been downloaded by the MediaDownloader",
 )
+file_reference_expired_count = Counter(
+    "tgbackup_mediadownloader_file_reference_expired_count",
+    "Total number of times media tried to download, but the file reference had expired",
+)
+time_waiting_for_refresh = Summary(
+    "tgbackup_mediadownloader_time_waiting_for_message_refresh_seconds",
+    "Total amount of time taken waiting for messages to be refreshed for expired file references",
+)
+refreshed_message_missing_media = Counter(
+    "tgbackup_mediadownloader_refreshed_message_missing_media_count",
+    "Total number of times where a message was refreshed, but then no longer contained the requested media",
+)
+media_download_failures = Counter(
+    "tgbackup_mediadownloader_media_download_failure_count",
+    "Number of exceptions raised when a media download fails to complete. (Excluding file reference expiration)",
+)
+media_download_attempts_required = Histogram(
+    "tgbackup_mediadownloader_download_attempts_required",
+    "Number of attempts required to complete a media download",
+    buckets=[1, 2, 3, 5, 10],
+)
+media_id_cache_size = Gauge(
+    "tgbackup_mediadownloader_media_id_cache_size",
+    "Number of media IDs in the MediaDownloader cache",
+)
+
 
 class RefreshedMessageMissingMedia(Exception):
     def __init__(self, refreshed_message: telethon.types.Message):
@@ -86,6 +112,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         self.chat_seen_web_page_ids: dict[int, set[int]] = defaultdict(set)
         self.message_refresher = MessageRefreshCache(client)
         self._chat_media_id_cache: dict[int, set[int]] = {}
+        media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_media_id_cache.values()))
 
     def _cache_has_media_id(self, chat_id: int, media_id: int) -> bool:
         return media_id in self._chat_media_id_cache.get(chat_id, {})
@@ -236,13 +263,17 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             logger.info("Skipping download of pre-existing file")
             return
         # Download the media
+        attempt_count = 0
         while True:
+            attempt_count += 1
             logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             try:
                 await self.client.download_media(media_info.media_obj, str(target_path))
             except FileReferenceExpiredError as e:
                 logger.warning("File reference expired for message ID %s, will refresh message", message.id)
-                message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
+                file_reference_expired_count.inc()
+                with time_waiting_for_refresh.time():
+                    message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
                 logger.info("Fetched new message for message ID %s", message.id)
                 media_info_entries = self._parse_media_info(message, chat_id)
                 media_info_matches = [m for m in media_info_entries if m.media_id == media_info.media_id]
@@ -250,13 +281,16 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                     media_info = media_info_matches[0]
                 else:
                     logger.warning("Could not find media after message refresh")
+                    refreshed_message_missing_media.inc()
                     raise RefreshedMessageMissingMedia(message)
             except Exception as e:
                 logger.error("Failed to download media from message ID %s (chat ID %s, date %s), (will retry) error:", message.id, chat_id, getattr(message, "date", None), exc_info=e)
+                media_download_failures.inc()
                 await asyncio.sleep(60)
             else:
                 break
         media_downloaded_count.inc()
+        media_download_attempts_required.observe(attempt_count)
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
         # Mark media in cache
         self._cache_media_id(chat_id, media_info.media_id)

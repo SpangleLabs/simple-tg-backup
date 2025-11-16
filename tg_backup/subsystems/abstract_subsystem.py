@@ -18,6 +18,11 @@ subsystem_queue_size = Gauge(
     "Total size of each subsystem's queue",
     labelnames=["subsystem"],
 )
+subsystem_target_queue_count = Gauge(
+    "tgbackup_subsystem_target_queue_count",
+    "Number of target queues in each target queued subsystem",
+    labelnames=["subsystem"],
+)
 
 
 class AbstractSubsystem(ABC):
@@ -97,6 +102,7 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
     def __init__(self, client: TelegramClient):
         super().__init__(client)
         self.queues: dict[Optional[str], ArchiveRunQueue[QueueInfo, QueueEntry]] = {}
+        subsystem_target_queue_count.labels(subsystem=self.name()).set_function(lambda: len(self.queues))
 
     def _get_next_in_queue(self) -> tuple[ArchiveRunQueue[QueueInfo, QueueEntry], QueueEntry]:
         targeted, non_targeted = split_list(self.queues.values(), lambda i: i.queue_key is not None)
