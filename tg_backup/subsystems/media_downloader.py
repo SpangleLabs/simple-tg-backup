@@ -305,7 +305,8 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             return
         # Download the media
         attempt_count = 0
-        while True:
+        download_success = False
+        while attempt_count <= 10:
             attempt_count += 1
             logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             total_media_download_attempts.inc()
@@ -330,7 +331,12 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 media_download_failures.inc()
                 await asyncio.sleep(60)
             else:
+                download_success = True
                 break
+        if not download_success:
+            os.unlink(target_path)
+            logger.error("Could not download file after 10 attempts. Skipping. Media ID %s, Message ID %s, chat ID %s, date %s", media_info.media_id, message.id, chat_id, getattr(message, "date", None))
+            return
         media_downloaded_count.inc()
         media_download_attempts_required.observe(attempt_count)
         logger.info("Media download complete, type: %s, ID: %s", media_info.media_type, media_info.media_id)
