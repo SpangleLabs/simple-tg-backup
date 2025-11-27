@@ -4,11 +4,11 @@ from typing import Optional
 import telethon
 from telethon.tl.types import DocumentAttributeSticker
 
-from tg_backup.models.abstract_resource import AbstractResource
+from tg_backup.models.abstract_resource import DeduplicatableAbstractResource
 from tg_backup.utils.parse_str_repr import StrReprObj
 
 
-class Message(AbstractResource):
+class Message(DeduplicatableAbstractResource):
     def __init__(
             self,
             archive_datetime: datetime.datetime,
@@ -74,9 +74,6 @@ class Message(AbstractResource):
         self.archive_datetime = datetime.datetime.now(datetime.timezone.utc)
         return self
 
-    def refers_to_same_msg(self, other: "Message") -> bool:
-        return self.resource_id == other.resource_id
-
     def no_useful_difference(self, other: "Message") -> bool:
         return all([
             self.resource_id == other.resource_id,
@@ -90,7 +87,7 @@ class Message(AbstractResource):
             self.archive_tl_schema_layer == other.archive_tl_schema_layer,
         ])
 
-    def sort_key_for_copies_of_message(self) -> tuple[bool, bool, datetime.datetime, int, datetime.datetime]:
+    def sort_key_for_copies_of_resource(self) -> tuple[bool, bool, datetime.datetime, int, datetime.datetime]:
         """
         This method returns a tuple which can be used as a sort key, for multiple saved copies of a message, to
         understand the timeline of the individual message.
@@ -103,39 +100,6 @@ class Message(AbstractResource):
             self.archive_tl_schema_layer, # Sort by schema layer
             self.archive_datetime, # Sort by archive time, though probably they're identical objects
         )
-
-    @classmethod
-    def all_refer_to_same_message(cls, messages: list["Message"]) -> bool:
-        if len(messages) == 0:
-            raise ValueError("There are no messages, so they cannot all refer to the same event")
-        if len(messages) == 1:
-            return True
-        first = messages[0]
-        for msg in messages[1:]:
-            if not first.refers_to_same_msg(msg):
-                return False
-        return True
-
-    @classmethod
-    def latest_copy_of_message(cls, messages: list["Message"]) -> Optional["Message"]:
-        if len(messages) == 0:
-            return None
-        if not cls.all_refer_to_same_message(messages):
-            raise ValueError("These events do not all refer to the same message")
-        sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
-        return sorted_messages[-1]
-
-    @classmethod
-    def remove_redundant_copies(cls, messages: list["Message"]) -> list["Message"]:
-        sorted_messages = sorted(messages, key=lambda m: m.sort_key_for_copies_of_message())
-        last_message = sorted_messages[0]
-        cleaned_messages = [last_message]
-        for msg in sorted_messages[1:]:
-            if msg.no_useful_difference(last_message):
-                continue
-            cleaned_messages.append(msg)
-            last_message = msg
-        return cleaned_messages
 
     @classmethod
     def from_str_repr_obj(

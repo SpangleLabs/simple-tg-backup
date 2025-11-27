@@ -1,12 +1,12 @@
 import datetime
-from typing import Optional
+from typing import Optional, Self
 
 import telethon.tl.types
 
-from tg_backup.models.abstract_resource import AbstractResource
+from tg_backup.models.abstract_resource import DeduplicatableAbstractResource
 
 
-class StickerSet(AbstractResource):
+class StickerSet(DeduplicatableAbstractResource):
     def __init__(
             self,
             archive_datetime: datetime.datetime,
@@ -34,3 +34,18 @@ class StickerSet(AbstractResource):
             if hasattr(sticker_set.set, "count"):
                 set_obj.sticker_count = sticker_set.set.count
         return set_obj
+
+    def sort_key_for_copies_of_resource(self) -> tuple[int, datetime.datetime]:
+        return (
+            self.archive_tl_schema_layer, # Sort by schema layer
+            self.archive_datetime, # Sort by archive time
+        )
+
+    def no_useful_difference(self, other: Self) -> bool:
+        return all([
+            self.resource_id == other.resource_id,
+            self.handle == other.handle,
+            self.title == other.title,
+            self.sticker_count == other.sticker_count,
+            self.archive_tl_schema_layer == other.archive_tl_schema_layer,
+        ])

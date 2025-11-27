@@ -171,9 +171,9 @@ class ArchiveTarget:
             old_msg_objs = self.chat_db.get_messages(msg.id)
             # Cleanup duplicate stored messages if applicable
             if self.behaviour.cleanup_duplicates and len(old_msg_objs) >= 2:
-                msg_obj = await self._cleanup_duplicate_messages(msg, msg_obj, old_msg_objs)
+                msg_obj = await self._cleanup_duplicate_messages(msg_obj, old_msg_objs)
             # Get the latest copy of the message and see if it needs re-saving
-            latest_msg_obj = Message.latest_copy_of_message(old_msg_objs)
+            latest_msg_obj = Message.latest_copy_of_resource(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
                 logger.debug("Already have message ID %s archived sufficiently", msg.id)
                 if self.behaviour.recheck_media:
@@ -210,7 +210,6 @@ class ArchiveTarget:
 
     async def _cleanup_duplicate_messages(
             self,
-            msg: telethon.tl.types.Message,
             msg_obj: Message,
             old_msg_objs: list[Message],
     ) -> Message:
@@ -219,9 +218,9 @@ class ArchiveTarget:
             logger.info(
                 "Cleaning up redundant %s message copies for msg ID: %s",
                 len(old_msg_objs) - len(cleaned_msg_objs),
-                msg.id
+                msg_obj.resource_id
             )
-            self.chat_db.delete_messages(msg.id)
+            self.chat_db.delete_messages(msg_obj.resource_id)
             for msg_obj in cleaned_msg_objs:
                 self.chat_db.save_message(msg_obj)
         return msg_obj
@@ -359,7 +358,7 @@ class ArchiveTarget:
         if not msg_objs:
             return
         logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
-        latest_msg_obj = Message.latest_copy_of_message(msg_objs)
+        latest_msg_obj = Message.latest_copy_of_resource(msg_objs)
         if latest_msg_obj.deleted:
             return
         deleted_msg = latest_msg_obj.mark_deleted()
