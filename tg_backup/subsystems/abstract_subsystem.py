@@ -8,7 +8,6 @@ from typing import Optional, TypeVar, Generic, TYPE_CHECKING
 from prometheus_client import Gauge
 from telethon import TelegramClient
 
-from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.utils.split_list import split_list
 
 if TYPE_CHECKING:
