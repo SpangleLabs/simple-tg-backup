@@ -86,9 +86,9 @@ class Archiver:
         self.running = False
         self.current_activity: Optional[ArchiverActivity] = None
         self.core_db = CoreDatabase()
-        self.media_dl = MediaDownloader(self.client)
-        self.peer_fetcher = PeerDataFetcher(self.client, self.core_db)
-        self.sticker_downloader = StickerDownloader(self.client, self.core_db)
+        self.media_dl = MediaDownloader(self, self.client)
+        self.peer_fetcher = PeerDataFetcher(self, self.client, self.core_db)
+        self.sticker_downloader = StickerDownloader(self, self.client, self.core_db)
         self.chat_settings = ChatSettingsStore.load_from_file()
         self.dialog_fetcher = DialogFetcher(self)
         archiver_running.set_function(lambda: int(self.running))

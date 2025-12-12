@@ -1,7 +1,7 @@
 import dataclasses
 import datetime
 import logging
-from typing import Union, NewType, Optional
+from typing import Union, NewType, Optional, TYPE_CHECKING
 
 from prometheus_client import Counter
 from telethon import TelegramClient
@@ -16,6 +16,10 @@ from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.chat import Chat
 from tg_backup.models.user import User
 from tg_backup.subsystems.abstract_subsystem import ArchiveRunQueue, AbstractTargetQueuedSubsystem, TimedCache
+
+if TYPE_CHECKING:
+    from tg_backup.archiver import Archiver
+
 
 peers_processed = Counter(
     "tgbackup_peerdatafetcher_peers_processed_count",
@@ -51,8 +55,8 @@ class PeerQueueEntry:
 class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntry]):
     CACHE_EXPIRY = datetime.timedelta(days=1)
 
-    def __init__(self, client: TelegramClient, core_db: CoreDatabase) -> None:
-        super().__init__(client)
+    def __init__(self, archiver: "Archiver", client: TelegramClient, core_db: CoreDatabase) -> None:
+        super().__init__(archiver, client)
         self.core_db = core_db
         self._core_seen_peer_ids = TimedCache[PeerCacheID](self.CACHE_EXPIRY)
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {} # Not timed, because we just want at least one entry for the peer in each chat DB

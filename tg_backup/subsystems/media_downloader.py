@@ -21,7 +21,10 @@ from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsyste
 from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 
 if typing_extensions.TYPE_CHECKING:
+    from tg_backup.archiver import Archiver
     from tg_backup.archive_target import ArchiveTarget
+
+
 logger = logging.getLogger(__name__)
 
 media_processed_count = Counter(
@@ -134,8 +137,8 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
     MEDIA_FOLDER = "media"
     WEB_PAGE_MEDIA_FOLDER = "web_page_media"
 
-    def __init__(self, client: TelegramClient) -> None:
-        super().__init__(client)
+    def __init__(self, archiver: "Archiver", client: TelegramClient) -> None:
+        super().__init__(archiver, client)
         self.message_refresher = MessageRefreshCache(client)
         self._chat_processed_media_id_cache: dict[int, set[int]] = {}
         self._chat_queued_media_id_cache: dict[int, set[int]] = {} # Cache of which media IDs have been queued for each chat

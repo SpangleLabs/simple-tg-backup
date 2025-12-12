@@ -3,7 +3,7 @@ import dataclasses
 import datetime
 import logging
 import os
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from prometheus_client import Counter
 from telethon import TelegramClient
@@ -15,6 +15,10 @@ from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem, TimedCache
+
+if TYPE_CHECKING:
+    from tg_backup.archiver import Archiver
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +44,8 @@ class StickerQueueEntry:
 class StickerDownloader(AbstractSubsystem):
     CACHE_EXPIRY = datetime.timedelta(days=1)
 
-    def __init__(self, client: TelegramClient, core_db: CoreDatabase):
-        super().__init__(client)
+    def __init__(self, archiver: "Archiver", client: TelegramClient, core_db: CoreDatabase):
+        super().__init__(archiver, client)
         self.core_db = core_db
         self.queue: asyncio.Queue[StickerQueueEntry] = asyncio.Queue()
         self._seen_sticker_set_ids = TimedCache[int](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed

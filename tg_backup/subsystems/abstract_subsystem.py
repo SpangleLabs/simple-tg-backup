@@ -3,13 +3,17 @@ import dataclasses
 import datetime
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Generic
+from typing import Optional, TypeVar, Generic, TYPE_CHECKING
 
 from prometheus_client import Gauge
 from telethon import TelegramClient
 
 from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.utils.split_list import split_list
+
+if TYPE_CHECKING:
+    from tg_backup.archiver import Archiver
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +30,8 @@ subsystem_target_queue_count = Gauge(
 
 
 class AbstractSubsystem(ABC):
-    def __init__(self, client: TelegramClient):
+    def __init__(self, archiver: "Archiver", client: TelegramClient):
+        self.archiver = archiver
         self.client = client
         self.running = False
         self.stop_when_empty = False
@@ -99,8 +104,8 @@ class ArchiveRunQueue(Generic[QueueInfo, QueueEntry]):
 
 
 class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, QueueEntry]):
-    def __init__(self, client: TelegramClient):
-        super().__init__(client)
+    def __init__(self, archiver: "Archiver", client: TelegramClient):
+        super().__init__(archiver, client)
         self.queues: dict[Optional[str], ArchiveRunQueue[QueueInfo, QueueEntry]] = {}
         subsystem_target_queue_count.labels(subsystem=self.name()).set_function(lambda: len(self.queues))
 
