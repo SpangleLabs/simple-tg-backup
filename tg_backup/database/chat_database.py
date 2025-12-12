@@ -9,7 +9,7 @@ from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.message import Message
 from tg_backup.models.web_page_media import WebPageMedia
-from tg_backup.utils.json_encoder import encode_json_extra, decode_json_dict, encode_json
+from tg_backup.utils.json_encoder import decode_json_dict, encode_json
 
 
 def message_from_row(row):
