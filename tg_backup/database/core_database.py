@@ -24,6 +24,21 @@ count_dialogs = Gauge(
     "Total number of dialogs which are stored in the database, as of last database check",
 )
 
+def sticker_from_row(row):
+    sticker = Sticker(
+        archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+        archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+        resource_id=row["id"],
+        resource_type=row["type"],
+        str_repr=row["str_repr"],
+        dict_repr=decode_json_dict(row["dict_repr"]),
+    )
+    sticker.sticker_set_id = row["sticker_set_id"]
+    sticker.emoji = row["emoji"]
+    sticker.file_name = row["file_name"]
+    sticker.sticker_upload_date = parsable_date(row["sticker_upload_date"])
+    return sticker
+
 
 class CoreDatabase(AbstractDatabase):
 
@@ -61,6 +76,32 @@ class CoreDatabase(AbstractDatabase):
                     "file_name": sticker.file_name,
                     "sticker_upload_date": storable_date(sticker.sticker_upload_date),
                 }
+            )
+            self.conn.commit()
+
+    def get_stickers(self, sticker_id: int) -> list[Sticker]:
+        stickers = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, sticker_set_id, emoji, file_name, sticker_upload_date"
+                " FROM stickers "
+                " WHERE id = :sticker_id",
+                {
+                    "sticker_id": sticker_id,
+                }
+            )
+            for row in resp.fetchall():
+                sticker = sticker_from_row(row)
+                stickers.append(sticker)
+        return stickers
+
+    def delete_stickers(self, sticker_id: int) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "DELETE FROM stickers WHERE id = :sticker_id",
+                {
+                    "sticker_id": sticker_id,
+                },
             )
             self.conn.commit()
 
