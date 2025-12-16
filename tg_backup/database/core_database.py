@@ -24,7 +24,7 @@ count_dialogs = Gauge(
     "Total number of dialogs which are stored in the database, as of last database check",
 )
 
-def sticker_from_row(row):
+def sticker_from_row(row) -> Sticker:
     sticker = Sticker(
         archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
         archive_tl_schema_layer=row["archive_tl_scheme_layer"],
@@ -38,6 +38,21 @@ def sticker_from_row(row):
     sticker.file_name = row["file_name"]
     sticker.sticker_upload_date = parsable_date(row["sticker_upload_date"])
     return sticker
+
+
+def sticker_set_from_row(row) -> StickerSet:
+    sticker_set = StickerSet(
+        archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
+        archive_tl_schema_layer=row["archive_tl_scheme_layer"],
+        resource_id=row["id"],
+        resource_type=row["type"],
+        str_repr=row["str_repr"],
+        dict_repr=decode_json_dict(row["dict_repr"]),
+    )
+    sticker_set.handle = row["handle"]
+    sticker_set.title = row["title"]
+    sticker_set.sticker_count = row["sticker_count"]
+    return sticker_set
 
 
 class CoreDatabase(AbstractDatabase):
@@ -58,6 +73,8 @@ class CoreDatabase(AbstractDatabase):
             ArchiveRecordTable(),
             DialogsTable(),
         ]
+
+    ## Sticker methods
 
     def save_sticker(self, sticker: Sticker) -> None:
         with closing(self.conn.cursor()) as cursor:
@@ -105,6 +122,8 @@ class CoreDatabase(AbstractDatabase):
             )
             self.conn.commit()
 
+    ## Sticker set methods
+
     def save_sticker_set(self, sticker_set: StickerSet) -> None:
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
@@ -131,19 +150,35 @@ class CoreDatabase(AbstractDatabase):
                 "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, handle, title, sticker_count FROM sticker_sets",
             )
             for row in resp.fetchall():
-                sticker_set = StickerSet(
-                    archive_datetime=datetime.datetime.fromisoformat(row["archive_datetime"]),
-                    archive_tl_schema_layer=row["archive_tl_scheme_layer"],
-                    resource_id=row["id"],
-                    resource_type=row["type"],
-                    str_repr=row["str_repr"],
-                    dict_repr=decode_json_dict(row["dict_repr"]),
-                )
-                sticker_set.handle = row["handle"]
-                sticker_set.title = row["title"]
-                sticker_set.sticker_count = row["sticker_count"]
+                sticker_set = sticker_set_from_row(row)
                 sets.append(sticker_set)
         return sets
+
+    def get_sticker_sets(self, sticker_set_id: int) -> list[StickerSet]:
+        sets: list[StickerSet] = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, handle, title, sticker_count FROM sticker_sets WHERE id = :sticker_set_id",
+                {
+                    "sticker_set_id": sticker_set_id,
+                }
+            )
+            for row in resp.fetchall():
+                sticker_set = sticker_set_from_row(row)
+                sets.append(sticker_set)
+        return sets
+
+    def delete_sticker_sets(self, sticker_set_id: int) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "DELETE FROM sticker_sets WHERE id = :sticker_set_id",
+                {
+                    "sticker_set_id": sticker_set_id,
+                }
+            )
+            self.conn.commit()
+
+    ## Archive run methods
 
     def save_archive_run(self, archive_run: ArchiveRunRecord) -> None:
         with closing(self.conn.cursor()) as cursor:
@@ -211,6 +246,8 @@ class CoreDatabase(AbstractDatabase):
                 records.append(record)
         count_archive_runs.set(len(records))
         return records
+
+    ## Dialog methods
 
     def save_dialog(self, dialog: Dialog) -> None:
         with closing(self.conn.cursor()) as cursor:

@@ -102,7 +102,13 @@ class StickerDownloader(AbstractSubsystem):
             return
         sticker_set_obj = StickerSet.from_sticker_set(sticker_set)
         # Save sticker set to database
-        self.core_db.save_sticker_set(sticker_set_obj)
+        save_if_not_duplicate(
+            sticker_set_obj,
+            self.archiver.config.default_behaviour.cleanup_duplicates,
+            self.core_db.save_sticker_set,
+            self.core_db.get_sticker_sets,
+            self.core_db.delete_sticker_sets,
+        )
         # Put the rest of the pack in the queue
         for sticker_doc in sticker_set.documents:
             await self.queue_sticker(sticker_doc)
