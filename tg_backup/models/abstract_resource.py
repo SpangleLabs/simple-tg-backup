@@ -1,9 +1,13 @@
 import dataclasses
+import logging
 from abc import ABC, abstractmethod
 import datetime
-from typing import Optional, TypeVar, Self, Any
+from typing import Optional, TypeVar, Self, Any, Callable
 
 import telethon
+
+
+logger = logging.getLogger(__name__)
 
 Resource = TypeVar("Resource", bound="AbstractResource")
 
@@ -47,6 +51,7 @@ class DeduplicatableAbstractResource(AbstractResource):
         This method returns a tuple which can be used as a sort key, for multiple saved copies of a resource, to
         understand the timeline of the individual resource.
         It should not be used to compare different resources.
+        It should be set up such that whe sorted by this key, resources are sorted from oldest to newest.
         """
         raise NotImplementedError()
 
@@ -99,3 +104,54 @@ def group_by_id(objs: list[SpecificResource]) -> dict[int, list[SpecificResource
             result[obj.resource_id] = []
         result[obj.resource_id].append(obj)
     return result
+
+
+SpecificDeduplicatable = TypeVar("SpecificDeduplicatable", bound="DeduplicatableAbstractResource")
+def cleanup_existing_duplicates(
+        old_resources: list[SpecificDeduplicatable],
+        db_delete_all_func: Callable[[int], None],
+        db_save_func: Callable[[SpecificDeduplicatable], None],
+) -> None:
+    if len(old_resources) < 2:
+        return
+    resource_type: type[DeduplicatableAbstractResource] = type(old_resources[0])
+    resource_id = old_resources[0].resource_id
+    if not resource_type.all_refer_to_same_resource(old_resources):
+        raise ValueError(f"These {resource_type.__name__} records do not all refer to the same {resource_id}")
+    cleaned_objs = resource_type.remove_redundant_copies(old_resources)
+    if len(cleaned_objs) == len(old_resources):
+        return
+    logger.info(
+        "Cleaning up redundant %s %s copies for %s ID: %s",
+        len(old_resources) - len(cleaned_objs),
+        resource_type.__name__,
+        resource_type.__name__,
+        resource_id
+    )
+    db_delete_all_func(resource_id)
+    for sticker_obj in cleaned_objs:
+        db_save_func(sticker_obj)
+    return
+
+
+def save_if_not_duplicate(
+        new_resource: SpecificDeduplicatable,
+        cleanup_duplicates: bool,
+        db_save_func: Callable[[SpecificDeduplicatable], None],
+        db_list_all_func: Callable[[int], list[SpecificDeduplicatable]],
+        db_delete_all_func: Callable[[int], None],
+):
+    resource_type = type(new_resource)
+    resource_name = resource_type.__name__
+    resource_id = new_resource.resource_id
+    # Fetch the list of existing records for this resource
+    old_resource_objs = db_list_all_func(new_resource.resource_id)
+    # Cleanup duplicate stored records if applicable
+    if cleanup_duplicates and len(old_resource_objs) >= 2:
+        cleanup_existing_duplicates(old_resource_objs, db_delete_all_func, db_save_func)
+    # Get the latest copy of the resource and see if the new one needs saving
+    latest_saved_resource_obj = resource_type.latest_copy_of_resource(old_resource_objs)
+    if new_resource.no_useful_difference(latest_saved_resource_obj):
+        logger.debug("Already have %s ID %s archived sufficiently", resource_name, resource_id)
+    else:
+        logger.info("%s ID %s is sufficiently different to archived copies as to deserve re-saving", resource_name, resource_id)

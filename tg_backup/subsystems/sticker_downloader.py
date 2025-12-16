@@ -12,6 +12,7 @@ from telethon.tl.functions.messages import GetStickerSetRequest
 from telethon.tl.types import DocumentAttributeSticker, InputStickerSetID, DocumentAttributeFilename, Document
 
 from tg_backup.database.core_database import CoreDatabase
+from tg_backup.models.abstract_resource import save_if_not_duplicate
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem, TimedCache
@@ -144,40 +145,18 @@ class StickerDownloader(AbstractSubsystem):
         # Save to database
         logger.info("Saving sticker ID %s to database", sticker_id)
         await self._save_sticker_to_db(sticker_obj)
+        save_if_not_duplicate(
+            sticker_obj,
+            self.archiver.config.default_behaviour.cleanup_duplicates,
+            self.core_db.save_sticker,
+            self.core_db.get_stickers,
+            self.core_db.delete_stickers,
+        )
         # Update cache
         self.cache_sticker_id(sticker_id)
         # Process the sticker set
         if input_sticker_set is not None:
             await self._process_sticker_set(input_sticker_set)
-
-    async def _save_sticker_to_db(self, sticker_obj: Sticker):
-        old_sticker_objs = self.core_db.get_stickers(sticker_obj.resource_id)
-        # Cleanup duplicate stored stickers if applicable
-        if self.archiver.config.default_behaviour.cleanup_duplicates and len(old_sticker_objs) >= 2:
-            sticker_obj = await self._cleanup_duplicate_stickers(sticker_obj, old_sticker_objs)
-        # Get the latest copy of the sticker and see if it needs re-saving
-        latest_msg_obj = Sticker.latest_copy_of_resource(old_sticker_objs)
-        if sticker_obj.no_useful_difference(latest_msg_obj):
-            logger.debug("Already have sticker ID %s archived sufficiently", sticker_obj.id)
-        else:
-            logger.info("Sticker ID %s is sufficiently different to archived copies as to deserve re-saving", msg.id)
-
-    async def _cleanup_duplicate_stickers(
-            self,
-            sticker_obj: Sticker,
-            old_sticker_objs: list[Sticker],
-    ) -> Sticker:
-        cleaned_sticker_objs = Sticker.remove_redundant_copies(old_sticker_objs)
-        if len(cleaned_sticker_objs) != len(old_sticker_objs):
-            logger.info(
-                "Cleaning up redundant %s sticker copies for sticker ID: %s",
-                len(old_sticker_objs) - len(cleaned_sticker_objs),
-                sticker_obj.resource_id
-            )
-            self.core_db.delete_stickers(sticker_obj.resource_id)
-            for sticker_obj in cleaned_sticker_objs:
-                self.core_db.save_sticker(sticker_obj)
-        return sticker_obj
 
     def queue_size(self) -> int:
         return self.queue.qsize()
