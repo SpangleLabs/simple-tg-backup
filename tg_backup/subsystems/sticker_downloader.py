@@ -144,7 +144,6 @@ class StickerDownloader(AbstractSubsystem):
                     break
         # Save to database
         logger.info("Saving sticker ID %s to database", sticker_id)
-        await self._save_sticker_to_db(sticker_obj)
         save_if_not_duplicate(
             sticker_obj,
             self.archiver.config.default_behaviour.cleanup_duplicates,
