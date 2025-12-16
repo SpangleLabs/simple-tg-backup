@@ -10,6 +10,7 @@ import telethon.tl.types
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.chat_database import ChatDatabase
+from tg_backup.models.abstract_resource import cleanup_existing_duplicates
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.archive_run_record import ArchiveRunRecord
 from tg_backup.models.dialog import Dialog
@@ -171,7 +172,7 @@ class ArchiveTarget:
             old_msg_objs = self.chat_db.get_messages(msg.id)
             # Cleanup duplicate stored messages if applicable
             if self.behaviour.cleanup_duplicates and len(old_msg_objs) >= 2:
-                msg_obj = await self._cleanup_duplicate_messages(msg_obj, old_msg_objs)
+                cleanup_existing_duplicates(old_msg_objs, self.chat_db.delete_messages, self.chat_db.save_message)
             # Get the latest copy of the message and see if it needs re-saving
             latest_msg_obj = Message.latest_copy_of_resource(old_msg_objs)
             if msg_obj.no_useful_difference(latest_msg_obj):
@@ -207,23 +208,6 @@ class ArchiveTarget:
                 if self.behaviour.download_media:
                     await self.archiver.media_dl.queue_media(queue_key, self.chat_id, self.chat_db, msg, self)
                     self.run_record.archive_stats.inc_media_seen()
-
-    async def _cleanup_duplicate_messages(
-            self,
-            msg_obj: Message,
-            old_msg_objs: list[Message],
-    ) -> Message:
-        cleaned_msg_objs = Message.remove_redundant_copies(old_msg_objs)
-        if len(cleaned_msg_objs) != len(old_msg_objs):
-            logger.info(
-                "Cleaning up redundant %s message copies for msg ID: %s",
-                len(old_msg_objs) - len(cleaned_msg_objs),
-                msg_obj.resource_id
-            )
-            self.chat_db.delete_messages(msg_obj.resource_id)
-            for msg_obj in cleaned_msg_objs:
-                self.chat_db.save_message(msg_obj)
-        return msg_obj
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
