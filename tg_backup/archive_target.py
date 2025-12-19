@@ -120,6 +120,12 @@ class ArchiveTarget:
         known_msg_ids.add(msg_id)
         self._known_msg_ids = known_msg_ids
 
+    def msg_id_is_known(self, msg_id: int) -> bool:
+        return msg_id in self.known_msg_ids()
+
+    def any_msg_id_is_known(self, msg_ids: Iterable[int]):
+        return not self.known_msg_ids().isdisjoint(set(msg_ids))
+
     async def is_small_chat(self) -> bool:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
         return not isinstance(await self.chat_entity(), telethon.tl.types.Channel)
@@ -168,7 +174,7 @@ class ArchiveTarget:
         # Convert raw telegram message into storage object
         msg_obj = Message.from_msg(msg)
         # Check if the message has already been identically archived
-        if msg.id in self.known_msg_ids():
+        if self.msg_id_is_known(msg.id):
             old_msg_objs = self.chat_db.get_messages(msg.id)
             # Cleanup duplicate stored messages if applicable
             if self.behaviour.cleanup_duplicates and len(old_msg_objs) >= 2:
