@@ -1,4 +1,6 @@
 import asyncio
+import dataclasses
+import datetime
 import logging
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -19,10 +21,67 @@ logger = logging.getLogger(__name__)
 Peer = Union[telethon.tl.types.User, telethon.tl.types.Chat, telethon.tl.types.Channel]
 
 
+@dataclasses.dataclass
+class TargetConnectionState:
+    target: ArchiveTarget
+    last_activity: datetime.datetime
+    is_connected: bool = False
+    is_disconnecting: bool = False
+    disconnection_task: Optional[asyncio.Task] = None
+    is_connecting: bool = True
+    connection_task: Optional[asyncio.Task] = None
+
+    def update_activity(self) -> None:
+        self.last_activity = datetime.datetime.now(datetime.timezone.utc)
+
+    def older_than(self, time_period: datetime.timedelta) -> bool:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return (now - self.last_activity) > time_period
+
+    def is_ready(self) -> bool:
+        return self.is_connected and not self.is_disconnecting
+
+    async def _disconnect(self) -> None:
+        self.is_disconnecting = True
+        logger.info("Disconnecting from Dialog %s", self.target.dialog)
+        await self.target.disconnect_db()
+        self.is_connected = False
+        self.is_disconnecting = False
+
+    def run_disconnect(self) -> asyncio.Task:
+        if self.is_disconnecting:
+            return self.disconnection_task
+        self.is_disconnecting = True
+        self.disconnection_task = asyncio.create_task(self._disconnect())
+        return self.disconnection_task
+
+    async def _connect(self) -> None:
+        self.is_connecting = True
+        logger.info("Watcher is connecting to Dialog %s", self.target.dialog)
+        await self.target.connect_db()
+        self.is_connected = True
+        self.is_connecting = False
+
+    async def run_connect(self) -> None:
+        if self.is_connected:
+            return
+        if self.is_disconnecting:
+            logger.info("Watcher is waiting for Dialog %s to disconnect before reconnecting", self.target.dialog)
+            await self.run_disconnect()
+        if self.is_connecting:
+            logger.info("Dialog %s is already connecting, waiting for connection", self.target.dialog)
+            await self.connection_task
+        self.is_connecting = True
+        self.connection_task = asyncio.create_task(self._connect())
+        await self.connection_task
+        self.is_connected = True
+
+
 class MultiTargetWatcher:
     """
     This class provides callbacks for watching multiple archive targets at once, without overloading Telethon with different callback handlers.
     """
+    AUTO_CONNECT_TIME_PERIOD = datetime.timedelta(days=1)
 
     def __init__(
             self,
@@ -42,6 +101,7 @@ class MultiTargetWatcher:
         self._small_group_targets: Optional[list[ArchiveTarget]] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
+        self._target_connections: dict[int, TargetConnectionState] = {}
 
     async def list_small_group_targets(self) -> list[ArchiveTarget]:
         if self._small_group_targets is None:
@@ -93,10 +153,24 @@ class MultiTargetWatcher:
             await self._stop_watch()
 
     async def _start_watch(self) -> None:
-        # Mark all archive targets as starting watch, and connect to their databases
+        # Mark all archive targets as starting watch, and connect to their databases if necessary
         for target in self.follow_targets.values():
             target.run_record.follow_live_timer.start()
-            target.chat_db.start()
+            # Check whether to auto-connect to chat databases
+            target_dialog_msg_age = target.dialog.last_seen_msg_age()
+            if target_dialog_msg_age is None:
+                # If we don't know how old the last message is, pre-connect just in case
+                logger.info("Unsure how old last message in dialog %s was, pre-emptively connecting to database", target.dialog)
+                await self._connect_target(target)
+            elif target_dialog_msg_age < self.AUTO_CONNECT_TIME_PERIOD:
+                # If the target dialog has been active recently, pre-connect to the database
+                logger.info("Last message in dialog %s is new-enough, pre-emptively connecting to database", target.dialog)
+                await self._connect_target(target)
+            elif await target.is_small_chat():
+                # Otherwise, if it's a small chat, connect and disconnect to ensure known msg IDs is populated
+                logger.info("Populating known message IDs for dialog %s", target.dialog)
+                conn_state = await self._connect_target(target)
+                await conn_state.run_disconnect()
         # Register event handlers
         self.client.add_event_handler(self._watch_new_message, events.NewMessage())
         self.client.add_event_handler(self._watch_edit_message, events.MessageEdited())
@@ -111,10 +185,44 @@ class MultiTargetWatcher:
         self.client.remove_event_handler(self._watch_new_message)
         self.client.remove_event_handler(self._watch_edit_message)
         self.client.remove_event_handler(self._watch_delete_message)
-        # Mark all targets as stopped and disconnect from databases
+        # Mark all targets as stopped
         for target in self.follow_targets.values():
             target.run_record.follow_live_timer.end()
-            target.chat_db.stop()
+        # Disconnect from all connected targets
+        await asyncio.gather(
+            *[conn.run_disconnect() for conn in self._target_connections.values() if conn.is_connected]
+        )
+
+    async def _connect_target(self, target: ArchiveTarget) -> TargetConnectionState:
+        conn_state = self._target_connections.get(target.dialog.resource_id)
+        if conn_state is not None:
+            if conn_state.is_ready():
+                conn_state.update_activity()
+                self._cleanup_connections()
+                return conn_state
+            await conn_state.run_connect()
+            conn_state.update_activity()
+            return conn_state
+        target_dialog_msg_age = target.dialog.last_seen_msg_age()
+        last_activity_datetime = datetime.datetime.now() - (target_dialog_msg_age or datetime.timedelta(0))
+        new_conn = TargetConnectionState(target, last_activity_datetime)
+        self._target_connections[target.dialog.resource_id] = new_conn
+        await new_conn.run_connect()
+        # Populate list of known message IDs in the chat
+        known_msg_ids = target.known_msg_ids()
+        logger.info("Connected to dialog %s database, it has %s known messages", target.dialog, len(known_msg_ids))
+        return new_conn
+
+    async def _disconnect_target(self, target: ArchiveTarget) -> None:
+        conn_state = self._target_connections.get(target.dialog.resource_id)
+        if conn_state is not None:
+            await conn_state.run_disconnect()
+
+    def _cleanup_connections(self) -> None:
+        for conn_state in self._target_connections.values():
+            if conn_state.is_ready():
+                if conn_state.older_than(self.AUTO_CONNECT_TIME_PERIOD):
+                    conn_state.run_disconnect()
 
     def shutdown(self) -> None:
         self._shutdown_event.set()
@@ -138,6 +246,7 @@ class MultiTargetWatcher:
         if target is None:
             logger.debug("Ignoring new message in unwatched chat ID %s", event.chat_id)
             return
+        await self._connect_target(target)
         await target.on_live_new_message(event)
 
     async def _watch_edit_message(self, event: events.MessageEdited.Event) -> None:
@@ -145,6 +254,7 @@ class MultiTargetWatcher:
         if target is None:
             logger.warning("Ignoring edited message in unwatched chat ID %s", event.chat_id)
             return
+        await self._connect_target(target)
         await target.on_live_edit_message(event)
 
     async def _watch_delete_message(self, event: events.MessageDeleted.Event) -> None:
@@ -156,12 +266,15 @@ class MultiTargetWatcher:
             if target is None:
                 logger.debug("Ignoring deleted message in unwatched chat ID %s", event.chat_id)
                 return
+            await self._connect_target(target)
             await target.on_live_delete_message(event)
             return
         logger.info("Sending deleted message (without chat ID) to all monitored small chats")
         small_group_targets = await self.list_small_group_targets()
         for target in small_group_targets:
-            await target.on_live_delete_message(event)
+            if target.any_msg_id_is_known(event.deleted_ids):
+                await self._connect_target(target)
+                await target.on_live_delete_message(event)
 
     async def _handle_new_chat(self, chat: Peer) -> None:
         # Fetch the appropriate dialog object
