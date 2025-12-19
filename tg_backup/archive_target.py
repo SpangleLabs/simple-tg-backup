@@ -105,6 +105,21 @@ class ArchiveTarget:
         self.run_record = ArchiveRunRecord(dialog.chat_type, self.chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
         self.high_water_mark = HighWaterMark(self)
 
+    async def connect_db(self) -> None:
+        self.chat_db.start()
+
+    async def disconnect_db(self) -> None:
+        # Wait for media downloader to be done before disconnecting database.
+        # You must wait for media downloader first, because it might queue more peers when refreshing messages.
+        logger.info("Waiting for media downloader to complete for archive target")
+        await self.archiver.media_dl.wait_until_queue_empty(self.run_record.archive_run_id)
+        # Wait for user fetcher to be done before disconnecting database
+        logger.info("Waiting for peer fetcher to complete for archive target")
+        await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
+        # Disconnect from chat DB
+        logger.info("Disconnecting from chat database")
+        self.chat_db.stop()
+
     async def chat_entity(self) -> hints.Entity:
         if self._chat_entity is None:
             self._chat_entity = await self.client.get_entity(self.chat_id)
@@ -284,7 +299,7 @@ class ArchiveTarget:
         logger.info("Starting archive of chat %s", self.chat_id)
         self.run_record.target_type = self.dialog.chat_type
         # Connect to chat database
-        self.chat_db.start()
+        await self.connect_db()
         # Push chat peer to the peer data fetcher
         await self._archive_chat_data()
         # Start the chat watcher
@@ -299,16 +314,8 @@ class ArchiveTarget:
         if self.behaviour.follow_live:
             logger.info("Chat history archive complete, watching live updates")
             await watch_task
-        # Wait for media downloader to be done before disconnecting database.
-        # You must wait for media downloader first, because it might queue more peers when refreshing messages.
-        logger.info("Waiting for media downloader to complete for archive target")
-        await self.archiver.media_dl.wait_until_queue_empty(self.run_record.archive_run_id)
-        # Wait for user fetcher to be done before disconnecting database
-        logger.info("Waiting for peer fetcher to complete for archive target")
-        await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
-        # Disconnect from chat DB
-        logger.info("Disconnecting from chat database")
-        self.chat_db.stop()
+        # Disconnect the database, and wait for whatever subsystems need waiting for before that
+        await self.disconnect_db()
         self.run_record.mark_complete()
         logger.info("Chat archive complete %s", self.chat_id)
 
