@@ -35,6 +35,14 @@ class Dialog(AbstractResource):
             title=self.name,
         )
 
+    def last_seen_msg_age(self) -> Optional[datetime.timedelta]:
+        # When this dialog was last seen, how old was the last message there?
+        if self.last_seen is None:
+            return None
+        if self.last_msg_date is None:
+            return None
+        return self.last_seen - self.last_msg_date
+
     @classmethod
     def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":
         obj = cls.from_storable_object(dialog)
