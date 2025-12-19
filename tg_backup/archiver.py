@@ -141,7 +141,7 @@ class Archiver:
         try:
             yield
         except Exception as e:
-            logger.exception("Archiver has encountered exception, shutting down")
+            logger.exception("Archiver has encountered exception, shutting down. Exception: %s", e, exc_info=e)
             await self.stop(fast=True)
         finally:
             await self.stop(fast=False)
