@@ -33,12 +33,17 @@ You can also use the `main.py` command line arguments to specify an individual c
   - Deduplicate users in the same way messages are
   - Deduplicate chats in the same way messages are
 - Ability to specify notes on dialogs archive settings. (Like, why are you overriding defaults)
+- Implement web UI form for setting behaviour config for individual dialogs
+- Use Takeout API to get old dialogs
+  - Can only use it once a day though.. But shouldn't need it any more than once
+  - https://docs.telethon.dev/en/stable/modules/client.html#telethon.client.account.AccountMethods.takeout
+  - https://core.telegram.org/api/takeout
+- Multi target watcher shouldn't really connect to all chat databases ahead of time
 
 ### TODO: Later
-- Further work on the web UI
-  - Implement form for setting behaviour config for individual dialogs
 - Behaviour setting to only download necessary stickers, rather than entire packs?
 - HTML view of chats?
+  - Will need access control
 - Archive user and chat profile photos
 - Call GetPollResultsRequest and gather poll results `PollResults` after getting poll with MessageMediaPoll?
 
