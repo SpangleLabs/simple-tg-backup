@@ -41,6 +41,7 @@ class AbstractDatabase(ABC):
     def start(self) -> None:
         file_path = self.file_path()
         os.makedirs(pathlib.Path(file_path).parent, exist_ok=True)
+        logger.info("Starting connection to database: %s", self.file_path())
         self.conn = sqlite3.connect(file_path)
         self.conn.row_factory = sqlite3.Row
         self.apply_migrations()
