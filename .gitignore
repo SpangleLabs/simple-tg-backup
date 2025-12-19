@@ -1,0 +1,13 @@
+
+# Python project files
+.idea/
+__pycache__/
+venv/
+
+# Archiver settings files
+archive_settings.yaml
+config.json
+
+# Data created by the archiver
+logs/
+store/
