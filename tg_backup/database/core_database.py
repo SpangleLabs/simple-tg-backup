@@ -1,4 +1,5 @@
 import datetime
+import logging
 from contextlib import closing
 
 from prometheus_client import Gauge
@@ -23,6 +24,9 @@ count_dialogs = Gauge(
     "tgbackup_coredb_dialogs_count",
     "Total number of dialogs which are stored in the database, as of last database check",
 )
+
+logger = logging.getLogger(__name__)
+
 
 def sticker_from_row(row) -> Sticker:
     sticker = Sticker(
@@ -181,6 +185,7 @@ class CoreDatabase(AbstractDatabase):
     ## Archive run methods
 
     def save_archive_run(self, archive_run: ArchiveRunRecord) -> None:
+        logger.debug("Saving archive run: %s against dialog ID: %s", archive_run.archive_run_id, archive_run.target_id)
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
                 "INSERT INTO archive_runs "
