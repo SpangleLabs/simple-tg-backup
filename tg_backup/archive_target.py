@@ -354,7 +354,7 @@ class ArchiveTarget:
         msg_objs = self.chat_db.get_messages(msg_id)
         if not msg_objs:
             return
-        logger.debug("Found %s records in chat ID matching deleted message ID %s", len(msg_objs), msg_id)
+        logger.debug("Found %s records in chat ID %s matching deleted message ID %s", len(msg_objs), self.chat_id, msg_id)
         latest_msg_obj = Message.latest_copy_of_resource(msg_objs)
         if latest_msg_obj.deleted:
             return
