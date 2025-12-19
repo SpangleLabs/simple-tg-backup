@@ -38,7 +38,6 @@ You can also use the `main.py` command line arguments to specify an individual c
   - Can only use it once a day though.. But shouldn't need it any more than once
   - https://docs.telethon.dev/en/stable/modules/client.html#telethon.client.account.AccountMethods.takeout
   - https://core.telegram.org/api/takeout
-- Multi target watcher shouldn't really connect to all chat databases ahead of time
 
 ### TODO: Later
 - Behaviour setting to only download necessary stickers, rather than entire packs?
