@@ -46,6 +46,7 @@ class AbstractDatabase(ABC):
         self.apply_migrations()
 
     def stop(self) -> None:
+        logger.info("Closing connection to database: %s", self.file_path())
         self.conn.close()
         self.conn = None
 
