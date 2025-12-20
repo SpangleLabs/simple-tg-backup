@@ -28,7 +28,7 @@ class TargetConnectionState:
     is_connected: bool = False
     is_disconnecting: bool = False
     disconnection_task: Optional[asyncio.Task] = None
-    is_connecting: bool = True
+    is_connecting: bool = False
     connection_task: Optional[asyncio.Task] = None
 
     def update_activity(self) -> None:
