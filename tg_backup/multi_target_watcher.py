@@ -216,7 +216,8 @@ class MultiTargetWatcher:
             conn_state.update_activity()
             return conn_state
         target_dialog_msg_age = target.dialog.last_seen_msg_age()
-        last_activity_datetime = datetime.datetime.now() - (target_dialog_msg_age or datetime.timedelta(0))
+        now = datetime.datetime.now(datetime.timezone.utc)
+        last_activity_datetime = now - (target_dialog_msg_age or datetime.timedelta(0))
         new_conn = TargetConnectionState(target, last_activity_datetime)
         self._target_connections[target.dialog.resource_id] = new_conn
         await new_conn.run_connect()
