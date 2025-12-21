@@ -193,6 +193,18 @@ class MultiTargetWatcher:
             *[conn.run_disconnect() for conn in self._target_connections.values() if conn.is_connected]
         )
 
+    def target_db_connection_state(self, target: ArchiveTarget) -> str:
+        conn_state = self._target_connections.get(target.dialog.resource_id)
+        if conn_state is None:
+            return "disconnected"
+        if conn_state.is_disconnecting:
+            return "disconnecting"
+        if conn_state.is_connecting:
+            return "connecting"
+        if conn_state.is_connected:
+            return "connected"
+        return "disconnected"
+
     async def _connect_target(self, target: ArchiveTarget) -> TargetConnectionState:
         conn_state = self._target_connections.get(target.dialog.resource_id)
         if conn_state is not None:

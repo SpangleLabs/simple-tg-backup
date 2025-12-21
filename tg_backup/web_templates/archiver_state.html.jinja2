@@ -81,6 +81,7 @@
                 <th>Duration</th>
             </tr>
         </thead>
+        <tbody>
         {% for target in history_targets %}
             <tr>
                 <td>{{ target.dialog.chat_type }} {{ target.chat_id }}</td>
@@ -90,23 +91,38 @@
                 <td>{{ target.run_record.archive_history_timer.duration_str() }}</td>
             </tr>
         {% endfor %}
+        </tbody>
         </table>
     {% endif %}
     {% set target_watcher = current_activity.target_watcher %}
     {% if target_watcher is not none %}
         <h3>Follow targets</h3>
         Watching these targets for live updates:
-        <ul>
+        <table>
+        <thead>
+            <tr>
+                <th>Target</th>
+                <th>Target title</th>
+                <th>Timings</th>
+                <th>DB status</th>
+            </tr>
+        </thead>
+        <tbody>
         {% for target in target_watcher.follow_targets.values() %}
-            <li>
-                {{ target.dialog.chat_type }} {{ target.chat_id }}: {{ target.dialog.name }}
-                Start: {{ target.run_record.follow_live_timer.start_time }}
-            {% if target.run_record.follow_live_timer.end_time is not none %}
-                End: {{ target.run_record.follow_live_timer.end_time }}
-            {% endif %}
-            </li>
+            <tr>
+                <td>{{ target.dialog.chat_type }} {{ target.chat_id }}</td>
+                <td>{{ target.dialog.name }}</td>
+                <td>
+                    Start: {{ target.run_record.follow_live_timer.start_time }}
+                {% if target.run_record.follow_live_timer.end_time is not none %}
+                    End: {{ target.run_record.follow_live_timer.end_time }}
+                {% endif %}
+                </td>
+                <td>{{ target_watcher.target_db_connection_state(target) }}</td>
+            </tr>
         {% endfor %}
-        </ul>
+        </tbody>
+        </table>
         {% if target_watcher.running %}
             <form action="/archiver/" method="post">
             <input type="hidden" name="action" value="stop_watcher" />
