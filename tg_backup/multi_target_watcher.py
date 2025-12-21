@@ -43,7 +43,7 @@ class TargetConnectionState:
 
     async def _disconnect(self) -> None:
         self.is_disconnecting = True
-        logger.info("Disconnecting from Dialog %s", self.target.dialog)
+        logger.info("Disconnecting from Dialog ID %s", self.target.chat_id)
         await self.target.disconnect_db()
         self.is_connected = False
         self.is_disconnecting = False
@@ -57,7 +57,7 @@ class TargetConnectionState:
 
     async def _connect(self) -> None:
         self.is_connecting = True
-        logger.info("Watcher is connecting to Dialog %s", self.target.dialog)
+        logger.info("Watcher is connecting to Dialog ID %s", self.target.chat_id)
         await self.target.connect_db()
         self.is_connected = True
         self.is_connecting = False
@@ -66,10 +66,10 @@ class TargetConnectionState:
         if self.is_connected:
             return
         if self.is_disconnecting:
-            logger.info("Watcher is waiting for Dialog %s to disconnect before reconnecting", self.target.dialog)
+            logger.info("Watcher is waiting for Dialog ID %s to disconnect before reconnecting", self.target.chat_id)
             await self.run_disconnect()
         if self.is_connecting:
-            logger.info("Dialog %s is already connecting, waiting for connection", self.target.dialog)
+            logger.info("Dialog ID %s is already connecting, waiting for connection", self.target.chat_id)
             await self.connection_task
         self.is_connecting = True
         self.connection_task = asyncio.create_task(self._connect())
@@ -160,15 +160,15 @@ class MultiTargetWatcher:
             target_dialog_msg_age = target.dialog.last_seen_msg_age()
             if target_dialog_msg_age is None:
                 # If we don't know how old the last message is, pre-connect just in case
-                logger.info("Unsure how old last message in dialog %s was, pre-emptively connecting to database", target.dialog)
+                logger.info("Unsure how old last message in dialog ID %s was, pre-emptively connecting to database", target.chat_id)
                 await self._connect_target(target)
             elif target_dialog_msg_age < self.AUTO_CONNECT_TIME_PERIOD:
                 # If the target dialog has been active recently, pre-connect to the database
-                logger.info("Last message in dialog %s is new-enough, pre-emptively connecting to database", target.dialog)
+                logger.info("Last message in dialog ID %s is new-enough, pre-emptively connecting to database", target.chat_id)
                 await self._connect_target(target)
             elif await target.is_small_chat():
                 # Otherwise, if it's a small chat, connect and disconnect to ensure known msg IDs is populated
-                logger.info("Populating known message IDs for dialog %s", target.dialog)
+                logger.info("Populating known message IDs for dialog ID %s", target.chat_id)
                 conn_state = await self._connect_target(target)
                 await conn_state.run_disconnect()
         # Register event handlers
@@ -210,7 +210,7 @@ class MultiTargetWatcher:
         await new_conn.run_connect()
         # Populate list of known message IDs in the chat
         known_msg_ids = target.known_msg_ids()
-        logger.info("Connected to dialog %s database, it has %s known messages", target.dialog, len(known_msg_ids))
+        logger.info("Connected to dialog ID %s database, it has %s known messages", target.chat_id, len(known_msg_ids))
         return new_conn
 
     async def _disconnect_target(self, target: ArchiveTarget) -> None:

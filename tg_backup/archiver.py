@@ -186,7 +186,7 @@ class Archiver:
                     next_target = activity.next_unfinished_history_target()
                     while next_target is not None:
                         dialog = next_target.dialog
-                        logger.info("Archiving dialog %s \"%s\"", dialog.resource_id, dialog.name)
+                        logger.info("Archiving dialog ID %s \"%s\"", dialog.resource_id, dialog.name)
                         await next_target.archive_chat()
                         next_target = activity.next_unfinished_history_target()
                     activity.completed_history_targets = True
