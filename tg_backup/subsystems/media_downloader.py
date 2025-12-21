@@ -376,11 +376,11 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         # Queue up each of the media info entries
         for media_info in media_info_entries:
             if self._processed_cache_has_media_id(chat_id, media_info.media_id):
-                logger.debug("Media ID %s has already been downloaded")
+                logger.debug("Media ID %s has already been downloaded", media_info.media_id)
                 processed_media_id_cache_rejections.inc()
                 continue
             if self._queued_cache_has_media_id(chat_id, media_info.media_id):
-                logger.debug("Media ID %s has already been queued")
+                logger.debug("Media ID %s has already been queued", media_info.media_id)
                 queued_media_id_cache_rejections.inc()
                 continue
             queue_entry = MediaQueueEntry(message, media_info)
