@@ -121,7 +121,7 @@ class WebServer:
             req,
             {
                 "settings": self.archiver.chat_settings,
-                "dialogs": self.core_db.list_dialogs(),
+                "dialogs": dialogs,
                 "running_list_dialogs": self.archiver.dialog_fetcher.is_fetching_dialogs(),
                 "newest_dialog_date": newest_dialog_date,
             }
