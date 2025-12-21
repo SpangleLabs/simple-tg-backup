@@ -163,7 +163,7 @@ def matcher_parser() -> pp.ParserElement:
 
     # Parse specifying chat type
     chat_type_key_expr = pp.MatchFirst([pp.CaselessLiteral("chat_type"), pp.CaselessLiteral("type")]).set_parse_action(lambda _: FieldGetter.CHAT_TYPE).set_results_name("key_expr")
-    val_chat_type_expr = pp.MatchFirst([pp.CaselessLiteral("user"), pp.CaselessLiteral("group"), pp.CaselessLiteral("channel")]).set_name("value_chat_type").set_results_name("value").set_parse_action(lambda x: DialogType.from_str(x[0].upper()))
+    val_chat_type_expr = pp.MatchFirst([pp.CaselessLiteral("user"), pp.CaselessLiteral("group"), pp.CaselessLiteral("channel"), pp.CaselessLiteral("small_group"), pp.CaselessLiteral("large_group")]).set_name("value_chat_type").set_results_name("value").set_parse_action(lambda x: DialogType.from_str(x[0].upper()))
     chat_type_expr = pp.Group(chat_type_key_expr + key_val_delim_expr + val_chat_type_expr).set_parse_action(lambda x: ChatFieldMatcher(x[0].key_expr, x[0].key_val_delim, x[0].value))
 
     # Parse specifying username
