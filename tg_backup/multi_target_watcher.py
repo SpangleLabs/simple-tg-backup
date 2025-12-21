@@ -282,7 +282,7 @@ class MultiTargetWatcher:
             await self._connect_target(target)
             await target.on_live_delete_message(event)
             return
-        logger.info("Sending deleted message (without chat ID) to all monitored small chats")
+        logger.info("Sending deleted message (without chat ID) to relevant small chats")
         small_group_targets = await self.list_small_group_targets()
         for target in small_group_targets:
             if target.any_msg_id_is_known(event.deleted_ids):
