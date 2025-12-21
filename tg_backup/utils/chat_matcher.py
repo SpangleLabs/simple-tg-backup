@@ -49,6 +49,9 @@ class DelimFunctor(enum.Enum):
             if "*" in query_val:
                 return fnmatch.fnmatch(chat_val.lower(), query_val.lower())
             return chat_val.lower() == query_val.lower()
+        if isinstance(query_val, DialogType) and isinstance(chat_val, DialogType):
+            if query_val == DialogType.GROUP:
+                return chat_val in [DialogType.GROUP, DialogType.SMALL_GROUP, DialogType.LARGE_GROUP]
         return False
 
     @staticmethod

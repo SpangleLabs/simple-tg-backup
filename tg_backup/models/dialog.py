@@ -46,13 +46,23 @@ class Dialog(AbstractResource):
     @classmethod
     def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":
         obj = cls.from_storable_object(dialog)
+        # Set dialog type as user or group by the bools
         if hasattr(dialog, "is_user") and dialog.is_user:
             obj.chat_type = DialogType.USER
         if hasattr(dialog, "is_group") and dialog.is_group:
             obj.chat_type = DialogType.GROUP
+        # Set dialog type more accurately by the entity type
         if hasattr(dialog, "entity"):
-            if isinstance(dialog.entity, telethon.tl.types.Channel) and dialog.entity.broadcast:
-                obj.chat_type = DialogType.CHANNEL
+            if isinstance(dialog.entity, telethon.tl.types.Channel):
+                if dialog.entity.broadcast:
+                    obj.chat_type = DialogType.CHANNEL
+                else:
+                    obj.chat_type = DialogType.LARGE_GROUP
+            elif isinstance(dialog.entity, telethon.tl.types.User):
+                obj.chat_type = DialogType.USER
+            elif isinstance(dialog.entity, (telethon.tl.types.Chat, telethon.tl.types.ChatForbidden)):
+                obj.chat_type = DialogType.SMALL_GROUP
+        # Set other dialog attributes
         if hasattr(dialog, "name"):
             obj.name = dialog.name
         if hasattr(dialog, "pinned"):
