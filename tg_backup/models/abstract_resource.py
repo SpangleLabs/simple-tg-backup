@@ -151,7 +151,11 @@ def save_if_not_duplicate(
         cleanup_existing_duplicates(old_resource_objs, db_delete_all_func, db_save_func)
     # Get the latest copy of the resource and see if the new one needs saving
     latest_saved_resource_obj = resource_type.latest_copy_of_resource(old_resource_objs)
-    if new_resource.no_useful_difference(latest_saved_resource_obj):
+    if latest_saved_resource_obj is None:
+        logger.info("No previous copies of %s ID %s, saving to database", resource_name, resource_id)
+        db_save_func(new_resource)
+    elif new_resource.no_useful_difference(latest_saved_resource_obj):
         logger.debug("Already have %s ID %s archived sufficiently", resource_name, resource_id)
     else:
         logger.info("%s ID %s is sufficiently different to archived copies as to deserve re-saving", resource_name, resource_id)
+        db_save_func(new_resource)
