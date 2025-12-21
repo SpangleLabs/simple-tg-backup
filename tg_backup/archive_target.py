@@ -15,6 +15,7 @@ from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.archive_run_record import ArchiveRunRecord
 from tg_backup.models.dialog import Dialog
 from tg_backup.models.message import Message
+from tg_backup.utils.dialog_type import DialogType
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
@@ -143,10 +144,21 @@ class ArchiveTarget:
 
     async def is_small_chat(self) -> bool:
         """Telegram handles small chats differently to large ones. Small means a user chat or a small group chat"""
+        # Check dialog type first, and fall back to checking entity
+        if self.dialog.chat_type in [DialogType.USER, DialogType.SMALL_GROUP]:
+            return True
+        if self.dialog.chat_type in [DialogType.LARGE_GROUP, DialogType.CHANNEL]:
+            return False
+        # Otherwise, fall back to checking the chat entity to find out
         return not isinstance(await self.chat_entity(), telethon.tl.types.Channel)
 
     async def is_user(self) -> bool:
-        return isinstance(await self.chat_entity(), telethon.tl.types.User)
+        # Check dialog type first, then fall back to checking entity
+        if self.dialog.chat_type == DialogType.USER:
+            return True
+        if self.dialog.chat_type == DialogType.UNKNOWN:
+            return isinstance(await self.chat_entity(), telethon.tl.types.User)
+        return False
 
     async def _archive_chat_data(self) -> None:
         chat_entity = await self.chat_entity()
