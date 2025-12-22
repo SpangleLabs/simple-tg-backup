@@ -103,8 +103,12 @@ class DialogFetcher:
                     raw_dialogs = await client.get_dialogs()
             self._latest_raw_dialog_request_time = datetime.datetime.now(datetime.timezone.utc)
             # Set up some variables for the logging
+            # Set up some variables for the logging
             previous_num_dialogs = len(self._dialogs)
             new_dialog_count = 0
+            takeout_comment = f" (Used takeout session)" if used_takeout else ""
+            # Log how many raw dialogs were fetched
+            logger.info("Fetched %s raw dialogs.%s", len(raw_dialogs), takeout_comment)
             # Convert into Dialog model objects, and save to database
             for dialog in raw_dialogs:
                 # Convert to Dialog model
@@ -121,12 +125,10 @@ class DialogFetcher:
                 else:
                     dialog_obj.merge_with_old_record(old_dialog)
                 self._dialogs[dialog_obj.resource_id] = dialog_obj
-            # Write a log line explaining what happened
-            num_raw_dialogs = len(raw_dialogs)
+            # Write a log line explaining what changed
             logger.info(
-                "Found %s raw dialogs. Previously had %s. Added %s new dialogs. %s",
-                num_raw_dialogs, previous_num_dialogs, new_dialog_count,
-                f" (Used takeout session)" if used_takeout else "",
+                "Previously had %s Dialogs. Added %s new dialogs. %s",
+                previous_num_dialogs, new_dialog_count, takeout_comment,
             )
 
     def _list_dialogs_from_db(self) -> list[Dialog]:
