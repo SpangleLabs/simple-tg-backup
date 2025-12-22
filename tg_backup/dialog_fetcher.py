@@ -1,8 +1,8 @@
 import asyncio
 import datetime
 import logging
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional, Generator
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Optional, AsyncIterator
 
 import telethon.tl.types
 from prometheus_client import Counter, Summary
@@ -59,15 +59,15 @@ class DialogFetcher:
         now = datetime.datetime.now(datetime.timezone.utc)
         return (now - self._latest_takeout_time) > self.MAX_TAKEOUT_REQUEST_RATE
 
-    @contextmanager
-    def _try_takeout_wrapper(self) -> Generator[tuple[TelegramClient, bool], None, None]:
+    @asynccontextmanager
+    async def _try_takeout_wrapper(self) -> AsyncIterator[tuple[TelegramClient, bool]]:
         # If we can't use takeout, then return a normal client
         if not self._can_use_takeout_again():
             yield self.client, False
             return
         # Try and use takeout wrapper
         try:
-            with self.client.takeout(contacts=True, users=True, chats=True, megagroups=True, channels=True) as tclient:
+            async with self.client.takeout(contacts=True, users=True, chats=True, megagroups=True, channels=True) as tclient:
                 yield tclient, True
             # If that worked, set the latest takeout time
             self._latest_takeout_time = datetime.datetime.now(datetime.timezone.utc)
@@ -95,7 +95,7 @@ class DialogFetcher:
                 return
             # Try and use takeout, if we can. Not sure why the linter dislikes this
             # noinspection PyArgumentList
-            with self._try_takeout_wrapper() as [client, used_takeout]:
+            async with self._try_takeout_wrapper() as [client, used_takeout]:
                 # Request the list of dialogs from Telegram
                 with list_dialogs_call_timer.labels(used_takeout=str(used_takeout)).time():
                     raw_dialogs = await client.get_dialogs()
