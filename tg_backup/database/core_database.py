@@ -7,7 +7,7 @@ from prometheus_client import Gauge
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable, \
-    DialogsTable
+    DialogsTable, DialogsTakeoutColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.archive_run_record import ArchiveRunRecord, ArchiveRunStats
 from tg_backup.utils.dialog_type import DialogType
@@ -76,6 +76,7 @@ class CoreDatabase(AbstractDatabase):
             ExtraChatColumns(),
             ArchiveRecordTable(),
             DialogsTable(),
+            DialogsTakeoutColumns(),
         ]
 
     ## Sticker methods
