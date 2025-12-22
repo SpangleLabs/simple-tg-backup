@@ -33,6 +33,7 @@
         <th>Archive chat</th>
         <th>Don't archive</th>
         <th>State</th>
+        <th>Notes</th>
     </tr>
     </thead>
     <tbody>
@@ -50,6 +51,11 @@
         <td><input type="radio" name="archive_dialog_{{ dialog.resource_id }}" value="no_archive" {% if archive_dialog is false %}checked{% endif %}/></td>
         <td>
             <a href="/settings/known_dialogs/{{ dialog.resource_id }}">Edit archive behaviour [WIP]</a>
+        </td>
+        <td>
+            {% if dialog.needs_takeout %}
+                <pre>(Takeout only)</pre>
+            {% endif %}
         </td>
         </tr>
     {% else %}
