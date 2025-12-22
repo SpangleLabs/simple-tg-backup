@@ -27,6 +27,8 @@ class Dialog(AbstractResource):
         self.last_msg_date: Optional[datetime.datetime] = None
         self.first_seen: Optional[datetime.datetime] = None
         self.last_seen: Optional[datetime.datetime] = None
+        self.needs_takeout: Optional[bool] = None
+        self.used_takeout: Optional[bool] = None
 
     def chat_data(self) -> ChatData:
         return ChatData(

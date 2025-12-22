@@ -258,13 +258,14 @@ class CoreDatabase(AbstractDatabase):
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
                 # Note that we don't update first_seen on conflict
-                "INSERT INTO dialogs (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen) "
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "INSERT INTO dialogs (archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen, needs_takeout, last_used_takeout) "
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 " ON CONFLICT(id) DO UPDATE SET "
                 " archive_datetime=excluded.archive_datetime, archive_tl_scheme_layer=excluded.archive_tl_scheme_layer, "
                 " type=excluded.type, str_repr=excluded.str_repr, dict_repr=excluded.dict_repr, chat_type=excluded.chat_type, "
                 " name=excluded.name, pinned=excluded.pinned, archived_chat=excluded.archived_chat, "
-                " last_msg_date=excluded.last_msg_date, last_seen=excluded.last_seen",
+                " last_msg_date=excluded.last_msg_date, last_seen=excluded.last_seen, "
+                " needs_takeout=(last_used_takeout & excluded.last_used_takeout), last_used_takeout=excluded.last_used_takeout ",
                 (
                     storable_date(dialog.archive_datetime),
                     dialog.archive_tl_schema_layer,
@@ -278,7 +279,9 @@ class CoreDatabase(AbstractDatabase):
                     dialog.archived_chat,
                     storable_date(dialog.last_msg_date),
                     storable_date(dialog.first_seen),
-                    storable_date(dialog.last_seen)
+                    storable_date(dialog.last_seen),
+                    dialog.used_takeout,
+                    dialog.used_takeout,
                 )
             )
             self.conn.commit()
@@ -295,7 +298,7 @@ class CoreDatabase(AbstractDatabase):
         dialogs = []
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
-                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen "
+                "SELECT archive_datetime, archive_tl_scheme_layer, id, type, str_repr, dict_repr, chat_type, name, pinned, archived_chat, last_msg_date, first_seen, last_seen, needs_takeout, last_used_takeout "
                 " FROM dialogs ORDER BY pinned DESC, archived_chat, last_msg_date DESC",
             )
             for row in resp.fetchall():
@@ -314,6 +317,8 @@ class CoreDatabase(AbstractDatabase):
                 dialog.last_msg_date = parsable_date(row["last_msg_date"])
                 dialog.first_seen = parsable_date(row["first_seen"])
                 dialog.last_seen = parsable_date(row["last_seen"])
+                dialog.needs_takeout = row["needs_takeout"] == 1
+                dialog.last_used_takeout = row["last_used_takeout"] == 1
                 dialogs.append(dialog)
         count_dialogs.set(len(dialogs))
         return dialogs

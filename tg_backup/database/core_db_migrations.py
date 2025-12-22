@@ -57,3 +57,16 @@ class DialogsTable(DBMigration):
 
     def execute(self, conn: sqlite3.Connection) -> None:
         self._execute_script(conn, "core_migration_004_dialogs_table.sql")
+
+
+class DialogsTakeoutColumns(DBMigration):
+    @property
+    def migration_id(self) -> int:
+        return 6
+
+    @property
+    def migration_name(self) -> str:
+        return "dialog_takeout_columns"
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        self._execute_script(conn, "core_migration_006_dialogs_takeout_columns.sql")
