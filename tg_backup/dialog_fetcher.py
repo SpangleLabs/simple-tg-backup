@@ -134,7 +134,7 @@ class DialogFetcher:
         self._dialogs[new_dialog.resource_id] = new_dialog
         return is_new
 
-    def _list_dialogs_from_db(self) -> list[Dialog]:
+    def _load_dialogs_from_db(self) -> list[Dialog]:
         db_dialogs = self.core_db.list_dialogs()
         new_dialog_count = 0
         for d in db_dialogs:
@@ -146,7 +146,7 @@ class DialogFetcher:
         if len(self._dialogs) > 0:
             return list(self._dialogs.values())
         # If no list has been fetched yet, fetch Dialogs from the database
-        db_dialogs = self._list_dialogs_from_db()
+        db_dialogs = self._load_dialogs_from_db()
         if len(db_dialogs) > 0:
             return db_dialogs
         # Otherwise, if nothing is in the database, fetch the list of Dialogs from telegram
@@ -161,7 +161,7 @@ class DialogFetcher:
             return dialog
         # If no list has been fetched yet, fetch Dialogs from the database
         if len(self._dialogs) == 0:
-            self._list_dialogs_from_db()
+            self._load_dialogs_from_db()
             dialog = self._dialogs.get(chat_id)
             if dialog is not None:
                 count_get_dialog_request__from_db.inc()
