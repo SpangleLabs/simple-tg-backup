@@ -115,7 +115,7 @@ class DialogFetcher:
                 peer = dialog.dialog.peer
                 await self.archiver.peer_fetcher.queue_peer(None, None, None, peer)
                 # Add to the dialogs dict
-                old_dialog = self._dialogs.get(dialog.resource_id)
+                old_dialog = self._dialogs.get(dialog_obj.resource_id)
                 if old_dialog is None:
                     new_dialog_count += 1
                 else:
