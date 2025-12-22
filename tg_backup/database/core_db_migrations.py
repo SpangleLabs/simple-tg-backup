@@ -1,6 +1,4 @@
-import pathlib
 import sqlite3
-from contextlib import closing
 
 from tg_backup.database.migration import DBMigration
 
@@ -19,10 +17,7 @@ class InitialCoreDatabase(DBMigration):
         return True
 
     def execute(self, conn: sqlite3.Connection) -> None:
-        with open(pathlib.Path(__file__).parent / "core_schema.sql") as f:
-            schema_str = f.read()
-        with closing(conn.cursor()) as cursor:
-            cursor.executescript(schema_str)
+        self._execute_script(conn, "core_schema.sql")
 
 
 class ExtraChatColumns(DBMigration):
@@ -35,10 +30,7 @@ class ExtraChatColumns(DBMigration):
         return "extra_chat_columns"
 
     def execute(self, conn: sqlite3.Connection) -> None:
-        with open(pathlib.Path(__file__).parent / "core_migration_002_chat_columns.sql") as f:
-            schema_str = f.read()
-        with closing(conn.cursor()) as cursor:
-            cursor.executescript(schema_str)
+        self._execute_script(conn, "core_migration_002_chat_columns.sql")
 
 
 class ArchiveRecordTable(DBMigration):
@@ -51,10 +43,7 @@ class ArchiveRecordTable(DBMigration):
         return "archive_record_table"
 
     def execute(self, conn: sqlite3.Connection) -> None:
-        with open(pathlib.Path(__file__).parent / "core_migration_003_archive_runs_table.sql") as f:
-            schema_str = f.read()
-        with closing(conn.cursor()) as cursor:
-            cursor.executescript(schema_str)
+        self._execute_script(conn, "core_migration_003_archive_runs_table.sql")
 
 
 class DialogsTable(DBMigration):
@@ -67,7 +56,4 @@ class DialogsTable(DBMigration):
         return "dialog_objects_table"
 
     def execute(self, conn: sqlite3.Connection) -> None:
-        with open(pathlib.Path(__file__).parent / "core_migration_004_dialogs_table.sql") as f:
-            schema_str = f.read()
-        with closing(conn.cursor()) as cursor:
-            cursor.executescript(schema_str)
+        self._execute_script(conn, "core_migration_004_dialogs_table.sql")
