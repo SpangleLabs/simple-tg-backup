@@ -119,21 +119,27 @@ class DialogFetcher:
                 peer = dialog.dialog.peer
                 await self.archiver.peer_fetcher.queue_peer(None, None, None, peer)
                 # Add to the dialogs dict
-                old_dialog = self._dialogs.get(dialog_obj.resource_id)
-                if old_dialog is None:
-                    new_dialog_count += 1
-                else:
-                    dialog_obj.merge_with_old_record(old_dialog)
-                self._dialogs[dialog_obj.resource_id] = dialog_obj
+                new_dialog_count += int(self._add_dialog_to_dict(dialog_obj))
             # Write a log line explaining what changed
             logger.info(
                 "Previously had %s Dialogs. Added %s new dialogs. %s",
                 previous_num_dialogs, new_dialog_count, takeout_comment,
             )
 
+    def _add_dialog_to_dict(self, new_dialog: Dialog) -> bool:
+        old_dialog = self._dialogs.get(new_dialog.resource_id)
+        is_new = old_dialog is None
+        if old_dialog is not None:
+            new_dialog.merge_with_old_record(old_dialog)
+        self._dialogs[new_dialog.resource_id] = new_dialog
+        return is_new
+
     def _list_dialogs_from_db(self) -> list[Dialog]:
         db_dialogs = self.core_db.list_dialogs()
-        self._dialogs = {d.resource_id: d for d in db_dialogs}
+        new_dialog_count = 0
+        for d in db_dialogs:
+            new_dialog_count += int(self._add_dialog_to_dict(d))
+        logger.info("Loaded %s Dialogs from the database. Added %s new dialogs", len(db_dialogs), new_dialog_count)
         return db_dialogs
 
     async def list_dialogs(self) -> list[Dialog]:
