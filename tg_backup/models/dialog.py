@@ -46,7 +46,7 @@ class Dialog(AbstractResource):
         return self.last_seen - self.last_msg_date
 
     @classmethod
-    def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog) -> "Dialog":
+    def from_dialog(cls, dialog: telethon.tl.custom.dialog.Dialog, used_takeout: bool) -> "Dialog":
         obj = cls.from_storable_object(dialog)
         # Set dialog type as user or group by the bools
         if hasattr(dialog, "is_user") and dialog.is_user:
@@ -73,10 +73,18 @@ class Dialog(AbstractResource):
             obj.archived_chat = dialog.archived
         if hasattr(dialog, "date"):
             obj.last_msg_date = dialog.date
+        # Set the things which don't come from the raw Dialog object
         obj.first_seen = datetime.datetime.now(datetime.timezone.utc)
         obj.last_seen = datetime.datetime.now(datetime.timezone.utc)
+        obj.used_takeout = used_takeout
+        obj.needs_takeout = used_takeout # Naive, but yeah
         # Not storing these:
         # dialog.draft (The currently drafted message)
         # dialog.unread_count (Current unread message count)
         # dialog.unread_mentions_count (Count of unread mentions)
         return obj
+
+    def merge_with_old_record(self, old_dialog: Dialog) -> None:
+        self.first_seen = min(self.first_seen, old_dialog.first_seen)
+        self.last_seen = max(self.last_seen, old_dialog.last_seen)
+        self.needs_takeout = (self.used_takeout and old_dialog.used_takeout)
