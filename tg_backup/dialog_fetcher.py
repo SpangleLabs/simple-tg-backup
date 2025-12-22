@@ -68,7 +68,9 @@ class DialogFetcher:
         # Try and use takeout wrapper
         try:
             async with self.client.takeout(contacts=True, users=True, chats=True, megagroups=True, channels=True) as tclient:
+                logger.info("Using Takeout session")
                 yield tclient, True
+            logger.info("Takeout session closed")
             # If that worked, set the latest takeout time
             self._latest_takeout_time = datetime.datetime.now(datetime.timezone.utc)
             return
