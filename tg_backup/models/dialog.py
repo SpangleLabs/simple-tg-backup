@@ -84,7 +84,7 @@ class Dialog(AbstractResource):
         # dialog.unread_mentions_count (Count of unread mentions)
         return obj
 
-    def merge_with_old_record(self, old_dialog: Dialog) -> None:
+    def merge_with_old_record(self, old_dialog: "Dialog") -> None:
         self.first_seen = min(self.first_seen, old_dialog.first_seen)
         self.last_seen = max(self.last_seen, old_dialog.last_seen)
         self.needs_takeout = (self.used_takeout and old_dialog.used_takeout)
