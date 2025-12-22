@@ -93,8 +93,9 @@ class DialogFetcher:
             # Check again whether it was just refreshed, in case you were waiting on the lock
             if not self._can_request_dialogs_again():
                 return
-            # Try and use takeout, if we can
-            with self._try_takeout_wrapper(self) as [client, used_takeout]:
+            # Try and use takeout, if we can. Not sure why the linter dislikes this
+            # noinspection PyArgumentList
+            with self._try_takeout_wrapper() as [client, used_takeout]:
                 # Request the list of dialogs from Telegram
                 with list_dialogs_call_timer.labels(used_takeout=str(used_takeout)).time():
                     raw_dialogs = await client.get_dialogs()
