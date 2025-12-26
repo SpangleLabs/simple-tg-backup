@@ -301,6 +301,11 @@ class ArchiveTarget:
                 await self._archive_admin_log()
             except telethon.errors.rpcerrorlist.ChatAdminRequiredError as e:
                 logger.warning("Do not have sufficient permissions to archive admin log of chat.")
+            except telethon.errors.rpcbaseerrors.BadRequestError as e:
+                if e.message == "CHANNEL_MONOFORUM_UNSUPPORTED":
+                    logger.info("Admin log not supported for monoforum chats (DMs to channels)")
+                else:
+                    raise e
         # Gather messages from chat
         if self.behaviour.archive_history:
             await self._archive_message_history()
