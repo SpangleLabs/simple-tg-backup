@@ -91,14 +91,21 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_queue.queue.task_done()
             return
         # Process the peer in whichever way is appropriate
-        if isinstance(peer, PeerUser):
-            await self._process_user(chat_queue, peer)
-        elif isinstance(peer, PeerChat):
-            await self._process_chat(chat_queue, peer)
-        elif isinstance(peer, PeerChannel):
-            await self._process_channel(chat_queue, peer)
-        else:
-            raise ValueError(f"Unrecognised peer type {type(peer)}")
+        try:
+            if isinstance(peer, PeerUser):
+                await self._process_user(chat_queue, peer)
+            elif isinstance(peer, PeerChat):
+                await self._process_chat(chat_queue, peer)
+            elif isinstance(peer, PeerChannel):
+                await self._process_channel(chat_queue, peer)
+            else:
+                raise ValueError(f"Unrecognised peer type {type(peer)}")
+        except ValueError as e:
+            if "Could not find the input entity for" in str(e):
+                logger.warning(f"Could not find input entity for peer: {peer}, skipping data fetch")
+                chat_queue.queue.task_done()
+                return
+            raise e
         # Save to cache
         self.record_peer_id_seen_core(peer)
         self.record_peer_id_seen_in_chat(peer, chat_id)
