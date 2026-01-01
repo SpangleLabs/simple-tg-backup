@@ -137,9 +137,9 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
     MEDIA_FOLDER = "media"
     WEB_PAGE_MEDIA_FOLDER = "web_page_media"
 
-    def __init__(self, archiver: "Archiver", client: TelegramClient) -> None:
+    def __init__(self, archiver: "Archiver", client: TelegramClient, message_refresher: MessageRefreshCache) -> None:
         super().__init__(archiver, client)
-        self.message_refresher = MessageRefreshCache(client)
+        self.message_refresher = message_refresher
         self._chat_processed_media_id_cache: dict[int, set[int]] = {}
         self._chat_queued_media_id_cache: dict[int, set[int]] = {} # Cache of which media IDs have been queued for each chat
         processed_media_id_cache_size.set_function(lambda: sum(len(s) for s in self._chat_processed_media_id_cache.values()))

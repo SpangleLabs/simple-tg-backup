@@ -16,6 +16,7 @@ from tg_backup.dialog_fetcher import DialogFetcher
 from tg_backup.models.dialog import Dialog
 from tg_backup.multi_target_watcher import MultiTargetWatcher
 from tg_backup.subsystems.media_downloader import MediaDownloader
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 from tg_backup.subsystems.sticker_downloader import StickerDownloader
 from tg_backup.subsystems.peer_data_fetcher import PeerDataFetcher
 
@@ -86,9 +87,10 @@ class Archiver:
         self.running = False
         self.current_activity: Optional[ArchiverActivity] = None
         self.core_db = CoreDatabase()
-        self.media_dl = MediaDownloader(self, self.client)
+        self.message_refresher = MessageRefreshCache(self.client)
+        self.media_dl = MediaDownloader(self, self.client, self.message_refresher)
         self.peer_fetcher = PeerDataFetcher(self, self.client, self.core_db)
-        self.sticker_downloader = StickerDownloader(self, self.client, self.core_db)
+        self.sticker_downloader = StickerDownloader(self, self.client, self.core_db, self.message_refresher)
         self.chat_settings = ChatSettingsStore.load_from_file()
         self.dialog_fetcher = DialogFetcher(self)
         archiver_running.set_function(lambda: int(self.running))

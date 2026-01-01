@@ -16,6 +16,7 @@ from tg_backup.models.abstract_resource import save_if_not_duplicate
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.subsystems.abstract_subsystem import AbstractSubsystem, TimedCache
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
@@ -45,9 +46,16 @@ class StickerQueueEntry:
 class StickerDownloader(AbstractSubsystem):
     CACHE_EXPIRY = datetime.timedelta(days=1)
 
-    def __init__(self, archiver: "Archiver", client: TelegramClient, core_db: CoreDatabase):
+    def __init__(
+            self,
+            archiver: "Archiver",
+            client: TelegramClient,
+            core_db: CoreDatabase,
+            message_refresher: MessageRefreshCache,
+    ) -> None:
         super().__init__(archiver, client)
         self.core_db = core_db
+        self.message_refresher = message_refresher
         self.queue: asyncio.Queue[StickerQueueEntry] = asyncio.Queue()
         self._seen_sticker_set_ids = TimedCache[int](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed
         self._seen_sticker_ids = TimedCache[int](self.CACHE_EXPIRY) # Which stickers have already been saved in the database
@@ -145,7 +153,7 @@ class StickerDownloader(AbstractSubsystem):
                     await self.client.download_media(sticker_doc, sticker_file_path)
                 except Exception as e:
                     logger.error("Failed to download sticker, (will retry) error:", exc_info=e)
-                    await asyncio.sleep(60)
+                    await asyncio.sleep(60) # TODO: sometimes it gets LocationInvalid?? What then?
                 else:
                     break
         # Save to database
