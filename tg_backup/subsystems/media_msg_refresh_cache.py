@@ -219,6 +219,9 @@ class MessageRefreshCache:
             chat_id, num_msgs, chat_cache.size()
         )
 
+    def refresh_queue_size(self) -> int:
+        return self._refresh_queue.qsize()
+
     async def wait_until_target_done(self, archive_target: "ArchiveTarget") -> None:
         logger.info("Waiting until MessageRefreshCache queue is done with target with chat ID %s", archive_target.chat_id)
         # This could be optimised to check for the specific target, but, it is not likely this will wait long for the entire queue to empty

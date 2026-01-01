@@ -306,7 +306,4 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         await self._add_queue_entry(queue_key, queue_info, queue_entry)
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
-        queue = self.queues.get(queue_key, None)
-        await super().wait_until_queue_empty(queue_key)
-        if queue is not None:
-            await self.message_refresher.wait_until_target_done(queue.info.archive_target)
+        return await self._wait_for_queue_and_message_refresher(queue_key, self.message_refresher)

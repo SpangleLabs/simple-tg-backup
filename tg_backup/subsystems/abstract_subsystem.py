@@ -8,6 +8,7 @@ from typing import Optional, TypeVar, Generic, TYPE_CHECKING
 from prometheus_client import Gauge
 from telethon import TelegramClient
 
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 from tg_backup.utils.split_list import split_list
 
 if TYPE_CHECKING:
@@ -123,12 +124,29 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
         return sum(queue.queue.qsize() for queue in self.queues.values())
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
+        await self._wait_until_queue_empty(queue_key)
+
+    async def _wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
         if queue_key not in self.queues:
             return
         logger.info("Marking peer fetcher queue %s as stop when empty", queue_key)
         self.queues[queue_key].stop_when_empty = True
         await self.queues[queue_key].queue.join()
         del self.queues[queue_key]
+
+    async def _wait_for_queue_and_message_refresher(self, queue_key: Optional[str], refresher: MessageRefreshCache) -> None:
+        while True:
+            # Get the archive target, for checking message refresher completion
+            queue = self.queues.get(queue_key, None)
+            archive_target = queue.info.archive_target if queue is not None else None
+            # Wait for queue to empty
+            await self._wait_until_queue_empty(queue_key)
+            if archive_target is None:
+                return
+            # If message refresher is empty too, exit, otherwise wait for both queues to empty again
+            if refresher.refresh_queue_size() == 0:
+                return
+            await refresher.wait_until_target_done(archive_target)
 
     async def _add_queue_entry(
             self,
