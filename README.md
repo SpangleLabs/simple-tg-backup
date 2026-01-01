@@ -28,10 +28,8 @@ You can also use the `main.py` command line arguments to specify an individual c
 
 ## TODO lists
 ### TODO: Would be good
-- Sticker archiver needs access to media refresh
 - Something to actually mark when a chat is totally completed, got to the end of message history, finished all subsystems, etc
   - Needs to be in the chat_db itself, not core_db, because what if it's nuked?
-  - It seems that if media is in refresh, it might think something is done before it actually is?
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
   - Deduplicate users in the same way messages are
