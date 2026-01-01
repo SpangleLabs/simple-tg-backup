@@ -114,6 +114,9 @@ class ArchiveTarget:
         # You must wait for media downloader first, because it might queue more peers when refreshing messages.
         logger.info("Waiting for media downloader to complete for archive target")
         await self.archiver.media_dl.wait_until_queue_empty(self.run_record.archive_run_id)
+        # Wait for sticker downloader to be done, which might also queue peers during refresh
+        logger.info("Waiting for sticker downloader to complete for archive target")
+        await self.archiver.sticker_downloader.wait_until_queue_empty(self.run_record.archive_run_id)
         # Wait for user fetcher to be done before disconnecting database
         logger.info("Waiting for peer fetcher to complete for archive target")
         await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
@@ -235,7 +238,7 @@ class ArchiveTarget:
         if hasattr(msg, "from_id") and msg.from_id is not None:
             await self.archiver.peer_fetcher.queue_peer(queue_key, self.chat_id, self.chat_db, msg.from_id)
         if hasattr(msg, "sticker") and msg.sticker is not None:
-            await self.archiver.sticker_downloader.queue_sticker(msg.sticker)
+            await self.archiver.sticker_downloader.queue_sticker(queue_key, msg, msg.sticker, self)
         else:
             if hasattr(msg, "media") and msg.media is not None:
                 if self.behaviour.download_media:
