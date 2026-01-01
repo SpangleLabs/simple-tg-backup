@@ -58,7 +58,7 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
     def __init__(self, archiver: "Archiver", client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(archiver, client)
         self.core_db = core_db
-        self._core_seen_peer_ids = TimedCache[PeerCacheID](self.CACHE_EXPIRY)
+        self._core_seen_peer_ids = TimedCache[PeerCacheID, None](self.CACHE_EXPIRY)
         self.chat_seen_peer_ids: dict[int, set[PeerCacheID]] = {} # Not timed, because we just want at least one entry for the peer in each chat DB
 
     def peer_id_seen_core(self, peer: Peer) -> bool:

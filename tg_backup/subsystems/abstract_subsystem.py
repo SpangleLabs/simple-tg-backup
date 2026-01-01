@@ -148,31 +148,40 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
         await self.queues[queue_key].queue.put(entry)
 
 
-C = TypeVar("C")
+CacheID = TypeVar("CacheID")
+CacheValue = TypeVar("CacheValue")
 
 
 @dataclasses.dataclass
-class TimedCacheEntry(Generic[C]):
-    resource_id: C
+class TimedCacheEntry(Generic[CacheID, CacheValue]):
+    resource_id: CacheID
     date_cached: datetime.datetime
+    value: CacheValue
 
 
-class TimedCache(Generic[C]):
+class TimedCache(Generic[CacheID, CacheValue]):
     def __init__(self, cache_expiry: datetime.timedelta) -> None:
         self.cache_expiry = cache_expiry
-        self._cache: dict[C, TimedCacheEntry[C]] = {}
+        self._cache: dict[CacheID, TimedCacheEntry[CacheID, CacheValue]] = {}
 
-    def is_resource_id_cached(self, resource_id: C) -> bool:
+    def is_resource_id_cached(self, resource_id: CacheID) -> bool:
+        return self.get_resource_id_entry(resource_id) is not None
+
+    def get_resource_id_entry(self, resource_id: CacheID) -> Optional[TimedCacheEntry[CacheID, CacheValue]]:
         cache_entry = self._cache.get(resource_id)
         if cache_entry is None:
-            return False
+            return None
         now = datetime.datetime.now(datetime.timezone.utc)
         if (now - cache_entry.date_cached) > self.cache_expiry:
             del self._cache[resource_id]
-            return False
-        return True
+            return None
+        return cache_entry
 
-    def cache_resource_id(self, resource_id: C) -> None:
+    def cache_resource_id(self, resource_id: CacheID) -> None:
         if not self.is_resource_id_cached(resource_id):
             now = datetime.datetime.now(datetime.timezone.utc)
-            self._cache[resource_id] = TimedCacheEntry(resource_id, now)
+            self._cache[resource_id] = TimedCacheEntry(resource_id, now, None)
+
+    def cache_resource_value(self, resource_id: CacheID, value: CacheValue) -> None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self._cache[resource_id] = TimedCacheEntry(resource_id, now, value)

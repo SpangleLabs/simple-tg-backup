@@ -57,8 +57,8 @@ class StickerDownloader(AbstractSubsystem):
         self.core_db = core_db
         self.message_refresher = message_refresher
         self.queue: asyncio.Queue[StickerQueueEntry] = asyncio.Queue()
-        self._seen_sticker_set_ids = TimedCache[int](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed
-        self._seen_sticker_ids = TimedCache[int](self.CACHE_EXPIRY) # Which stickers have already been saved in the database
+        self._seen_sticker_set_ids = TimedCache[int, None](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed
+        self._seen_sticker_ids = TimedCache[int, None](self.CACHE_EXPIRY) # Which stickers have already been saved in the database
 
     def is_sticker_set_cached(self, sticker_set_id: int) -> bool:
         return self._seen_sticker_set_ids.is_resource_id_cached(sticker_set_id)
