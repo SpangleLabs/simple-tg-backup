@@ -37,7 +37,6 @@ You can also use the `main.py` command line arguments to specify an individual c
       - StickerDownloader could just save message ID
       - MediaDownloader might want to save media ID too? But message ID would be sufficient, I bet
       - PeerDataFetcher?.. Not certain we care, but maybe
-- Don't mark archive targets end time until it's done?
 - Abort button, which stops archiver at end of current target
 - Data deduplication
   - Deduplicate admin events in the same way messages are?

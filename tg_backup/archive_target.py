@@ -296,8 +296,6 @@ class ArchiveTarget:
         return [i for i in known_msg_ids if i < msg_id]
 
     async def _archive_history(self):
-        # Start archive history timer
-        self.run_record.run_timer.start()
         # Archive admin log
         if self.behaviour.check_admin_log:
             try:
@@ -312,12 +310,12 @@ class ArchiveTarget:
         # Gather messages from chat
         if self.behaviour.archive_history:
             await self._archive_message_history()
-        # Stop archive history timer
-        self.run_record.run_timer.end()
 
     async def archive_chat(self) -> None:
         logger.info("Starting archive of chat %s", self.chat_id)
+        # Mark the archive run as started
         self.run_record.target_type = self.dialog.chat_type
+        self.run_record.run_timer.start()
         # Connect to chat database
         await self.connect_db()
         # Push chat peer to the peer data fetcher
@@ -336,19 +334,16 @@ class ArchiveTarget:
             await watch_task
         # Disconnect the database, and wait for whatever subsystems need waiting for before that
         await self.disconnect_db()
+        self.run_record.run_timer.end()
         self.run_record.mark_complete()
         logger.info("Chat archive complete %s", self.chat_id)
 
     async def watch_chat(self) -> None:
         # This method is only used when archiving a singular chat target. It is not very good and cannot be shut down
-        self.run_record.run_timer.start()
         self.client.add_event_handler(self.on_live_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_edit_message, events.MessageEdited(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_delete_message, events.MessageDeleted())
-        try:
-            await self.client.run_until_disconnected()
-        finally:
-            self.run_record.run_timer.end()
+        await self.client.run_until_disconnected()
 
     async def on_live_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")
