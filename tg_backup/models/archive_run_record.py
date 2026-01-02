@@ -112,12 +112,9 @@ class ArchiveRunRecord:
             target_id: int,
             core_db: "CoreDatabase",
             time_queued: Optional[datetime.datetime] = None,
-            history_time_start: Optional[datetime.datetime] = None,
-            history_time_latest: Optional[datetime.datetime] = None,
-            history_time_end: Optional[datetime.datetime] = None,
-            follow_time_start: Optional[datetime.datetime] = None,
-            follow_time_latest: Optional[datetime.datetime] = None,
-            follow_time_end: Optional[datetime.datetime] = None,
+            run_time_start: Optional[datetime.datetime] = None,
+            run_time_latest: Optional[datetime.datetime] = None,
+            run_time_end: Optional[datetime.datetime] = None,
             behaviour_config: Optional[BehaviourConfig] = None,
             completed: bool = False,
             failure_reason: Optional[str] = None,
@@ -129,22 +126,9 @@ class ArchiveRunRecord:
         self.core_db = core_db
         self.time_queued = time_queued or datetime.datetime.now(datetime.timezone.utc)
         self.run_timer = ArchiveRunTimer(
-            start_time=nullable_minimum(history_time_start, follow_time_start),
-            latest_msg_time=nullable_maximum(history_time_latest, follow_time_latest),
-            end_time=nullable_maximum(history_time_end, follow_time_end),
-            record=self,
-        )
-        self.archive_history_timer = ArchiveRunTimer(
-            # TODO: No one does both, switch to run_timer
-            start_time=history_time_start,
-            latest_msg_time=history_time_latest,
-            end_time=history_time_end,
-            record=self,
-        )
-        self.follow_live_timer = ArchiveRunTimer(
-            start_time=follow_time_start,
-            latest_msg_time=follow_time_latest,
-            end_time=follow_time_end,
+            start_time=run_time_start,
+            latest_msg_time=run_time_latest,
+            end_time=run_time_end,
             record=self,
         )
         self.behaviour_config = behaviour_config

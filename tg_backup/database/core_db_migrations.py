@@ -70,3 +70,16 @@ class DialogsTakeoutColumns(DBMigration):
 
     def execute(self, conn: sqlite3.Connection) -> None:
         self._execute_script(conn, "core_migration_006_dialogs_takeout_columns.sql")
+
+
+class ArchiveRunMergeTimers(DBMigration):
+    @property
+    def migration_id(self) -> int:
+        return 7
+
+    @property
+    def migration_name(self) -> str:
+        return "archive_run_merge_timers"
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        self._execute_script(conn, "core_migration_007_archive_run_merge_timers.sql")

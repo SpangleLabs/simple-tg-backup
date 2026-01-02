@@ -7,7 +7,7 @@ from prometheus_client import Gauge
 from tg_backup.config import BehaviourConfig
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
 from tg_backup.database.core_db_migrations import InitialCoreDatabase, ExtraChatColumns, ArchiveRecordTable, \
-    DialogsTable, DialogsTakeoutColumns
+    DialogsTable, DialogsTakeoutColumns, ArchiveRunMergeTimers
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.archive_run_record import ArchiveRunRecord, ArchiveRunStats
 from tg_backup.utils.dialog_type import DialogType
@@ -77,6 +77,7 @@ class CoreDatabase(AbstractDatabase):
             ArchiveRecordTable(),
             DialogsTable(),
             DialogsTakeoutColumns(),
+            ArchiveRunMergeTimers(),
         ]
 
     ## Sticker methods
@@ -190,24 +191,20 @@ class CoreDatabase(AbstractDatabase):
         with closing(self.conn.cursor()) as cursor:
             cursor.execute(
                 "INSERT INTO archive_runs "
-                " (archive_run_id, target_type, target_id, time_queued, history_time_start, history_time_latest, history_time_end, follow_time_start, follow_time_latest, follow_time_end, behaviour_config, completed, failure_reason, archive_stats)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                " (archive_run_id, target_type, target_id, time_queued, run_time_start, run_time_latest, run_time_end, behaviour_config, completed, failure_reason, archive_stats)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 " ON CONFLICT (archive_run_id) DO UPDATE SET"
                 " target_type=excluded.target_type, target_id=excluded.target_id, time_queued=excluded.time_queued,"
-                " history_time_start=excluded.history_time_start, history_time_latest=excluded.history_time_latest, history_time_end=excluded.history_time_end,"
-                " follow_time_start=excluded.follow_time_start, follow_time_latest=excluded.follow_time_latest, follow_time_end=excluded.follow_time_end,"
+                " run_time_start=excluded.run_time_start, run_time_latest=excluded.run_time_latest, run_time_end=excluded.run_time_end,"
                 " behaviour_config=excluded.behaviour_config, completed=excluded.completed, failure_reason=excluded.failure_reason, archive_stats=excluded.archive_stats",
                 (
                     archive_run.archive_run_id,
                     archive_run.target_type.value,
                     archive_run.target_id,
                     archive_run.time_queued.isoformat(),
-                    storable_date(archive_run.archive_history_timer.start_time),
-                    storable_date(archive_run.archive_history_timer.latest_msg_time),
-                    storable_date(archive_run.archive_history_timer.end_time),
-                    storable_date(archive_run.follow_live_timer.start_time),
-                    storable_date(archive_run.follow_live_timer.latest_msg_time),
-                    storable_date(archive_run.follow_live_timer.end_time),
+                    storable_date(archive_run.run_timer.start_time),
+                    storable_date(archive_run.run_timer.latest_msg_time),
+                    storable_date(archive_run.run_timer.end_time),
                     encode_json(archive_run.behaviour_config.to_dict()),
                     archive_run.completed,
                     archive_run.failure_reason,
@@ -228,7 +225,7 @@ class CoreDatabase(AbstractDatabase):
         records = []
         with closing(self.conn.cursor()) as cursor:
             resp = cursor.execute(
-                "SELECT archive_run_id, target_type, target_id, time_queued, history_time_start, history_time_latest, history_time_end, follow_time_start, follow_time_latest, follow_time_end, behaviour_config, completed, failure_reason, archive_stats "
+                "SELECT archive_run_id, target_type, target_id, time_queued, run_time_start, run_time_latest, run_time_end, behaviour_config, completed, failure_reason, archive_stats "
                 " FROM archive_runs"
             )
             for row in resp.fetchall():
@@ -237,12 +234,9 @@ class CoreDatabase(AbstractDatabase):
                     target_id=row["target_id"],
                     core_db=self,
                     time_queued=parsable_date(row["time_queued"]),
-                    history_time_start=parsable_date(row["history_time_start"]),
-                    history_time_latest=parsable_date(row["history_time_latest"]),
-                    history_time_end=parsable_date(row["history_time_end"]),
-                    follow_time_start=parsable_date(row["follow_time_start"]),
-                    follow_time_latest=parsable_date(row["follow_time_latest"]),
-                    follow_time_end=parsable_date(row["follow_time_end"]),
+                    run_time_start=parsable_date(row["run_time_start"]),
+                    run_time_latest=parsable_date(row["run_time_latest"]),
+                    run_time_end=parsable_date(row["run_time_end"]),
                     behaviour_config=BehaviourConfig.from_dict(decode_json_dict(row["behaviour_config"])),
                     completed=row["completed"] == 1,
                     failure_reason=row["failure_reason"],
