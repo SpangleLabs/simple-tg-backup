@@ -6,7 +6,7 @@ import os
 from typing import Optional, TYPE_CHECKING
 
 import telethon
-from prometheus_client import Counter
+from prometheus_client import Counter, Histogram
 from telethon import TelegramClient
 from telethon.errors import StickersetInvalidError, LocationInvalidError, FileReferenceExpiredError
 from telethon.tl.functions.messages import GetStickerSetRequest
@@ -37,6 +37,11 @@ sticker_sets_processed_count = Counter(
 sticker_set_data_failure_count = Counter(
     "tgbackup_stickerdownloader_sticker_set_data_failure_count",
     "Total number of sticker sets for which data failed to be fetched",
+)
+sticker_set_size_histogram = Histogram(
+    "tgbackup_stickerdownloader_sticket_set_size",
+    "Histogram over the number of stickers in a sticker set, of the sticker sets processed",
+    buckets=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130],
 )
 
 
@@ -168,6 +173,8 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
             self.core_db.get_sticker_sets,
             self.core_db.delete_sticker_sets,
         )
+        # Observe the size
+        sticker_set_size_histogram.observe(len(sticker_set.documents))
         # Put the rest of the pack in the queue
         for sticker_doc in sticker_set.documents:
             await self.queue_sticker(
