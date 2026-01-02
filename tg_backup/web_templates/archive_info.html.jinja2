@@ -7,7 +7,7 @@
 <h1>Current archive info</h1>
 <p><a href="/">Return to home</a></p>
 <p>The archiver is currently {% if running %}running!{% else %}not running{% endif %}</p>
-<h2>List of archive runs</h2>
+<h2>List of archive runs ({{ archive_records | length }})</h2>
 <ul>
     {% for run in archive_records %}
         <li>Archive run: {{ run.archive_run_id }}, {{ run.target_type.name }}: {{ run.target_id }} ({{ run.time_queued }})</li>
