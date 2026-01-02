@@ -54,6 +54,7 @@ You can also use the `main.py` command line arguments to specify an individual c
 - Behaviour setting to only download necessary stickers, rather than entire packs?
 - HTML view of chats?
   - Will need access control
+  - Web UI view for any of the archived data at all?
 - Archive user and chat profile photos
 - Call GetPollResultsRequest and gather poll results `PollResults` after getting poll with MessageMediaPoll?
 
