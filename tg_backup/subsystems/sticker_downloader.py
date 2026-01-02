@@ -295,9 +295,6 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
                 logger.error("Failed to download sticker, (will retry) error:", exc_info=e)
                 await asyncio.sleep(60)
 
-    def queue_size(self) -> int:
-        return self.queue.qsize()
-
     async def queue_sticker(
             self,
             queue_key: str,
