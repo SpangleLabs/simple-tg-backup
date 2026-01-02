@@ -30,6 +30,16 @@ You can also use the `main.py` command line arguments to specify an individual c
 ### TODO: Would be good
 - Something to actually mark when a chat is totally completed, got to the end of message history, finished all subsystems, etc
   - Needs to be in the chat_db itself, not core_db, because what if it's nuked?
+  - It could mark the earliest ID its seen, and have the archive history actually check both top and bottom?
+    - That could be done without DB changes, but the media and sticker part??
+  - Maybe the alternative is that the subsystems could serialise and reload their queues? They all know their ArchiveTarget now.
+    - Queue table in each chat DB?
+      - StickerDownloader could just save message ID
+      - MediaDownloader might want to save media ID too? But message ID would be sufficient, I bet
+      - PeerDataFetcher?.. Not certain we care, but maybe
+- Don't mark archive targets end time until it's done?
+- Solve the "archive state" web UI page killing the server it's on for an hour
+- Abort button, which stops archiver at end of current target
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
   - Deduplicate users in the same way messages are
