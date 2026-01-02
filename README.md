@@ -38,7 +38,6 @@ You can also use the `main.py` command line arguments to specify an individual c
       - MediaDownloader might want to save media ID too? But message ID would be sufficient, I bet
       - PeerDataFetcher?.. Not certain we care, but maybe
 - Don't mark archive targets end time until it's done?
-- Solve the "archive state" web UI page killing the server it's on for an hour
 - Abort button, which stops archiver at end of current target
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
