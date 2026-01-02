@@ -72,7 +72,6 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         super().__init__(archiver, client)
         self.core_db = core_db
         self.message_refresher = message_refresher
-        self.queue: asyncio.Queue[StickerQueueEntry] = asyncio.Queue()
         self._seen_sticker_set_ids = TimedCache[int, None](self.CACHE_EXPIRY) # Which sticker sets have been seen and listed
         self._seen_sticker_ids = TimedCache[int, None](self.CACHE_EXPIRY) # Which stickers have already been saved in the database
         self._sticker_set_fetch_cache = TimedCache[int, telethon.tl.types.messages.StickerSet](self.STICKER_SET_CACHE_EXPIRY)
