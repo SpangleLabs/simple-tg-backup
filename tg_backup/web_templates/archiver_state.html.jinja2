@@ -70,7 +70,18 @@
     {% set history_targets = current_activity.history_targets %}
     {% if history_targets | length > 0 %}
         <h3>Archive targets</h3>
-        Downloading chat history of these targets:
+        Downloading chat history of these {{ history_targets | length }} targets:<br/>
+        {% set num_targets = namespace(complete=1,in_progress=1,todo=1) %}
+        {% for target in history_targets %}
+            {% if target.run_record.archive_history_timer.start_time is none %}
+                {% set num_targets.todo = num_targets.todo + 1 %}
+            {% elif target.run_record.archive_history_timer.end_time is none %}
+                {% set num_targets.in_progress = num_targets.in_progress + 1 %}
+            {% else %}
+                {% set num_targets.complete = num_targets.complete + 1 %}
+            {% endif %}
+        {% endfor %}
+        (Complete: {{ num_targets.complete }}, In progress: {{ num_targets.in_progress }}, Todo: {{ num_targets.todo }})
         <table>
         <thead>
             <tr>
