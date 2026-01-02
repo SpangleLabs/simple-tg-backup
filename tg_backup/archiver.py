@@ -65,7 +65,7 @@ class ArchiverActivity:
         self.history_targets_added.clear()
 
     def list_unfinished_history_targets(self) -> list[ArchiveTarget]:
-        return [t for t in self.history_targets if not t.run_record.archive_history_timer.has_ended()]
+        return [t for t in self.history_targets if not t.run_record.run_timer.has_ended()]
 
     def next_unfinished_history_target(self) -> Optional[ArchiveTarget]:
         unfinished_targets = self.list_unfinished_history_targets()
@@ -77,7 +77,7 @@ class ArchiverActivity:
         return len(self.list_unfinished_history_targets()) > 0
 
     def count_completed_history_targets(self) -> int:
-        return len([t for t in self.history_targets if t.run_record.archive_history_timer.has_ended()])
+        return len([t for t in self.history_targets if t.run_record.run_timer.has_ended()])
 
 
 class Archiver:

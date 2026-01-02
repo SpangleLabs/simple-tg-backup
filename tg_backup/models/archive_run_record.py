@@ -6,6 +6,7 @@ from typing import Optional, TYPE_CHECKING
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.utils.dialog_type import DialogType
+from tg_backup.utils.nullable_comparison import nullable_minimum, nullable_maximum
 
 if TYPE_CHECKING:
     from tg_backup.database.core_database import CoreDatabase
@@ -127,7 +128,14 @@ class ArchiveRunRecord:
         self.target_id = target_id
         self.core_db = core_db
         self.time_queued = time_queued or datetime.datetime.now(datetime.timezone.utc)
+        self.run_timer = ArchiveRunTimer(
+            start_time=nullable_minimum(history_time_start, follow_time_start),
+            latest_msg_time=nullable_maximum(history_time_latest, follow_time_latest),
+            end_time=nullable_maximum(history_time_end, follow_time_end),
+            record=self,
+        )
         self.archive_history_timer = ArchiveRunTimer(
+            # TODO: No one does both, switch to run_timer
             start_time=history_time_start,
             latest_msg_time=history_time_latest,
             end_time=history_time_end,
@@ -168,10 +176,7 @@ class ArchiveRunRecord:
 
     def mark_complete(self) -> None:
         self.completed = True
-        if self.archive_history_timer.start_time is not None:
-            self.archive_history_timer.end()
-        if self.follow_live_timer.start_time is not None:
-            self.follow_live_timer.end()
+        self.run_timer.end()
         self.save(force=True)
 
     def mark_failed(self, failure_reason: str) -> None:

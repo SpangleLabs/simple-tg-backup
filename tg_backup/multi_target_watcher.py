@@ -155,7 +155,7 @@ class MultiTargetWatcher:
     async def _start_watch(self) -> None:
         # Mark all archive targets as starting watch, and connect to their databases if necessary
         for target in self.follow_targets.values():
-            target.run_record.follow_live_timer.start()
+            target.run_record.run_timer.start()
             # Check whether to auto-connect to chat databases
             target_dialog_msg_age = target.dialog.last_seen_msg_age()
             if target_dialog_msg_age is None:
@@ -187,7 +187,7 @@ class MultiTargetWatcher:
         self.client.remove_event_handler(self._watch_delete_message)
         # Mark all targets as stopped
         for target in self.follow_targets.values():
-            target.run_record.follow_live_timer.end()
+            target.run_record.run_timer.end()
         # Disconnect from all connected targets
         await asyncio.gather(
             *[conn.run_disconnect() for conn in self._target_connections.values() if conn.is_connected]

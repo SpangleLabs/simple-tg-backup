@@ -180,7 +180,7 @@ class ArchiveTarget:
             admin_log_events_processed.inc()
             evt_obj = AdminEvent.from_event(evt)
             self.chat_db.save_admin_event(evt_obj)
-            self.run_record.archive_history_timer.latest_msg()
+            self.run_record.run_timer.latest_msg()
             self.run_record.archive_stats.inc_admin_events_seen()
             if isinstance(evt.action, ChannelAdminLogEventActionDeleteMessage):
                 msg = evt.action.message
@@ -254,7 +254,7 @@ class ArchiveTarget:
         initial_known_msg_ids = self.known_msg_ids()
         logger.info("Chat ID %s currently contains %s messages", chat_entity.id, len(initial_known_msg_ids))
         async for msg in self.client.iter_messages(chat_entity):
-            self.run_record.archive_history_timer.latest_msg()
+            self.run_record.run_timer.latest_msg()
             # Process and save the message
             new_msg_obj = await self.process_message(msg)
             # If the message was updated, update the high water mark
@@ -297,7 +297,7 @@ class ArchiveTarget:
 
     async def _archive_history(self):
         # Start archive history timer
-        self.run_record.archive_history_timer.start()
+        self.run_record.run_timer.start()
         # Archive admin log
         if self.behaviour.check_admin_log:
             try:
@@ -313,7 +313,7 @@ class ArchiveTarget:
         if self.behaviour.archive_history:
             await self._archive_message_history()
         # Stop archive history timer
-        self.run_record.archive_history_timer.end()
+        self.run_record.run_timer.end()
 
     async def archive_chat(self) -> None:
         logger.info("Starting archive of chat %s", self.chat_id)
@@ -341,23 +341,23 @@ class ArchiveTarget:
 
     async def watch_chat(self) -> None:
         # This method is only used when archiving a singular chat target. It is not very good and cannot be shut down
-        self.run_record.follow_live_timer.start()
+        self.run_record.run_timer.start()
         self.client.add_event_handler(self.on_live_new_message, events.NewMessage(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_edit_message, events.MessageEdited(chats=self.chat_id))
         self.client.add_event_handler(self.on_live_delete_message, events.MessageDeleted())
         try:
             await self.client.run_until_disconnected()
         finally:
-            self.run_record.follow_live_timer.end()
+            self.run_record.run_timer.end()
 
     async def on_live_new_message(self, event: events.NewMessage.Event) -> None:
         logger.info("New message received")
-        self.run_record.follow_live_timer.latest_msg()
+        self.run_record.run_timer.latest_msg()
         await self.process_message(event.message)
 
     async def on_live_edit_message(self, event: events.MessageEdited.Event) -> None:
         logger.info("Edited message received")
-        self.run_record.follow_live_timer.latest_msg()
+        self.run_record.run_timer.latest_msg()
         await self.process_message(event.message)
 
     async def on_live_delete_message(self, event: events.MessageDeleted.Event) -> None:
@@ -367,7 +367,7 @@ class ArchiveTarget:
         logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
         if event.chat_id == self.chat_id or (event.chat_id is None and await self.is_small_chat()):
             for msg_id in event.deleted_ids:
-                self.run_record.follow_live_timer.latest_msg()
+                self.run_record.run_timer.latest_msg()
                 self._mark_msg_deleted(msg_id)
 
     def _mark_msg_deleted(self, msg_id: int) -> None:

@@ -73,9 +73,9 @@
         Downloading chat history of these {{ history_targets | length }} targets:<br/>
         {% set num_targets = namespace(complete=0,in_progress=0,todo=0) %}
         {% for target in history_targets %}
-            {% if target.run_record.archive_history_timer.start_time is none %}
+            {% if target.run_record.run_timer.start_time is none %}
                 {% set num_targets.todo = num_targets.todo + 1 %}
-            {% elif target.run_record.archive_history_timer.end_time is none %}
+            {% elif target.run_record.run_timer.end_time is none %}
                 {% set num_targets.in_progress = num_targets.in_progress + 1 %}
             {% else %}
                 {% set num_targets.complete = num_targets.complete + 1 %}
@@ -97,9 +97,9 @@
             <tr>
                 <td>{{ target.dialog.chat_type }} {{ target.chat_id }}</td>
                 <td>{{ target.dialog.name }}</td>
-                <td>{{ target.run_record.archive_history_timer.start_time }}</td>
-                <td>{{ target.run_record.archive_history_timer.end_time }}</td>
-                <td>{{ target.run_record.archive_history_timer.duration_str() }}</td>
+                <td>{{ target.run_record.run_timer.start_time }}</td>
+                <td>{{ target.run_record.run_timer.end_time }}</td>
+                <td>{{ target.run_record.run_timer.duration_str() }}</td>
             </tr>
         {% endfor %}
         </tbody>
@@ -124,9 +124,9 @@
                 <td>{{ target.dialog.chat_type }} {{ target.chat_id }}</td>
                 <td>{{ target.dialog.name }}</td>
                 <td>
-                    Start: {{ target.run_record.follow_live_timer.start_time }}
-                {% if target.run_record.follow_live_timer.end_time is not none %}
-                    End: {{ target.run_record.follow_live_timer.end_time }}
+                    Start: {{ target.run_record.run_timer.start_time }}
+                {% if target.run_record.run_timer.end_time is not none %}
+                    End: {{ target.run_record.run_timer.end_time }}
                 {% endif %}
                 </td>
                 <td>{{ target_watcher.target_db_connection_state(target) }}</td>
