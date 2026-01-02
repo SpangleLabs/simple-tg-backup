@@ -71,7 +71,7 @@
     {% if history_targets | length > 0 %}
         <h3>Archive targets</h3>
         Downloading chat history of these {{ history_targets | length }} targets:<br/>
-        {% set num_targets = namespace(complete=1,in_progress=1,todo=1) %}
+        {% set num_targets = namespace(complete=0,in_progress=0,todo=0) %}
         {% for target in history_targets %}
             {% if target.run_record.archive_history_timer.start_time is none %}
                 {% set num_targets.todo = num_targets.todo + 1 %}
