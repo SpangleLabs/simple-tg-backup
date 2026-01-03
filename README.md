@@ -28,11 +28,6 @@ You can also use the `main.py` command line arguments to specify an individual c
 
 ## TODO lists
 ### TODO: Would be good
-- Make subsystems serialise and reload their queues, to resume media/sticker downloader after improper shutdown
-  - Queue table in each chat DB?
-    - StickerDownloader could just save message ID
-    - MediaDownloader might want to save media ID too? But message ID would be sufficient, I bet
-    - PeerDataFetcher?.. Not certain we care, but maybe
 - Abort button, which stops archiver at end of current target
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
