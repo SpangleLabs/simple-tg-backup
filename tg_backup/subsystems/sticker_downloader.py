@@ -174,6 +174,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         )
         # Observe the size
         sticker_set_size_histogram.observe(len(sticker_set.documents))
+        logger.info("Sticker set ID %s contains %s stickers", sticker_set_id, len(sticker_set.documents))
         # Put the rest of the pack in the queue
         for sticker_doc in sticker_set.documents:
             await self.queue_sticker(
