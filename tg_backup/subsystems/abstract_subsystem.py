@@ -157,13 +157,19 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
         # Set up chat queue if needed
         if queue_key not in self.queues:
             raw_queue: asyncio.Queue[QueueEntry] = asyncio.Queue()
-            self.queues[queue_key] = ArchiveRunQueue(queue_key, info, raw_queue)
+            new_queue = ArchiveRunQueue(queue_key, info, raw_queue)
+            self.queues[queue_key] = new_queue
+            await self.initialise_new_queue(new_queue)
         # Ensure chat queue isn't being emptied
         if self.queues[queue_key].stop_when_empty:
             logger.warning(f"Adding to {self.name()} queue which is due to stop when empty")
         # Add to chat queue
         logger.info(f"Added queue entry to {self.name()} queue")
         await self.queues[queue_key].queue.put(entry)
+
+    async def initialise_new_queue(self, new_queue: ArchiveRunQueue[QueueInfo, QueueEntry]) -> None:
+        # This allows subsystems to override initialising a new queue after it's created
+        pass
 
 
 CacheID = TypeVar("CacheID")
