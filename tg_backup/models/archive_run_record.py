@@ -6,7 +6,6 @@ from typing import Optional, TYPE_CHECKING
 
 from tg_backup.config import BehaviourConfig
 from tg_backup.utils.dialog_type import DialogType
-from tg_backup.utils.nullable_comparison import nullable_minimum, nullable_maximum
 
 if TYPE_CHECKING:
     from tg_backup.database.core_database import CoreDatabase
