@@ -31,3 +31,16 @@ class AddWebPageMediaTable(DBMigration):
 
     def execute(self, conn: sqlite3.Connection) -> None:
         self._execute_script(conn, "chat_migration_005_web_page_media.sql")
+
+
+class SubsystemQueueTable(DBMigration):
+    @property
+    def migration_id(self) -> int:
+        return 8
+
+    @property
+    def migration_name(self) -> str:
+        return "subsystem_queue_table"
+
+    def execute(self, conn: sqlite3.Connection) -> None:
+        self._execute_script(conn, "chat_migration_008_subsystem_queue.sql")

@@ -3,13 +3,14 @@ from contextlib import closing
 from typing import Optional
 
 from tg_backup.database.abstract_database import AbstractDatabase, storable_date, parsable_date
-from tg_backup.database.chat_db_migrations import InitialChatDatabase, AddWebPageMediaTable
+from tg_backup.database.chat_db_migrations import InitialChatDatabase, AddWebPageMediaTable, SubsystemQueueTable
 from tg_backup.database.core_db_migrations import ExtraChatColumns
 from tg_backup.database.migration import DBMigration
 from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.message import Message
+from tg_backup.models.subsystem_queue_entry import SubsystemQueueEntry
 from tg_backup.models.web_page_media import WebPageMedia
-from tg_backup.utils.json_encoder import decode_json_dict, encode_json
+from tg_backup.utils.json_encoder import decode_json_dict, encode_json, encode_optional_json, decode_optional_json
 
 
 def message_from_row(row):
@@ -47,6 +48,7 @@ class ChatDatabase(AbstractDatabase):
             InitialChatDatabase(),
             ExtraChatColumns(),
             AddWebPageMediaTable(),
+            SubsystemQueueTable(),
         ]
 
     def save_admin_event(self, admin_event: AdminEvent) -> None:
@@ -206,6 +208,58 @@ class ChatDatabase(AbstractDatabase):
                     "web_page_id": web_page_media.web_page_id,
                     "media_id": web_page_media.media_id,
                     "media_json_path": web_page_media.media_json_path,
+                }
+            )
+            self.conn.commit()
+
+    def save_subsystem_queue_entry(self, queue_entry: SubsystemQueueEntry) -> None:
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "INSERT INTO subsystem_queue (queue_entry_id, subsystem_name, message_id, extra_data_json) "
+                " VALUES (:queue_entry_id, :subsystem_name, :message_id, :extra_data_json) "
+                " ON CONFLICT (queue_entry_id) DO UPDATE SET "
+                " subsystem_name=excluded.subsystem_name, message_id=excluded.message_id, extra_data_json=excluded.extra_data_json "
+                " RETURNING  queue_entry_id",
+                {
+                    "queue_entry_id": queue_entry.queue_entry_id,
+                    "subsystem_name": queue_entry.subsystem_name,
+                    "message_id": queue_entry.message_id,
+                    "extra_data_json": encode_optional_json(queue_entry.extra_data),
+                }
+            )
+            for row in resp.fetchall():
+                queue_entry.queue_entry_id = row["queue_entry_id"]
+            self.conn.commit()
+
+    def list_subsystem_queue_entries(self, subsystem_name: str) -> list[SubsystemQueueEntry]:
+        queue_entries = []
+        with closing(self.conn.cursor()) as cursor:
+            resp = cursor.execute(
+                "SELECT queue_entry_id, subsystem_name, message_id, extra_data_json"
+                " FROM subsystem_queue"
+                " WHERE subsystem_name = :subsystem_name",
+                {
+                    "subsystem_name": subsystem_name,
+                }
+            )
+            for row in resp.fetchall():
+                queue_entry = SubsystemQueueEntry(
+                    queue_entry_id=row["queue_entry_id"],
+                    subsystem_name=row["subsystem_name"],
+                    message_id=row["message_id"],
+                    extra_data=decode_optional_json(row["extra_data_json"]),
+                )
+                queue_entries.append(queue_entry)
+        return queue_entries
+
+    def delete_subsystem_queue_entry(self, entry_id: int) -> None:
+        if entry_id is None:
+            raise ValueError("Subsystem queue entry does not have a valid ID")
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(
+                "DELETE FROM subsystem_queue WHERE queue_entry_id = :entry_id",
+                {
+                    "entry_id": entry_id,
                 }
             )
             self.conn.commit()
