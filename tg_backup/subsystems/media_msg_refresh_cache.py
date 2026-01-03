@@ -49,7 +49,7 @@ message_refresh_request_queue_empty = Gauge(
 class RefreshRequest:
     chat_id: int
     msg_id: int
-    old_msg: telethon.types.Message
+    old_msg: Optional[telethon.types.Message]
     archive_target: "ArchiveTarget"
 
 
@@ -119,7 +119,7 @@ class MessageRefreshCache:
             self,
             chat_id: int,
             message_id: int,
-            old_msg: telethon.types.Message,
+            old_msg: Optional[telethon.types.Message],
             archive_target: "ArchiveTarget",
     ) -> Optional[telethon.types.Message]:
         # First, check if a new version already exists in cache
@@ -152,7 +152,7 @@ class MessageRefreshCache:
             self,
             chat_id: int,
             message_id: int,
-            old_msg: telethon.types.Message,
+            old_msg: Optional[telethon.types.Message],
             archive_target: "ArchiveTarget",
     ) -> None:
         count_refresh_requests.inc()
