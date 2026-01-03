@@ -356,13 +356,13 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         await self._add_queue_entry(queue_key, queue_info, queue_entry)
         archive_target.chat_db.save_subsystem_queue_entry(queue_entry.storable_entry)
 
-    async def initialise_new_queue(self, new_queue: ArchiveRunQueue[QueueInfo, QueueEntry]) -> None:
-        stored_queue_entries = new_queue.info.chat_db.list_subsystem_queue_entries(StickerDownloaderQueueEntry.SUBSYSTEM_NAME)
+    async def initialise_new_queue(self, new_queue: ArchiveRunQueue[StickerQueueInfo, StickerQueueEntry]) -> None:
+        stored_queue_entries = new_queue.info.archive_target.chat_db.list_subsystem_queue_entries(StickerDownloaderQueueEntry.SUBSYSTEM_NAME)
         logger.info("Loading %s StickerDownloader queue entries from chat database for chat ID %s", len(stored_queue_entries), new_queue.info.chat_id)
         for stored_entry in stored_queue_entries:
             stored_media_entry = StickerDownloaderQueueEntry.from_generic(stored_entry)
             queue_entry = StickerQueueEntry(None, None, stored_media_entry.direct_from_msg, stored_media_entry)
-            await self._add_queue_entry(new_queue.info.queue_key, new_queue.info, queue_entry)
+            await self._add_queue_entry(new_queue.queue_key, new_queue.info, queue_entry)
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
         return await self._wait_for_queue_and_message_refresher(queue_key, self.message_refresher)
