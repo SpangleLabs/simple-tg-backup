@@ -16,6 +16,7 @@ from tg_backup.models.archive_run_record import ArchiveRunRecord
 from tg_backup.models.dialog import Dialog
 from tg_backup.models.message import Message
 from tg_backup.utils.dialog_type import DialogType
+from tg_backup.utils.missing_values import missing_ids_within_range, missing_ids_before_value
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
@@ -262,7 +263,7 @@ class ArchiveTarget:
                 high_water_mark.bump_high_water_mark(new_msg_obj.datetime)
             # Check for deleted messages
             msg_id = msg.id
-            missing_ids = self.missing_message_ids(msg_id, prev_msg_id, initial_known_msg_ids)
+            missing_ids = missing_ids_within_range(initial_known_msg_ids, prev_msg_id, msg_id)
             if missing_ids:
                 logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
                 high_water_mark.bump_high_water_mark(msg.date)
@@ -274,26 +275,11 @@ class ArchiveTarget:
                 logger.info("Reached cutoff date without new message updates, stopping search through message history")
                 return
         # After iterating through all messages, ensure that earlier messages have not been deleted
-        final_missing_ids = self.earlier_missing_message_ids(prev_msg_id, initial_known_msg_ids)
+        final_missing_ids = missing_ids_before_value(initial_known_msg_ids, prev_msg_id)
         if final_missing_ids:
             logger.info("There are %s messages missing from the start of the chat history. Marking as deleted", len(final_missing_ids))
             for missing_id in final_missing_ids:
                 self._mark_msg_deleted(missing_id)
-
-    @staticmethod
-    def missing_message_ids(msg_id: int, prev_msg_id: Optional[int], known_msg_ids: Iterable[int]) -> list[int]:
-        if prev_msg_id is None:
-            return []
-        if (prev_msg_id - msg_id) <= 1:
-            return []
-        if msg_id not in known_msg_ids or prev_msg_id not in known_msg_ids:
-            return []
-        return [i for i in known_msg_ids if msg_id < i < prev_msg_id]
-
-    def earlier_missing_message_ids(self, msg_id: Optional[int], known_msg_ids: Iterable[int]) -> list[int]:
-        if msg_id is None:
-            return []
-        return [i for i in known_msg_ids if i < msg_id]
 
     async def _archive_history(self):
         # Archive admin log
