@@ -48,6 +48,9 @@ class AbstractDatabase(ABC):
 
     def stop(self) -> None:
         logger.info("Closing connection to database: %s", self.file_path())
+        if self.conn is None:
+            logger.warning("Database connection already closed")
+            return
         self.conn.close()
         self.conn = None
 
