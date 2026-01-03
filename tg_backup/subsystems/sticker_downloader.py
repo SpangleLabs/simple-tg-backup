@@ -15,6 +15,7 @@ from telethon.tl.types import DocumentAttributeSticker, InputStickerSetID, Docum
 from tg_backup.archive_target import ArchiveTarget
 from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.abstract_resource import save_if_not_duplicate
+from tg_backup.models.message import Message
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.models.subsystem_queue_entry import StickerDownloaderQueueEntry
@@ -223,11 +224,14 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
             return
         # Check if the sticker doc needs refreshing
         if queue_entry.sticker_doc is None and queue_entry.storable_entry.sticker_id is not None:
-            queue_entry.sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+            new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
             if queue_entry.sticker_doc is None:
                 logger.info("Stored queue entry for sticker ID %s on message ID %s could not be refreshed into sticker", queue_entry.sticker_id, queue_entry.message_id)
                 queue.queue.task_done()
                 queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
+                return
+            queue_entry.sticker_doc = new_sticker_doc
+            queue_entry.message = new_message
         # Get sticker file path
         sticker_doc = queue_entry.sticker_doc
         sticker_id = self._find_sticker_id(sticker_doc)
@@ -274,7 +278,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
             self,
             queue: ArchiveRunQueue[StickerQueueInfo, StickerQueueEntry],
             queue_entry: StickerQueueEntry,
-    ) -> Optional[Document]:
+    ) -> tuple[Message, Optional[Document]]:
         # Handy shortcut variables
         chat_id = queue.info.chat_id
         archive_target = queue.info.archive_target
@@ -288,11 +292,11 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         new_sticker_doc = message.sticker if hasattr(message, "sticker") else None
         if new_sticker_doc is None:
             logger.info("Message ID %s no longer contains a sticker.", message_id)
-            return None
+            return message, None
         # If the sticker was originally direct from the message, use that sticker and try download again
         if queue_entry.direct_from_msg:
             logger.info("Using the updated sticker from refreshed message ID %s", message_id)
-            return new_sticker_doc
+            return message, new_sticker_doc
         # Otherwise, look up the sticker pack again
         logger.info("Looking up sticker pack in message ID %s again to find the sticker", message_id)
         sticker_set_id = self._find_sticker_set_id(new_sticker_doc)
@@ -306,9 +310,9 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         matching_sticker = self._find_sticker_in_set_by_id(sticker_set, sticker_id)
         if matching_sticker is None:
             logger.info("Sticker ID %s no longer exists in that sticker set ID %s", sticker_id, sticker_set_id)
-            return None
+            return message, None
         logger.info("Re-trying download with updated sticker ID %s document from set", sticker_id)
-        return matching_sticker
+        return message, matching_sticker
 
     async def _download_sticker(
             self,
@@ -334,9 +338,10 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
                 # Try refreshing the message
                 message = queue_entry.message
                 logger.warning("Sticker reference expired for message ID %s, will refresh message", message.id)
-                new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+                new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
                 if new_sticker_doc is None:
                     return sticker_doc
+                queue_entry.message = new_message
                 sticker_doc = new_sticker_doc
             except Exception as e:
                 logger.error("Failed to download sticker, (will retry) error:", exc_info=e)
