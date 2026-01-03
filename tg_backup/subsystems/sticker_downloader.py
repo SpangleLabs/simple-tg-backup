@@ -17,7 +17,9 @@ from tg_backup.database.core_database import CoreDatabase
 from tg_backup.models.abstract_resource import save_if_not_duplicate
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
-from tg_backup.subsystems.abstract_subsystem import TimedCache, AbstractTargetQueuedSubsystem, ArchiveRunQueue
+from tg_backup.models.subsystem_queue_entry import StickerDownloaderQueueEntry
+from tg_backup.subsystems.abstract_subsystem import TimedCache, AbstractTargetQueuedSubsystem, ArchiveRunQueue, \
+    QueueInfo, QueueEntry
 from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
 
 if TYPE_CHECKING:
@@ -53,9 +55,33 @@ class StickerQueueInfo:
 
 @dataclasses.dataclass
 class StickerQueueEntry:
-    sticker_doc: Document
-    message: telethon.types.Message # Needed for message refresher
+    sticker_doc: Optional[Document]
+    message: Optional[telethon.types.Message] # Needed for message refresher
     direct_from_msg: bool # Whether the sticker is from the message, or from a sticker set
+    _storable_entry: Optional[StickerDownloaderQueueEntry] = None
+
+    @property
+    def message_id(self) -> int:
+        if self.message is None:
+            return self.storable_entry.message_id
+        return self.message.id
+
+    @property
+    def sticker_id(self) -> int:
+        if self.sticker_doc is None:
+            return self.storable_entry.sticker_id
+        return StickerDownloader._find_sticker_id(self.sticker_doc)
+
+    @property
+    def storable_entry(self) -> StickerDownloaderQueueEntry:
+        if self._storable_entry is None:
+            self._storable_entry = StickerDownloaderQueueEntry(
+                None,
+                self.message.id,
+                self.sticker_doc.id,
+                self.direct_from_msg,
+            )
+        return self._storable_entry
 
 
 class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQueueEntry]):
@@ -189,15 +215,20 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
     async def _do_process(self) -> None:
         queue, queue_entry = self._get_next_in_queue()
         sticker_doc = queue_entry.sticker_doc
-        if sticker_doc is None:
-            queue.queue.task_done()
-            return
-        sticker_id = self._find_sticker_id(sticker_doc)
+        sticker_id = self._find_sticker_id(sticker_doc) or queue_entry.storable_entry.sticker_id
         stickers_processed_count.inc()
         # Check if sticker has been saved
         if self.is_sticker_cached(sticker_id):
             queue.queue.task_done()
+            queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
             return
+        # Check if the sticker doc needs refreshing
+        if queue_entry.sticker_doc is None and queue_entry.storable_entry.sticker_id is not None:
+            queue_entry.sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+            if queue_entry.sticker_doc is None:
+                logger.info("Stored queue entry for sticker ID %s on message ID %s could not be refreshed into sticker", queue_entry.sticker_id, queue_entry.message_id)
+                queue.queue.task_done()
+                queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
         # Get sticker file path
         sticker_file_path = self._sticker_file_path(sticker_doc)
         # Download sticker
@@ -224,6 +255,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         await self._process_sticker_set(sticker_doc, queue, queue_entry)
         # Mark the task as done
         queue.queue.task_done()
+        queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
 
     def _sticker_file_path(self, sticker_doc: Document) -> str:
         sticker_id = self._find_sticker_id(sticker_doc)
@@ -236,6 +268,46 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         os.makedirs(sticker_set_directory, exist_ok=True)
         # Download sticker
         return f"{sticker_set_directory}/{sticker_id}.{sticker_file_ext}"
+
+    async def _refresh_sticker_doc(
+            self,
+            queue: ArchiveRunQueue[StickerQueueInfo, StickerQueueEntry],
+            queue_entry: StickerQueueEntry,
+    ) -> Optional[Document]:
+        # Handy shortcut variables
+        chat_id = queue.info.chat_id
+        archive_target = queue.info.archive_target
+        old_message = queue_entry.message
+        message_id = queue_entry.message_id
+        sticker_id = queue_entry.sticker_id
+        # Actually refresh the message
+        message = await self.message_refresher.get_message(chat_id, message_id, old_message, archive_target)
+        logger.info("Fetched new message for message ID %s", message_id)
+        # Grab the new sticker document from the message
+        new_sticker_doc = message.sticker if hasattr(message, "sticker") else None
+        if new_sticker_doc is None:
+            logger.info("Message ID %s no longer contains a sticker.", message_id)
+            return None
+        # If the sticker was originally direct from the message, use that sticker and try download again
+        if queue_entry.direct_from_msg:
+            logger.info("Using the updated sticker from refreshed message ID %s", message_id)
+            return new_sticker_doc
+        # Otherwise, look up the sticker pack again
+        logger.info("Looking up sticker pack in message ID %s again to find the sticker", message_id)
+        sticker_set_id = self._find_sticker_set_id(new_sticker_doc)
+        set_cache_entry = self._sticker_set_fetch_cache.get_resource_id_entry(sticker_set_id)
+        if set_cache_entry is None:
+            input_sticker_set = self._find_input_sticker_set(new_sticker_doc)
+            sticker_set = await self._fetch_sticker_set(input_sticker_set)
+        else:
+            sticker_set = set_cache_entry.value
+        # Go through the pack to find the sticker matching this one, if exists
+        matching_sticker = self._find_sticker_in_set_by_id(sticker_set, sticker_id)
+        if matching_sticker is None:
+            logger.info("Sticker ID %s no longer exists in that sticker set ID %s", sticker_id, sticker_set_id)
+            return None
+        logger.info("Re-trying download with updated sticker ID %s document from set", sticker_id)
+        return matching_sticker
 
     async def _download_sticker(
             self,
@@ -261,36 +333,10 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
                 # Try refreshing the message
                 message = queue_entry.message
                 logger.warning("Sticker reference expired for message ID %s, will refresh message", message.id)
-                chat_id = queue.info.chat_id
-                archive_target = queue.info.archive_target
-                message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
-                logger.info("Fetched new message for message ID %s", message.id)
-                # Grab the new sticker document from the message
-                new_sticker_doc = message.sticker if hasattr(message, "sticker") else None
+                new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
                 if new_sticker_doc is None:
-                    logger.info("Message ID %s no longer contains a sticker.", message.id)
-                    return new_sticker_doc
-                # If the sticker was originally direct from the message, use that sticker and try download again
-                if queue_entry.direct_from_msg:
-                    logger.info("Re-trying download with updated sticker from message ID %s", message.id)
-                    sticker_doc = new_sticker_doc
-                    continue
-                # Otherwise, look up the sticker pack again
-                logger.info("Looking up sticker pack in message ID %s again to find the sticker", message.id)
-                set_cache_entry = self._sticker_set_fetch_cache.get_resource_id_entry(sticker_set_id)
-                if set_cache_entry is None:
-                    input_sticker_set = self._find_input_sticker_set(new_sticker_doc)
-                    sticker_set = await self._fetch_sticker_set(input_sticker_set)
-                else:
-                    sticker_set = set_cache_entry.value
-                # Go through the pack to find the sticker matching this one, if exists
-                matching_sticker = self._find_sticker_in_set_by_id(sticker_set, sticker_id)
-                if matching_sticker is None:
-                    logger.info("Sticker ID %s no longer exists in that sticker set ID %s", sticker_id, sticker_set_id)
                     return sticker_doc
-                logger.info("Re-trying download with updated sticker ID %s document from set", sticker_id)
-                sticker_doc = matching_sticker
-                continue
+                sticker_doc = new_sticker_doc
             except Exception as e:
                 logger.error("Failed to download sticker, (will retry) error:", exc_info=e)
                 await asyncio.sleep(60)
@@ -308,6 +354,15 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         queue_info = StickerQueueInfo(archive_target.chat_id, archive_target)
         queue_entry = StickerQueueEntry(sticker_doc, sticker_msg, sticker_direct_from_msg)
         await self._add_queue_entry(queue_key, queue_info, queue_entry)
+        archive_target.chat_db.save_subsystem_queue_entry(queue_entry.storable_entry)
+
+    async def initialise_new_queue(self, new_queue: ArchiveRunQueue[QueueInfo, QueueEntry]) -> None:
+        stored_queue_entries = new_queue.info.chat_db.list_subsystem_queue_entries(StickerDownloaderQueueEntry.SUBSYSTEM_NAME)
+        logger.info("Loading %s StickerDownloader queue entries from chat database for chat ID %s", len(stored_queue_entries), new_queue.info.chat_id)
+        for stored_entry in stored_queue_entries:
+            stored_media_entry = StickerDownloaderQueueEntry.from_generic(stored_entry)
+            queue_entry = StickerQueueEntry(None, None, stored_media_entry.direct_from_msg, stored_media_entry)
+            await self._add_queue_entry(new_queue.info.queue_key, new_queue.info, queue_entry)
 
     async def wait_until_queue_empty(self, queue_key: Optional[str]) -> None:
         return await self._wait_for_queue_and_message_refresher(queue_key, self.message_refresher)
