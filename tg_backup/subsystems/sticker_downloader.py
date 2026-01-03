@@ -78,7 +78,7 @@ class StickerQueueEntry:
             self._storable_entry = StickerDownloaderQueueEntry(
                 None,
                 self.message.id,
-                self.sticker_doc.id,
+                StickerDownloader._find_sticker_id(self.sticker_doc),
                 self.direct_from_msg,
             )
         return self._storable_entry
@@ -214,8 +214,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
 
     async def _do_process(self) -> None:
         queue, queue_entry = self._get_next_in_queue()
-        sticker_doc = queue_entry.sticker_doc
-        sticker_id = self._find_sticker_id(sticker_doc) or queue_entry.storable_entry.sticker_id
+        sticker_id = self._find_sticker_id(queue_entry.sticker_doc) or queue_entry.storable_entry.sticker_id
         stickers_processed_count.inc()
         # Check if sticker has been saved
         if self.is_sticker_cached(sticker_id):
@@ -230,6 +229,8 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
                 queue.queue.task_done()
                 queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
         # Get sticker file path
+        sticker_doc = queue_entry.sticker_doc
+        sticker_id = self._find_sticker_id(sticker_doc)
         sticker_file_path = self._sticker_file_path(sticker_doc)
         # Download sticker
         if not os.path.exists(sticker_file_path):
