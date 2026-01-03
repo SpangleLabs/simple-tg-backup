@@ -88,6 +88,6 @@ class StickerDownloaderQueueEntry(SubsystemQueueEntry):
         return cls(
             queue_entry.queue_entry_id,
             queue_entry.message_id,
+            queue_entry.extra_data["sticker_id"],
             queue_entry.extra_data["direct_from_msg"],
-            queue_entry.extra_data["sticker_id"]
         )
