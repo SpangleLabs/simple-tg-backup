@@ -6,15 +6,15 @@ from tg_backup.archive_target import ArchiveTarget, logger
 
 class CutOffDate:
     def __init__(self, archive_target: "ArchiveTarget") -> None:
-        self.archive_target = archive_target
+        self._overlap_days = archive_target.behaviour.msg_history_overlap_days
         self._archive_target_started_empty = False
         self._oldest_known_datetime: Optional[datetime.datetime] = None
 
         # Find the latest message in the chat, for the initial cutoff base.
         # Make sure to get the latest message before this archive target run started, otherwise live messages for this
         # chat might have been picked up before this archive target got to run.
-        latest_cutoff = self.archive_target.run_record.time_queued - datetime.timedelta(minutes=5)
-        newest_msg = self.archive_target.chat_db.get_newest_message(latest_cutoff=latest_cutoff)
+        latest_cutoff = archive_target.run_record.time_queued - datetime.timedelta(minutes=5)
+        newest_msg = archive_target.chat_db.get_newest_message(latest_cutoff=latest_cutoff)
         if newest_msg is not None:
             self._oldest_known_datetime = newest_msg.datetime
         else:
@@ -36,7 +36,7 @@ class CutOffDate:
         self._oldest_known_datetime = oldest_datetime
 
     def cutoff_date(self) -> Optional[datetime.datetime]:
-        overlap_days = self.archive_target.behaviour.msg_history_overlap_days
+        overlap_days = self._overlap_days
         if overlap_days == 0:
             return None
         if self._archive_target_started_empty:
