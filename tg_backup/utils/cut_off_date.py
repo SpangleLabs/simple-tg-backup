@@ -1,8 +1,13 @@
 import datetime
-from typing import Optional
+import logging
+from typing import Optional, TYPE_CHECKING
 
-from tg_backup.archive_target import ArchiveTarget, logger
 from tg_backup.models.message import Message
+
+if TYPE_CHECKING:
+    from tg_backup.archive_target import ArchiveTarget
+
+logger = logging.getLogger(__name__)
 
 
 class CutOffDate:
