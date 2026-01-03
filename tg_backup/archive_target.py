@@ -189,38 +189,56 @@ class ArchiveTarget:
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
-        # Set up the cutoff for archival overlap
-        cutoff = CutOffDate(self)
-        initial_cutoff_date = cutoff.cutoff_date()
-        if initial_cutoff_date is not None:
-            logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff_date)
-        # Set up the variables for detecting deleted messages
-        prev_msg_id: Optional[int] = None
+        # Set up the cutoffs for archival overlap. One starting from the newest known message and working back, and one
+        # starting from the oldest known message and working back (in case a previous archival stopped early)
+        cutoffs = [
+            CutOffDate.from_newest_msg_after_cutoff(self),
+            CutOffDate.from_oldest_msg(self),
+        ]
+        # Setup initial known message IDs, for detecting deleted messages
         initial_known_msg_ids = self.known_msg_ids()
-        # Check all new messages until cutoff
-        logger.info("Chat ID %s currently contains %s messages", chat_entity.id, len(initial_known_msg_ids))
-        async for msg in self.client.iter_messages(chat_entity):
-            self.run_record.run_timer.latest_msg()
-            # Process and save the message
-            new_msg_obj = await self.process_message(msg)
-            # If the message was updated, update the high water mark
-            if new_msg_obj is not None:
-                cutoff.bump_known_datetime(new_msg_obj.datetime)
-            # Check for deleted messages
-            msg_id = msg.id
-            missing_ids = missing_ids_within_range(initial_known_msg_ids, prev_msg_id, msg_id)
-            if missing_ids:
-                logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
-                cutoff.bump_known_datetime(msg.date)
-                for missing_id in missing_ids:
-                    self._mark_msg_deleted(missing_id)
-            prev_msg_id = msg_id
-            # If the message is older than the cutoff date, stop iterating through history
-            if cutoff.cutoff_date_met(msg.date):
-                logger.info("Reached cutoff date without new message updates, stopping search through message history")
-                return
-        # After completing iteration through all messages without returning early by cutoff, ensure that earlier messages have not been deleted
-        final_missing_ids = missing_ids_before_value(initial_known_msg_ids, prev_msg_id)
+        logger.info("Chat ID %s currently contains %s messages", self.chat_id, len(initial_known_msg_ids))
+        # Setup the lowest seen message ID, for marking deleted messages at the start of the chat
+        lowest_seen_msg_id: Optional[int] = None
+        # For each cutoff, archive the history
+        for cutoff in cutoffs:
+            # Ensure this cutoff needs checking
+            if cutoff is None:
+                logger.info("Skipping check of oldest messages in chat ID %s, as chat started with no messages", self.chat_id)
+                continue
+            # When archiving newest messages, log where the cutoff date is gonna be
+            if cutoff.offset_id is 0 and cutoff.cutoff_date() is not None:
+                logger.info("Archiving message history for chat ID %s until cutoff date %s", self.chat_id, cutoff.cutoff_date())
+            # Reset the lowest seen message ID
+            lowest_seen_msg_id = None
+            # Check all new messages until cutoff
+            num_processed_msgs = 0
+            async for msg in self.client.iter_messages(chat_entity, offset_id=cutoff.offset_id):
+                self.run_record.run_timer.latest_msg()
+                num_processed_msgs += 1
+                # Process and save the message
+                new_msg_obj = await self.process_message(msg)
+                # If the message was updated, update the cutoff with the next known datetime
+                if new_msg_obj is not None:
+                    cutoff.bump_known_datetime(new_msg_obj.datetime)
+                # Check for deleted messages
+                msg_id = msg.id
+                missing_ids = missing_ids_within_range(initial_known_msg_ids, lowest_seen_msg_id, msg_id)
+                if missing_ids:
+                    logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
+                    cutoff.bump_known_datetime(msg.date)
+                    for missing_id in missing_ids:
+                        self._mark_msg_deleted(missing_id)
+                # Update the previous message ID
+                lowest_seen_msg_id = msg_id
+                # If the message is older than the cutoff date, stop iterating through history
+                if cutoff.cutoff_date_met(msg.date):
+                    logger.info("Reached cutoff date without new message updates, stopping search through message history")
+                    break
+            # Log how many messages were processed by that iteration
+            logger.info("Archiver processed %s messages in chat ID %s, starting from offset ID %s until cutoff date %s", num_processed_msgs, self.chat_id, cutoff.offset_id, cutoff.cutoff_date())
+        # After checking through all messages (or messages at top and bottom of chat), mark any earlier known messages as deleted
+        final_missing_ids = missing_ids_before_value(initial_known_msg_ids, lowest_seen_msg_id)
         if final_missing_ids:
             logger.info("There are %s messages missing from the start of the chat history. Marking as deleted", len(final_missing_ids))
             for missing_id in final_missing_ids:
