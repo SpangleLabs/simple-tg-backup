@@ -41,7 +41,7 @@ class CutOffDate:
         oldest_msg = archive_target.chat_db.get_oldest_message()
         if oldest_msg is None:
             return None
-        return cls._from_message(oldest_msg, 0, oldest_msg.id)
+        return cls._from_message(oldest_msg, 0, oldest_msg.resource_id)
 
     def bump_known_datetime(self, known_datetime: datetime.datetime) -> None:
         """
