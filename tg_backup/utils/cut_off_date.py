@@ -7,24 +7,20 @@ from tg_backup.archive_target import ArchiveTarget, logger
 class CutOffDate:
     def __init__(self, archive_target: "ArchiveTarget") -> None:
         self.archive_target = archive_target
-        self.initialised = False
         self._archive_target_started_empty = False
         self._oldest_known_datetime: Optional[datetime.datetime] = None
 
-    def initialise(self) -> None:
-        # Make sure to set a cutoff for the latest timestamp, otherwise live messages for this chat might have been
-        # picked up before this archive target got to run.
+        # Find the latest message in the chat, for the initial cutoff base.
+        # Make sure to get the latest message before this archive target run started, otherwise live messages for this
+        # chat might have been picked up before this archive target got to run.
         latest_cutoff = self.archive_target.run_record.time_queued - datetime.timedelta(minutes=5)
         newest_msg = self.archive_target.chat_db.get_newest_message(latest_cutoff=latest_cutoff)
-        if newest_msg is None:
+        if newest_msg is not None:
+            self._oldest_known_datetime = newest_msg.datetime
+        else:
             self._archive_target_started_empty = True
-            return
-        self._oldest_known_datetime = newest_msg.datetime
-        self.initialised = True
 
     def oldest_known_datetime(self) -> datetime.datetime:
-        if not self.initialised:
-            self.initialise()
         return self._oldest_known_datetime
 
     def bump_known_datetime(self, known_datetime: datetime.datetime) -> None:
@@ -32,8 +28,6 @@ class CutOffDate:
         This is called every time a message change is detected, in order to keep going through history beyond it for
         another `overlap_days` days.
         """
-        if not self.initialised:
-            self.initialise()
         if self._oldest_known_datetime is None:
             self._oldest_known_datetime = known_datetime
         oldest_datetime = min(self._oldest_known_datetime, known_datetime)
@@ -42,8 +36,6 @@ class CutOffDate:
         self._oldest_known_datetime = oldest_datetime
 
     def cutoff_date(self) -> Optional[datetime.datetime]:
-        if not self.initialised:
-            self.initialise()
         overlap_days = self.archive_target.behaviour.msg_history_overlap_days
         if overlap_days == 0:
             return None
