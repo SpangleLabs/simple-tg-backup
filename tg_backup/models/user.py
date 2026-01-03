@@ -45,7 +45,7 @@ class User(AbstractResource):
             user_obj.bio = full_user.about
         if hasattr(full_user, "birthday") and full_user.birthday is not None:
             user_obj.birthday = datetime.date(
-                year=full_user.birthday.year or 1,
+                year=full_user.birthday.year or 4,
                 month=full_user.birthday.month,
                 day=full_user.birthday.day,
             )
