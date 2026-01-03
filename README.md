@@ -28,7 +28,6 @@ You can also use the `main.py` command line arguments to specify an individual c
 
 ## TODO lists
 ### TODO: Would be good
-- Abort button, which stops archiver at end of current target
 - Data deduplication
   - Deduplicate admin events in the same way messages are?
   - Deduplicate users in the same way messages are
