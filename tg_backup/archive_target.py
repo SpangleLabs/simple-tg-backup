@@ -15,6 +15,7 @@ from tg_backup.models.admin_event import AdminEvent
 from tg_backup.models.archive_run_record import ArchiveRunRecord
 from tg_backup.models.dialog import Dialog
 from tg_backup.models.message import Message
+from tg_backup.utils.cut_off_date import CutOffDate
 from tg_backup.utils.dialog_type import DialogType
 from tg_backup.utils.missing_values import missing_ids_within_range, missing_ids_before_value
 
@@ -33,65 +34,6 @@ admin_log_events_processed = Counter(
     "tgbackup_archivetarget_admin_log_events_processed_count",
     "Total number of admin log events which have been processed by archive targets",
 )
-
-
-class HighWaterMark:
-    def __init__(self, archive_target: "ArchiveTarget") -> None:
-        self.archive_target = archive_target
-        self.initialised = False
-        self._archive_target_started_empty = False
-        self._high_water_mark: Optional[datetime.datetime] = None
-
-    def initialise(self) -> None:
-        # Make sure to set a cutoff for the latest timestamp, otherwise live messages for this chat might have been
-        # picked up before this archive target got to run.
-        latest_cutoff = self.archive_target.run_record.time_queued - datetime.timedelta(minutes=5)
-        newest_msg = self.archive_target.chat_db.get_newest_message(latest_cutoff=latest_cutoff)
-        if newest_msg is None:
-            self._archive_target_started_empty = True
-            return None
-        self._high_water_mark = newest_msg.datetime
-        self.initialised = True
-
-    def high_water_mark(self) -> datetime.datetime:
-        if not self.initialised:
-            self.initialise()
-        return self._high_water_mark
-
-    def bump_high_water_mark(self, new_hwm: datetime.datetime) -> None:
-        """
-        This is called every time a message change is detected, in order to keep going through history beyond it for
-        another `overlap_days` days.
-        """
-        if not self.initialised:
-            self.initialise()
-        if self._high_water_mark is None:
-            self._high_water_mark = new_hwm
-        hwm = min(self._high_water_mark, new_hwm)
-        if new_hwm == hwm and not self._archive_target_started_empty:
-            logger.info("Updating high water mark in chat history")
-        self._high_water_mark = hwm
-
-    def cutoff_date(self) -> Optional[datetime.datetime]:
-        if not self.initialised:
-            self.initialise()
-        overlap_days = self.archive_target.behaviour.msg_history_overlap_days
-        if overlap_days == 0:
-            return None
-        if self._archive_target_started_empty:
-            return None
-        # Only now check the high water mark
-        hwm = self.high_water_mark()
-        if hwm is None:
-            return None
-        return hwm - datetime.timedelta(days=overlap_days)
-
-    def cutoff_date_met(self, current_msg_date: datetime.datetime) -> bool:
-        cutoff_date = self.cutoff_date()
-        if cutoff_date is None:
-            return False
-        # If the current message is before the cutoff, we've gone back far enough
-        return current_msg_date < cutoff_date
 
 
 class ArchiveTarget:
@@ -247,12 +189,15 @@ class ArchiveTarget:
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
-        high_water_mark = HighWaterMark(self)
-        initial_cutoff = high_water_mark.cutoff_date()
-        if initial_cutoff is not None:
-            logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff)
+        # Set up the cutoff for archival overlap
+        cutoff = CutOffDate(self)
+        initial_cutoff_date = cutoff.cutoff_date()
+        if initial_cutoff_date is not None:
+            logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff_date)
+        # Set up the variables for detecting deleted messages
         prev_msg_id: Optional[int] = None
         initial_known_msg_ids = self.known_msg_ids()
+        # Check all new messages until cutoff
         logger.info("Chat ID %s currently contains %s messages", chat_entity.id, len(initial_known_msg_ids))
         async for msg in self.client.iter_messages(chat_entity):
             self.run_record.run_timer.latest_msg()
@@ -260,21 +205,21 @@ class ArchiveTarget:
             new_msg_obj = await self.process_message(msg)
             # If the message was updated, update the high water mark
             if new_msg_obj is not None:
-                high_water_mark.bump_high_water_mark(new_msg_obj.datetime)
+                cutoff.bump_known_datetime(new_msg_obj.datetime)
             # Check for deleted messages
             msg_id = msg.id
             missing_ids = missing_ids_within_range(initial_known_msg_ids, prev_msg_id, msg_id)
             if missing_ids:
                 logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
-                high_water_mark.bump_high_water_mark(msg.date)
+                cutoff.bump_known_datetime(msg.date)
                 for missing_id in missing_ids:
                     self._mark_msg_deleted(missing_id)
             prev_msg_id = msg_id
             # If the message is older than the cutoff date, stop iterating through history
-            if high_water_mark.cutoff_date_met(msg.date):
+            if cutoff.cutoff_date_met(msg.date):
                 logger.info("Reached cutoff date without new message updates, stopping search through message history")
                 return
-        # After iterating through all messages, ensure that earlier messages have not been deleted
+        # After completing iteration through all messages without returning early by cutoff, ensure that earlier messages have not been deleted
         final_missing_ids = missing_ids_before_value(initial_known_msg_ids, prev_msg_id)
         if final_missing_ids:
             logger.info("There are %s messages missing from the start of the chat history. Marking as deleted", len(final_missing_ids))
