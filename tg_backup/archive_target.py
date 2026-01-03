@@ -104,7 +104,6 @@ class ArchiveTarget:
         self.chat_db = ChatDatabase(self.chat_id)
         self._known_msg_ids: Optional[set[int]] = None
         self.run_record = ArchiveRunRecord(dialog.chat_type, self.chat_id, behaviour_config=behaviour, core_db=archiver.core_db)
-        self.high_water_mark = HighWaterMark(self)
 
     async def connect_db(self) -> None:
         self.chat_db.start()
@@ -247,7 +246,8 @@ class ArchiveTarget:
 
     async def _archive_message_history(self) -> None:
         chat_entity = await self.chat_entity()
-        initial_cutoff = self.high_water_mark.cutoff_date()
+        high_water_mark = HighWaterMark(self)
+        initial_cutoff = high_water_mark.cutoff_date()
         if initial_cutoff is not None:
             logger.info("Archiving message history for chat ID %s until cutoff date %s", chat_entity.id, initial_cutoff)
         prev_msg_id: Optional[int] = None
@@ -259,18 +259,18 @@ class ArchiveTarget:
             new_msg_obj = await self.process_message(msg)
             # If the message was updated, update the high water mark
             if new_msg_obj is not None:
-                self.high_water_mark.bump_high_water_mark(new_msg_obj.datetime)
+                high_water_mark.bump_high_water_mark(new_msg_obj.datetime)
             # Check for deleted messages
             msg_id = msg.id
             missing_ids = self.missing_message_ids(msg_id, prev_msg_id, initial_known_msg_ids)
             if missing_ids:
                 logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
-                self.high_water_mark.bump_high_water_mark(msg.date)
+                high_water_mark.bump_high_water_mark(msg.date)
                 for missing_id in missing_ids:
                     self._mark_msg_deleted(missing_id)
             prev_msg_id = msg_id
             # If the message is older than the cutoff date, stop iterating through history
-            if self.high_water_mark.cutoff_date_met(msg.date):
+            if high_water_mark.cutoff_date_met(msg.date):
                 logger.info("Reached cutoff date without new message updates, stopping search through message history")
                 return
         # After iterating through all messages, ensure that earlier messages have not been deleted
