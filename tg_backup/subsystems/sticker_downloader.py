@@ -247,7 +247,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         # Create storable sticker object
         sticker_obj = Sticker.from_sticker(sticker_doc)
         # Save to database
-        logger.info("Saving sticker ID %s to database", sticker_id)
+        logger.info("Saving sticker ID %s to database (if it's not a duplicate)", sticker_id)
         save_if_not_duplicate(
             sticker_obj,
             self.archiver.config.default_behaviour.cleanup_duplicates,
