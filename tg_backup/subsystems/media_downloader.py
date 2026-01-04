@@ -330,7 +330,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             try:
                 message, media_info = await self.refresh_message_media(None, storable_entry.message_id, storable_entry.media_id, chat_queue.info)
             except RefreshedMessageMissingMedia as e:
-                logger.warning("Refreshed message ID %s from storage is missing searched media, will queue all media in refreshed message to be processed", message.id)
+                logger.warning("Refreshed message ID %s from storage is missing searched media, will queue all media in the refreshed message to be processed", storable_entry.message_id)
                 new_message = e.refreshed_message
                 media_info_entries = self._parse_media_info(new_message, chat_id)
                 for media_info in media_info_entries:
