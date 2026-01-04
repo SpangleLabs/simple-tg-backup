@@ -131,6 +131,18 @@ class MediaQueueEntry:
     _storable_entry: Optional[MediaDownloaderQueueEntry] = None
 
     @property
+    def message_id(self) -> int:
+        if self.message is None:
+            return self.storable_entry.message_id
+        return self.message.id
+
+    @property
+    def media_id(self):
+        if self.media_info is None:
+            return self.storable_entry.media_id
+        return self.media_info.media_id
+
+    @property
     def storable_entry(self) -> MediaDownloaderQueueEntry:
         if self._storable_entry is None:
             self._storable_entry = MediaDownloaderQueueEntry(
@@ -308,8 +320,9 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         media_info = queue_entry.media_info
         # If this queue entry came from storage, refresh the message it refers to
         storable_entry = queue_entry.storable_entry
-        if message is None and media_info is None:
-            if storable_entry.message_id is None:
+        if message is None or media_info is None:
+            if storable_entry.message_id is None or storable_entry.media_id is None:
+                logger.info("Media got queued without having message ID or media ID")
                 chat_db.delete_subsystem_queue_entry(storable_entry.queue_entry_id)
                 chat_queue.queue.task_done()
                 return
@@ -431,20 +444,20 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             await self._add_media_queue_entry(queue_key, info, queue_entry)
 
     async def _add_media_queue_entry(self, queue_key: str, info: MediaQueueInfo, queue_entry: MediaQueueEntry) -> None:
-        if queue_entry.message is None or queue_entry.media_info is None:
+        if queue_entry.message_id is None or queue_entry.media_id is None:
             logger.debug("Refusing to queue media download request for None")
             return
-        if self._processed_cache_has_media_id(info.chat_id, queue_entry.media_info.media_id):
-            logger.debug("Media ID %s has already been downloaded", queue_entry.media_info.media_id)
+        if self._processed_cache_has_media_id(info.chat_id, queue_entry.media_id):
+            logger.debug("Media ID %s has already been downloaded", queue_entry.media_id)
             processed_media_id_cache_rejections.inc()
             return
-        if self._queued_cache_has_media_id(info.chat_id, queue_entry.media_info.media_id):
-            logger.debug("Media ID %s has already been queued", queue_entry.media_info.media_id)
+        if self._queued_cache_has_media_id(info.chat_id, queue_entry.media_id):
+            logger.debug("Media ID %s has already been queued", queue_entry.media_id)
             queued_media_id_cache_rejections.inc()
             return
         await self._add_queue_entry(queue_key, info, queue_entry)
         info.chat_db.save_subsystem_queue_entry(queue_entry.storable_entry)
-        self._add_media_id_to_queued_cache(info.chat_id, queue_entry.media_info.media_id)
+        self._add_media_id_to_queued_cache(info.chat_id, queue_entry.media_id)
 
     async def initialise_new_queue(self, new_queue: ArchiveRunQueue[MediaQueueInfo, MediaQueueEntry]) -> None:
         stored_queue_entries = new_queue.info.chat_db.list_subsystem_queue_entries(MediaDownloaderQueueEntry.SUBSYSTEM_NAME)
