@@ -224,6 +224,7 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
             return
         # Check if the sticker doc needs refreshing
         if queue_entry.sticker_doc is None and queue_entry.storable_entry.sticker_id is not None:
+            logger.info("Sticker ID %s from message ID %s was loaded into queue from database, refreshing the message objects", queue_entry.sticker_id, queue_entry.message_id)
             new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
             if queue_entry.sticker_doc is None:
                 logger.info("Stored queue entry for sticker ID %s on message ID %s could not be refreshed into sticker", queue_entry.sticker_id, queue_entry.message_id)
