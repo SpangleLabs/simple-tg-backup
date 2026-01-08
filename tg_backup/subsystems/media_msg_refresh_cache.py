@@ -45,6 +45,10 @@ message_refresh_request_queue_empty = Gauge(
 )
 
 
+class MessageMissingAfterRefresh(Exception):
+    pass
+
+
 @dataclasses.dataclass
 class RefreshRequest:
     chat_id: int
@@ -58,16 +62,27 @@ class ChatMessageRefreshCache:
         self.msg_cache = msg_cache
         self.chat_id = chat_id
         self._message_cache: dict[int, telethon.types.Message] = {}
+        self._missing_msg_ids: set[int] = set()
         self._waiting_for_msg: dict[int, asyncio.Event] = {}
 
     def get_message_only(self, message_id: int) -> Optional[telethon.types.Message]:
         return self._message_cache.get(message_id, None)
+
+    def is_message_missing(self, message_id: int) -> bool:
+        return message_id in self._missing_msg_ids
 
     def add_message_to_cache(self, msg: telethon.types.Message) -> None:
         # Add message to cache
         self._message_cache[msg.id] = msg
         # Trigger any events for anything waiting on this message
         self.signal_message_updated(msg.id)
+
+    def mark_message_missing(self, msg_id: int) -> None:
+        self._missing_msg_ids.add(msg_id)
+        self.signal_message_updated(msg_id)
+
+    def reset_message_missing(self, msg_id: int) -> None:
+        self._missing_msg_ids.remove(msg_id)
 
     def signal_message_updated(self, message_id: int) -> None:
         wait_event = self._waiting_for_msg.get(message_id, None)
@@ -136,6 +151,10 @@ class MessageRefreshCache:
         logger.info("Waiting for message ID %s to be refreshed", message_id)
         await wait_event.wait()
         logger.info("Wait for message ID %s is over, getting and checking message", message_id)
+        # Check if the message is marked as missing
+        if chat_cache.is_message_missing(message_id):
+            logger.warning("Message ID %s was requested for refresh, but it's considered missing as it was not found by the archiver", message_id)
+            raise MessageMissingAfterRefresh(f"Message ID {message_id} not found by the refresher")
         # Check the new message is actually different
         new_msg = chat_cache.get_message_only(message_id)
         if new_msg is None:
@@ -183,6 +202,7 @@ class MessageRefreshCache:
             msg_id = refresh_request.msg_id
             archive_target = refresh_request.archive_target
             chat_cache = self._get_chat_cache(chat_id)
+            chat_cache.reset_message_missing(msg_id)
             # If the cache already has an updated version, skip this request
             cached_msg = chat_cache.get_message_only(msg_id)
             if cached_msg is not None and cached_msg != refresh_request.old_msg:
@@ -199,7 +219,11 @@ class MessageRefreshCache:
     async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: "ArchiveTarget") -> None:
         chat_cache = self._get_chat_cache(chat_id)
         logger.info("Fetching refreshed message objects for chat %s", chat_id)
-        num_msgs = 0
+        # Reset missing status for message
+        chat_cache.reset_message_missing(max_message_id)
+        # Actually fetch messages
+        min_message_id = max_message_id
+        seen_message_ids: set[int] = set()
         async for msg in self.client.iter_messages(chat_id, max_id=max_message_id+1):
             count_refreshed_messages.inc()
             # Include all messages, including without media, because they might have previously had media when requested
@@ -209,14 +233,21 @@ class MessageRefreshCache:
             chat_cache.signal_message_updated(msg.id)
             # Send the message back to the archive target for saving
             await archive_target.process_message(msg)
-            # Increment counter
-            num_msgs += 1
+            # Increment counters
+            min_message_id = min(min_message_id, msg.id)
+            seen_message_ids.add(msg.id)
             # If there's more than a thousand messages, quit here. We don't want to get the whole chat history
-            if num_msgs >= self.MSG_REFRESH_BATCH_SIZE:
+            if len(seen_message_ids) >= self.MSG_REFRESH_BATCH_SIZE:
                 break
+        # Mark any skipped message IDs as missing in this chat
+        num_missing = 0
+        for msg_id in range(min_message_id, max_message_id+1):
+            if msg_id not in seen_message_ids:
+                chat_cache.mark_message_missing(msg_id)
+                num_missing += 1
         logger.info(
-            "Finished refreshing messages for chat %s. Added %s messages to cache (cache is now %s messages)",
-            chat_id, num_msgs, chat_cache.size()
+            "Finished refreshing messages for chat %s. Added %s messages to cache (cache is now %s messages) and %s IDs were missing from seen sequence",
+            chat_id, len(seen_message_ids), chat_cache.size(), num_missing
         )
 
     def refresh_queue_size(self) -> int:
