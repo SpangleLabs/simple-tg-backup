@@ -82,7 +82,7 @@ class ChatMessageRefreshCache:
         self.signal_message_updated(msg_id)
 
     def reset_message_missing(self, msg_id: int) -> None:
-        self._missing_msg_ids.remove(msg_id)
+        self._missing_msg_ids.discard(msg_id)
 
     def signal_message_updated(self, message_id: int) -> None:
         wait_event = self._waiting_for_msg.get(message_id, None)
