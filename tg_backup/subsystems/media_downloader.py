@@ -19,7 +19,7 @@ from tg_backup.database.chat_database import ChatDatabase
 from tg_backup.models.subsystem_queue_entry import MediaDownloaderQueueEntry
 from tg_backup.models.web_page_media import WebPageMedia
 from tg_backup.subsystems.abstract_subsystem import AbstractTargetQueuedSubsystem, ArchiveRunQueue
-from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache, MessageMissingAfterRefresh
 
 if typing_extensions.TYPE_CHECKING:
     from tg_backup.archiver import Archiver
@@ -339,6 +339,11 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 chat_db.delete_subsystem_queue_entry(storable_entry.queue_entry_id)
                 chat_queue.queue.task_done()
                 return
+            except MessageMissingAfterRefresh as e:
+                logger.warning("Message ID %s was not found after refresh run, marking media as complete", storable_entry.message_id)
+                chat_db.delete_subsystem_queue_entry(storable_entry.queue_entry_id)
+                chat_queue.queue.task_done()
+                return
             queue_entry.message = message
             queue_entry.media_info = media_info
         media_processed_count.inc()
@@ -386,9 +391,13 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             except FileReferenceExpiredError as e:
                 logger.warning("File reference expired for message ID %s, will refresh message", message.id)
                 file_reference_expired_count.inc()
-                with time_waiting_for_refresh.time():
-                    message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
-                logger.info("Fetched new message for message ID %s", message.id)
+                try:
+                    with time_waiting_for_refresh.time():
+                        message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
+                    logger.info("Fetched new message for message ID %s", message.id)
+                except MessageMissingAfterRefresh:
+                    logger.warning("Message ID %s was not found after message refresh, could not download media", message.id)
+                    return
                 media_info_entries = self._parse_media_info(message, chat_id)
                 media_info_matches = [m for m in media_info_entries if m.media_id == media_info.media_id]
                 if media_info_matches:

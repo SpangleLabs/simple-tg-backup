@@ -19,9 +19,8 @@ from tg_backup.models.message import Message
 from tg_backup.models.sticker import Sticker
 from tg_backup.models.sticker_set import StickerSet
 from tg_backup.models.subsystem_queue_entry import StickerDownloaderQueueEntry
-from tg_backup.subsystems.abstract_subsystem import TimedCache, AbstractTargetQueuedSubsystem, ArchiveRunQueue, \
-    QueueInfo, QueueEntry
-from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache
+from tg_backup.subsystems.abstract_subsystem import TimedCache, AbstractTargetQueuedSubsystem, ArchiveRunQueue
+from tg_backup.subsystems.media_msg_refresh_cache import MessageRefreshCache, MessageMissingAfterRefresh
 
 if TYPE_CHECKING:
     from tg_backup.archiver import Archiver
@@ -225,8 +224,14 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
         # Check if the sticker doc needs refreshing
         if queue_entry.sticker_doc is None and queue_entry.storable_entry.sticker_id is not None:
             logger.info("Sticker ID %s from message ID %s was loaded into queue from database, refreshing the message objects", queue_entry.sticker_id, queue_entry.message_id)
-            new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
-            if queue_entry.sticker_doc is None:
+            try:
+                new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+            except MessageMissingAfterRefresh:
+                logger.warning("Message refresher could not find message ID %s after refresh", queue_entry.message_id)
+                queue.queue.task_done()
+                queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
+                return
+            if new_sticker_doc is None:
                 logger.info("Stored queue entry for sticker ID %s on message ID %s could not be refreshed into sticker", queue_entry.sticker_id, queue_entry.message_id)
                 queue.queue.task_done()
                 queue.info.archive_target.chat_db.delete_subsystem_queue_entry(queue_entry.storable_entry.queue_entry_id)
@@ -339,7 +344,11 @@ class StickerDownloader(AbstractTargetQueuedSubsystem[StickerQueueInfo, StickerQ
                 # Try refreshing the message
                 message = queue_entry.message
                 logger.warning("Sticker reference expired for message ID %s, will refresh message", message.id)
-                new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+                try:
+                    new_message, new_sticker_doc = await self._refresh_sticker_doc(queue, queue_entry)
+                except MessageMissingAfterRefresh:
+                    logger.warning("Message ID %s could not be found after message refresh", message.id)
+                    return sticker_doc
                 if new_sticker_doc is None:
                     return sticker_doc
                 queue_entry.message = new_message
