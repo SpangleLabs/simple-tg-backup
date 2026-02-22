@@ -1,9 +1,10 @@
+import asyncio
 import dataclasses
 import datetime
 import logging
 from typing import Union, NewType, Optional, TYPE_CHECKING
 
-from prometheus_client import Counter
+from prometheus_client import Counter, Histogram
 from telethon import TelegramClient
 from telethon.errors import ChannelPrivateError
 from telethon.tl.functions.channels import GetFullChannelRequest
@@ -24,6 +25,19 @@ if TYPE_CHECKING:
 peers_processed = Counter(
     "tgbackup_peerdatafetcher_peers_processed_count",
     "Total number of peers which have been picked from the queue by the PeerDataFetcher",
+)
+peer_fetched_count = Counter(
+    "tgbackup_peerdatafetcher_peer_fetch_success_count",
+    "Total number of times that full data for a peer has been fetched",
+)
+peer_fetch_failures = Counter(
+    "tgbackup_peerdatafetcher_peer_fetch_failures_count",
+    "Total number of times that fetching a peer's full data has failed",
+)
+peer_fetch_attempts_required = Histogram(
+    "tgbackup_peerdatafetcher_peer_fetch_attempts_required",
+    "Number of attempts required to fetch the full data of a peer",
+    buckets=[1, 2, 3, 5, 10],
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +68,7 @@ class PeerQueueEntry:
 
 class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntry]):
     CACHE_EXPIRY = datetime.timedelta(days=1)
+    MAX_FETCH_ATTEMPTS = 10
 
     def __init__(self, archiver: "Archiver", client: TelegramClient, core_db: CoreDatabase) -> None:
         super().__init__(archiver, client)
@@ -91,26 +106,47 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             chat_queue.queue.task_done()
             return
         # Process the peer in whichever way is appropriate
-        try:
-            if isinstance(peer, PeerUser):
-                await self._process_user(chat_queue, peer)
-            elif isinstance(peer, PeerChat):
-                await self._process_chat(chat_queue, peer)
-            elif isinstance(peer, PeerChannel):
-                await self._process_channel(chat_queue, peer)
-            else:
-                raise ValueError(f"Unrecognised peer type {type(peer)}")
-        except ValueError as e:
-            if "Could not find the input entity for" in str(e):
-                logger.warning(f"Could not find input entity for peer: {peer}, skipping data fetch")
-                chat_queue.queue.task_done()
-                return
-            raise e
-        # Save to cache
-        self.record_peer_id_seen_core(peer)
-        self.record_peer_id_seen_in_chat(peer, chat_id)
+        await self._process_peer(chat_queue, peer)
         # Mark done in queue
         chat_queue.queue.task_done()
+
+    async def _process_peer(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], peer: Peer) -> None:
+        attempt_count = 0
+        fetch_success = False
+        while attempt_count <= self.MAX_FETCH_ATTEMPTS:
+            attempt_count += 1
+            logger.info("Fetching peer data for peer: %s, attempt %s", peer, attempt_count)
+            try:
+                if isinstance(peer, PeerUser):
+                    await self._process_user(chat_queue, peer)
+                elif isinstance(peer, PeerChat):
+                    await self._process_chat(chat_queue, peer)
+                elif isinstance(peer, PeerChannel):
+                    await self._process_channel(chat_queue, peer)
+                else:
+                    raise ValueError(f"Unrecognised peer type {type(peer)}")
+            except ValueError as e:
+                if "Could not find the input entity for" in str(e):
+                    logger.warning(f"Could not find input entity for peer: {peer}, skipping data fetch")
+                    chat_queue.queue.task_done()
+                    return
+                raise e
+            except Exception as e:
+                logger.error("Failed to fetch peer data for peer %s, (will retry) error:", peer, exc_info=e)
+                peer_fetch_failures.inc()
+                await asyncio.sleep(60)
+            else:
+                fetch_success = True
+                break
+        if not fetch_success:
+            logger.error("Could not fetch peer data after %s attempts. Skipping. Peer %s", self.MAX_FETCH_ATTEMPTS, peer)
+            return
+        peer_fetched_count.inc()
+        peer_fetch_attempts_required.observe(attempt_count)
+        logger.info("Peer data fetch complete, peer %s", peer)
+        # Save to cache
+        self.record_peer_id_seen_core(peer)
+        self.record_peer_id_seen_in_chat(peer, chat_queue.info.chat_id)
 
     async def _process_user(self, chat_queue: ArchiveRunQueue[PeerQueueInfo, PeerQueueEntry], user: PeerUser) -> None:
         chat_id = chat_queue.info.chat_id

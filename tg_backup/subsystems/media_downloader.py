@@ -160,6 +160,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
     UNKNOWN_FILE_EXT = "unknown_filetype"
     MEDIA_FOLDER = "media"
     WEB_PAGE_MEDIA_FOLDER = "web_page_media"
+    MAX_DOWNLOAD_ATTEMPTS = 10
 
     def __init__(self, archiver: "Archiver", client: TelegramClient, message_refresher: MessageRefreshCache) -> None:
         super().__init__(archiver, client)
@@ -382,7 +383,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
         # Download the media
         attempt_count = 0
         download_success = False
-        while attempt_count <= 10:
+        while attempt_count <= self.MAX_DOWNLOAD_ATTEMPTS:
             attempt_count += 1
             logger.info("Downloading media, type: %s, ID: %s", media_info.media_type, media_info.media_id)
             total_media_download_attempts.inc()
@@ -415,7 +416,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 break
         if not download_success:
             os.unlink(target_path)
-            logger.error("Could not download file after 10 attempts. Skipping. Media ID %s, Message ID %s, chat ID %s, date %s", media_info.media_id, message.id, chat_id, getattr(message, "date", None))
+            logger.error("Could not download file after %s attempts. Skipping. Media ID %s, Message ID %s, chat ID %s, date %s", self.MAX_DOWNLOAD_ATTEMPTS, media_info.media_id, message.id, chat_id, getattr(message, "date", None))
             return
         media_downloaded_count.inc()
         media_download_attempts_required.observe(attempt_count)
