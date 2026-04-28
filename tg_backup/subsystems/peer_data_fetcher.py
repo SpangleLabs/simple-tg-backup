@@ -128,8 +128,8 @@ class PeerDataFetcher(AbstractTargetQueuedSubsystem[PeerQueueInfo, PeerQueueEntr
             except ValueError as e:
                 if "Could not find the input entity for" in str(e):
                     logger.warning(f"Could not find input entity for peer: {peer}, skipping data fetch")
-                    chat_queue.queue.task_done()
                     return
+                chat_queue.queue.task_done()
                 raise e
             except Exception as e:
                 logger.error("Failed to fetch peer data for peer %s, (will retry) error:", peer, exc_info=e)
