@@ -206,7 +206,7 @@ class ArchiveTarget:
                 logger.info("Skipping check of oldest messages in chat ID %s, as chat started with no messages", self.chat_id)
                 continue
             # When archiving newest messages, log where the cutoff date is gonna be
-            if cutoff.offset_id is 0 and cutoff.cutoff_date() is not None:
+            if cutoff.offset_id == 0 and cutoff.cutoff_date() is not None:
                 logger.info("Archiving message history for chat ID %s until cutoff date %s", self.chat_id, cutoff.cutoff_date())
             # Reset the lowest seen message ID
             lowest_seen_msg_id = None
