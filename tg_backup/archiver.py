@@ -23,6 +23,10 @@ from tg_backup.subsystems.peer_data_fetcher import PeerDataFetcher
 logger = logging.getLogger(__name__)
 
 
+archiver_connected = Gauge(
+    "tgbackup_archiver_connected",
+    "Whether the TG backup archiver is currently connected to the database and telegram",
+)
 archiver_running = Gauge(
     "tgbackup_archiver_running",
     "Whether the TG backup archiver is currently running",
@@ -79,6 +83,58 @@ class ArchiverActivity:
     def count_completed_history_targets(self) -> int:
         return len([t for t in self.history_targets if t.run_record.run_timer.has_ended()])
 
+class ClientConnector:
+    def __init__(self, client: TelegramClient, core_db:CoreDatabase) -> None:
+        self.client = client
+        self.core_db = core_db
+        self.connections = 0
+        self.connecting = asyncio.Lock()
+        self.connected = False
+
+    async def _connect(self) -> None:
+        logger.info("Starting Archiver core database")
+        self.core_db.start()
+        logger.info("Connecting to telegram")
+        # noinspection PyUnresolvedReferences
+        await self.client.start()
+
+    async def register(self) -> None:
+        self.connections += 1
+        if self.connections > 1:
+            logger.info("Archiver is already connected")
+            return
+        async with self.connecting:
+            if self.connected:
+                return
+            await self._connect()
+            self.connected = True
+
+    async def unregister(self) -> None:
+        self.connections -= 1
+        if self.connections <= 0:
+            async with self.connecting:
+                if not self.connected:
+                    return
+                await self._disconnect()
+                self.connected = False
+
+    async def _disconnect(self) -> None:
+        # Disconnect from telegram
+        logger.info("Disconnecting from telegram")
+        # noinspection unresolved-references
+        await self.client.disconnect()
+        # Disconnect database
+        logger.info("Disconnecting from core database")
+        self.core_db.stop()
+
+    @asynccontextmanager
+    async def registration(self) -> AsyncIterator[TelegramClient]:
+        await self.register()
+        try:
+            yield self.client
+        finally:
+            await self.unregister()
+
 
 class Archiver:
     def __init__(self, conf: Config) -> None:
@@ -87,12 +143,14 @@ class Archiver:
         self.running = False
         self.current_activity: Optional[ArchiverActivity] = None
         self.core_db = CoreDatabase()
+        self.connector = ClientConnector(self.client, self.core_db)
         self.message_refresher = MessageRefreshCache(self.client)
         self.media_dl = MediaDownloader(self, self.client, self.message_refresher)
         self.peer_fetcher = PeerDataFetcher(self, self.client, self.core_db)
         self.sticker_downloader = StickerDownloader(self, self.client, self.core_db, self.message_refresher)
         self.chat_settings = ChatSettingsStore.load_from_file()
         self.dialog_fetcher = DialogFetcher(self)
+        archiver_connected.set_function(lambda: int(self.connector.connected))
         archiver_running.set_function(lambda: int(self.running))
         archiver_current_targets.set_function(lambda: self.current_activity.count_all_targets() if self.current_activity else 0)
         archiver_completed_targets.set_function(lambda: self.current_activity.count_completed_history_targets() if self.current_activity else 0)
@@ -101,11 +159,8 @@ class Archiver:
         if self.running:
             raise ValueError("Archiver is already running")
         self.running = True
-        logger.info("Starting Archiver core database")
-        self.core_db.start()
-        logger.info("Connecting to telegram")
-        # noinspection PyUnresolvedReferences
-        await self.client.start()
+        # Connect to client and DB
+        await self.connector.register()
         # List all dialogs
         # dialogs = await self.client.get_dialogs()
         # logger.info("Your telegram account has %s open dialogs", len(dialogs))
@@ -127,12 +182,8 @@ class Archiver:
         # Shut down sticker downloader
         logger.info("Waiting for sticker downloader to complete")
         await self.sticker_downloader.stop(fast=fast)
-        # Disconnect from telegram
-        logger.info("Disconnecting from telegram")
-        await self.client.disconnect()
-        # Disconnect database
-        logger.info("Disconnecting from core database")
-        self.core_db.stop()
+        # Unregister, and therefore disconnect
+        await self.connector.unregister()
         self.running = False
         logger.info("Archiver stopped")
 

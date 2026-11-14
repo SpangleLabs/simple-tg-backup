@@ -87,6 +87,7 @@ class DialogFetcher:
             return
 
     async def fetch_dialogs_list(self) -> None:
+        # TODO: check we're connected
         # If it was requested too recently, don't re-run it
         if not self._can_request_dialogs_again():
             return

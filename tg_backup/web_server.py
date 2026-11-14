@@ -142,9 +142,13 @@ class WebServer:
         if data.get("action") == "list_dialogs":
             if self.archiver.dialog_fetcher.is_fetching_dialogs():
                 return web.Response(status=403, text="List dialogs request is already running")
-            asyncio.create_task(self.archiver.dialog_fetcher.fetch_dialogs_list())
+            asyncio.create_task(self.fetch_dialogs_task())
             return await self.settings_known_dialogs(req)
         return web.Response(status=404, text="Unrecognised action")
+
+    async def fetch_dialogs_task(self) -> None:
+        async with self.archiver.connector.registration():
+            await self.archiver.dialog_fetcher.fetch_dialogs_list()
 
     async def settings_new_dialogs(self, req: web.Request) -> web.Response:
         return aiohttp_jinja2.render_template(
