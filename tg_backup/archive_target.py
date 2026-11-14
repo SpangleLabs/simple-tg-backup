@@ -225,9 +225,9 @@ class ArchiveTarget:
                 missing_ids = missing_ids_within_range(initial_known_msg_ids, lowest_seen_msg_id, msg_id)
                 if missing_ids:
                     logger.info("It seems like %s messages are missing from the archive, marking as deleted", len(missing_ids))
-                    cutoff.bump_known_datetime(msg.date)
-                    for missing_id in missing_ids:
-                        self._mark_msg_deleted(missing_id)
+                    newly_deleted = self._mark_msgs_deleted(missing_ids)
+                    if newly_deleted:
+                        cutoff.bump_known_datetime(msg.date)
                 # Update the previous message ID
                 lowest_seen_msg_id = msg_id
                 # If the message is older than the cutoff date, stop iterating through history
@@ -240,8 +240,7 @@ class ArchiveTarget:
         final_missing_ids = missing_ids_before_value(initial_known_msg_ids, lowest_seen_msg_id)
         if final_missing_ids:
             logger.info("There are %s messages missing from the start of the chat history. Marking as deleted", len(final_missing_ids))
-            for missing_id in final_missing_ids:
-                self._mark_msg_deleted(missing_id)
+            self._mark_msgs_deleted(final_missing_ids)
 
     async def _archive_history(self):
         # Archive admin log
@@ -309,17 +308,25 @@ class ArchiveTarget:
         # the message ID alone if you saved it previously.
         logger.info("Message deletion event received with %s message IDs", len(event.deleted_ids))
         if event.chat_id == self.chat_id or (event.chat_id is None and await self.is_small_chat()):
-            for msg_id in event.deleted_ids:
+            deleted_msgs = self._mark_msgs_deleted(event.deleted_ids)
+            if deleted_msgs:
                 self.run_record.run_timer.latest_msg()
-                self._mark_msg_deleted(msg_id)
 
-    def _mark_msg_deleted(self, msg_id: int) -> None:
+    def _mark_msgs_deleted(self, msg_ids: list[int]) -> list[int]:
+        newly_deleted_msg_ids = []
+        for msg_id in msg_ids:
+            if self._mark_msg_deleted(msg_id):
+                newly_deleted_msg_ids.append(msg_id)
+        return newly_deleted_msg_ids
+
+    def _mark_msg_deleted(self, msg_id: int) -> bool:
         msg_objs = self.chat_db.get_messages(msg_id)
         if not msg_objs:
-            return
+            return False
         logger.debug("Found %s records in chat ID %s matching deleted message ID %s", len(msg_objs), self.chat_id, msg_id)
         latest_msg_obj = Message.latest_copy_of_resource(msg_objs)
-        if latest_msg_obj.deleted:
-            return
+        if latest_msg_obj is None or latest_msg_obj.deleted:
+            return False
         deleted_msg = latest_msg_obj.mark_deleted()
         self.chat_db.save_message(deleted_msg)
+        return True
