@@ -53,16 +53,16 @@ class ArchiveTarget:
     async def disconnect_db(self) -> None:
         # Wait for media downloader to be done before disconnecting database.
         # You must wait for media downloader first, because it might queue more peers when refreshing messages.
-        logger.info("Waiting for media downloader to complete for archive target")
+        logger.info("Waiting for media downloader to complete for archive target: %s", self.chat_id)
         await self.archiver.media_dl.wait_until_queue_empty(self.run_record.archive_run_id)
         # Wait for sticker downloader to be done, which might also queue peers during refresh
-        logger.info("Waiting for sticker downloader to complete for archive target")
+        logger.info("Waiting for sticker downloader to complete for archive target: %s", self.chat_id)
         await self.archiver.sticker_downloader.wait_until_queue_empty(self.run_record.archive_run_id)
         # Wait for user fetcher to be done before disconnecting database
-        logger.info("Waiting for peer fetcher to complete for archive target")
+        logger.info("Waiting for peer fetcher to complete for archive target: %s", self.chat_id)
         await self.archiver.peer_fetcher.wait_until_queue_empty(self.run_record.archive_run_id)
         # Disconnect from chat DB
-        logger.info("Disconnecting from chat database")
+        logger.info("Disconnecting from chat database: %s", self.chat_id)
         self.chat_db.stop()
 
     async def chat_entity(self) -> hints.Entity:
