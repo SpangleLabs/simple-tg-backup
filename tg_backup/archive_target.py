@@ -270,16 +270,18 @@ class ArchiveTarget:
         # Start the chat watcher
         watch_task: Optional[asyncio.Task] = None
         if self.behaviour.follow_live:
-            logger.info("Following live chat")
+            logger.info("Following live chat: %s", self.chat_id)
             watch_task = asyncio.create_task(self.watch_chat())
         # Gather data from admin log and chat messages
         if self.behaviour.needs_archive_run():
+            logger.info("Archiving history of chat: %s", self.chat_id)
             await self._archive_history()
         # Continue watching if relevant
-        if self.behaviour.follow_live:
-            logger.info("Chat history archive complete, watching live updates")
+        if watch_task is not None:
+            logger.info("Chat history archive complete, watching live updates for chat: %s", self.chat_id)
             await watch_task
         # Disconnect the database, and wait for whatever subsystems need waiting for before that
+        logger.info("Chat archive complete, disconnecting from database for chat ID: %s", self.chat_id)
         await self.disconnect_db()
         self.run_record.run_timer.end()
         self.run_record.mark_complete()
