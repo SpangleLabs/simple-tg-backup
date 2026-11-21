@@ -139,8 +139,6 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
         while True:
             # Get the archive target, for checking message refresher completion
             queue = self.queues.get(queue_key, None)
-            if queue is None:
-                raise ValueError(f"Queue not found for key: {queue_key}")
             archive_target = queue.info.archive_target if queue is not None else None
             # Wait for queue to empty
             await self._wait_until_queue_empty(queue_key)
