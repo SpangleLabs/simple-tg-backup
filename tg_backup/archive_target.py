@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Optional, Iterable
 
 from prometheus_client import Counter
 from telethon import hints, events
+from telethon.errors import ChannelPrivateError
 from telethon.tl.types import ChannelAdminLogEventActionDeleteMessage, ChannelAdminLogEventActionEditMessage
 import telethon.tl.types
 
@@ -266,7 +267,14 @@ class ArchiveTarget:
         # Connect to chat database
         await self.connect_db()
         # Push chat peer to the peer data fetcher
-        await self._archive_chat_data()
+        try:
+            await self._archive_chat_data()
+        except ChannelPrivateError:
+            logger.warning("Could not archive chat ID %s as channel is private or banned. Disconnecting from DB", self.chat_id)
+            await self.disconnect_db()
+            self.run_record.run_timer.end()
+            self.run_record.mark_complete()
+            return
         # Start the chat watcher
         watch_task: Optional[asyncio.Task] = None
         if self.behaviour.follow_live:
