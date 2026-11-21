@@ -135,18 +135,25 @@ class AbstractTargetQueuedSubsystem(AbstractSubsystem, ABC, Generic[QueueInfo, Q
         del self.queues[queue_key]
 
     async def _wait_for_queue_and_message_refresher(self, queue_key: Optional[str], refresher: MessageRefreshCache) -> None:
+        logger.info("Waiting for queue key %s to empty in subsystem %s", queue_key, self.name())
         while True:
             # Get the archive target, for checking message refresher completion
             queue = self.queues.get(queue_key, None)
+            if queue is None:
+                raise ValueError(f"Queue not found for key: {queue_key}")
             archive_target = queue.info.archive_target if queue is not None else None
             # Wait for queue to empty
             await self._wait_until_queue_empty(queue_key)
+            logger.info("Subsystem %s queue empty for queue key %s", self.name(), queue_key)
             if archive_target is None:
+                logger.info("Archive target not specified for queue key: %s in subsystem %s", queue_key, self.name())
                 return
             # If message refresher is empty too, exit, otherwise wait for both queues to empty again
             if refresher.refresh_queue_size() == 0:
+                logger.info("Message refresh queue empty for queue key %s in subsystem %s", queue_key, self.name())
                 return
             await refresher.wait_until_target_done(archive_target)
+            logger.info("Subsystem %s message refresher empty for queue key %s", self.name(), queue_key)
 
     async def _add_queue_entry(
             self,
