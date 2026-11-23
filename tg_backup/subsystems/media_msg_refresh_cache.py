@@ -39,10 +39,6 @@ message_refresh_request_queue_size = Gauge(
     "tgbackup_messagerefresh_refresh_queue_size",
     "Number of refresh requests in the refresh request queue",
 )
-message_refresh_request_queue_empty = Gauge(
-    "tgbackup_messagerefresh_refresh_queue_empty",
-    "Whether the message refresh cache queue is considered to be empty",
-)
 
 
 class MessageMissingAfterRefresh(Exception):
@@ -118,12 +114,9 @@ class MessageRefreshCache:
         self._refresh_task_lock = asyncio.Lock() # This lock regulates whether the refresh task is running
         self._refresh_task: Optional[asyncio.Task] = None
         self._refresh_queue: asyncio.Queue[RefreshRequest] = asyncio.Queue()
-        self._refresh_queue_empty: asyncio.Event = asyncio.Event()
-        self._refresh_queue_empty.set()
         size_message_refresh_cache.set_function(lambda: sum(c.size() for c in self.chat_caches.values()))
         refresh_task_active.set_function(lambda: self._refresh_task is not None and not self._refresh_task.done())
         message_refresh_request_queue_size.set_function(lambda: self._refresh_queue.qsize())
-        message_refresh_request_queue_empty.set_function(lambda: self._refresh_queue_empty.is_set())
 
     def _get_chat_cache(self, chat_id: int) -> ChatMessageRefreshCache:
         if chat_id not in self.chat_caches:
@@ -179,7 +172,6 @@ class MessageRefreshCache:
         async with self._refresh_task_lock:
             # Queue up the request
             refresh_request = RefreshRequest(chat_id, message_id, old_msg, archive_target)
-            self._refresh_queue_empty.clear()
             await self._refresh_queue.put(refresh_request)
             # Check if task is running, and start it if not
             if self._refresh_task is None or self._refresh_task.done():
@@ -208,13 +200,16 @@ class MessageRefreshCache:
             if cached_msg is not None and cached_msg != refresh_request.old_msg:
                 chat_cache.signal_message_updated(msg_id)
                 logger.info("Discarding expired refresh request for chat ID %s, message ID %s", chat_id, msg_id)
+                self._refresh_queue.task_done()
                 continue
             # Refresh messages
             logger.info("Refreshing message ID %s from chat ID %s", msg_id, chat_id)
+            # This must be it
             await self._refresh_from_msg(chat_id, msg_id, archive_target)
+            # Mark as done
+            self._refresh_queue.task_done()
         # Left the loop, must have emptied queue
         logger.info("Shutting down message refresher, as the request queue is clear")
-        self._refresh_queue_empty.set()
 
     async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: "ArchiveTarget") -> None:
         chat_cache = self._get_chat_cache(chat_id)
@@ -250,10 +245,11 @@ class MessageRefreshCache:
             chat_id, len(seen_message_ids), chat_cache.size(), num_missing
         )
 
-    def refresh_queue_size(self) -> int:
-        return self._refresh_queue.qsize()
+    async def unfinished_queue_size(self) -> int:
+        # noinspection unresolved-references,protected-member
+        return self._refresh_queue._unfinished_tasks
 
-    async def wait_until_target_done(self, archive_target: "ArchiveTarget") -> None:
-        logger.info("Waiting until MessageRefreshCache queue is done with target with chat ID %s", archive_target.chat_id)
-        # This could be optimised to check for the specific target, but, it is not likely this will wait long for the entire queue to empty
-        await self._refresh_queue_empty.wait()
+    async def wait_until_queue_empty(self) -> None:
+        logger.info("Waiting until MessageRefreshCache queue is empty")
+        await self._refresh_queue.join()
+        self._refresh_queue.empty()
