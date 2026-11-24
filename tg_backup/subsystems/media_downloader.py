@@ -299,16 +299,16 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             media_id: int,
             queue_info: MediaQueueInfo,
     ) -> tuple[telethon.tl.types.Message, MediaInfo]:
-        logger.info("Refreshing message ID %s for media ID %s", message_id, media_id)
+        logger.info("Refreshing message ID %s for media ID %s in chat ID %s", message_id, media_id, queue_info.chat_id)
         with time_waiting_for_refresh.time():
             new_message = await self.message_refresher.get_message(queue_info.chat_id, message_id, message, queue_info.archive_target)
-        logger.info("Fetched new message for message ID %s", message_id)
+        logger.info("Fetched new message for message ID %s in chat ID %s", message_id, queue_info.chat_id)
         media_info_entries = self._parse_media_info(new_message, queue_info.chat_id)
         media_info_matches = [m for m in media_info_entries if m.media_id == media_id]
         if media_info_matches:
             return new_message, media_info_matches[0]
         else:
-            logger.warning("Could not find media after message refresh")
+            logger.warning("Could not find media ID %s in message ID %s, chat ID %s after message refresh", media_id, message_id, queue_info.chat_id)
             refreshed_message_missing_media.inc()
             raise RefreshedMessageMissingMedia(new_message)
 
