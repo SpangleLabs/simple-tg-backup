@@ -221,6 +221,7 @@ class ArchiveTarget:
                 # If the message was updated, update the cutoff with the next known datetime
                 if new_msg_obj is not None:
                     cutoff.bump_known_datetime(new_msg_obj.datetime)
+                    logger.info("Found new/updated message in chat ID %s, bumped cutoff date to %s", self.chat_id, cutoff.cutoff_date())
                 # Check for deleted messages
                 msg_id = msg.id
                 missing_ids = missing_ids_within_range(initial_known_msg_ids, lowest_seen_msg_id, msg_id)
@@ -229,11 +230,12 @@ class ArchiveTarget:
                     newly_deleted = self._mark_msgs_deleted(missing_ids)
                     if newly_deleted:
                         cutoff.bump_known_datetime(msg.date)
+                        logger.info("Newly deleted messages detected in chat ID %s, bumped cutoff date to %s", self.chat_id, cutoff.cutoff_date())
                 # Update the previous message ID
                 lowest_seen_msg_id = msg_id
                 # If the message is older than the cutoff date, stop iterating through history
                 if cutoff.cutoff_date_met(msg.date):
-                    logger.info("Reached cutoff date without new message updates, stopping search through message history")
+                    logger.info("Reached cutoff date %s without new message updates in chat ID %s, stopping search through message history", cutoff.cutoff_date(), self.chat_id)
                     break
             # Log how many messages were processed by that iteration
             logger.info("Archiver processed %s messages in chat ID %s, starting from offset ID %s until cutoff date %s", num_processed_msgs, self.chat_id, cutoff.offset_id, cutoff.cutoff_date())

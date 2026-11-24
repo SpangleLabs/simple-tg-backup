@@ -51,7 +51,7 @@ class CutOffDate:
         if self._oldest_known_datetime is None:
             self._oldest_known_datetime = known_datetime
         if known_datetime < self._oldest_known_datetime and not self._archive_target_started_empty:
-            logger.info("Updating high water mark in chat history")
+            logger.info("Updating high water mark in chat history to %s", known_datetime.isoformat())
             self._oldest_known_datetime = known_datetime
 
     def cutoff_date(self) -> Optional[datetime.datetime]:
