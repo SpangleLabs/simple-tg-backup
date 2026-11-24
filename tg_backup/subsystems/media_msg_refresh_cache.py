@@ -245,7 +245,7 @@ class MessageRefreshCache:
             chat_id, len(seen_message_ids), chat_cache.size(), num_missing
         )
 
-    async def unfinished_queue_size(self) -> int:
+    def unfinished_queue_size(self) -> int:
         # noinspection unresolved-references,protected-member
         return self._refresh_queue._unfinished_tasks
 
