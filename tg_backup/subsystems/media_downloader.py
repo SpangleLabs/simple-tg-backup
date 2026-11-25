@@ -326,7 +326,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             queue_info: MediaQueueInfo,
     ) -> tuple[telethon.tl.types.Message, MediaInfo]:
         logger.info("Refreshing message ID %s for media ID %s in chat ID %s", message_id, media_id, queue_info.chat_id)
-        async with refresh_timer(chat_id, message_id):
+        async with refresh_timer(queue_info.chat_id, message_id):
             new_message = await self.message_refresher.get_message(queue_info.chat_id, message_id, message, queue_info.archive_target)
         logger.info("Fetched new message for message ID %s in chat ID %s", message_id, queue_info.chat_id)
         media_info_entries = self._parse_media_info(new_message, queue_info.chat_id)
