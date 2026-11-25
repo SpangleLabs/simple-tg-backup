@@ -1,9 +1,11 @@
 import asyncio
 import dataclasses
+import datetime
 import logging
 import os
 import pathlib
-from typing import Optional, Union
+from contextlib import asynccontextmanager
+from typing import Optional, Union, AsyncIterator
 
 import telethon
 import typing_extensions
@@ -95,6 +97,30 @@ class RefreshedMessageMissingMedia(Exception):
     def __init__(self, refreshed_message: telethon.types.Message):
         super().__init__()
         self.refreshed_message = refreshed_message
+
+
+@asynccontextmanager
+async def refresh_timer(chat_id: int, message_id: int) -> AsyncIterator[None]:
+    logger.info("Starting timer for refresh of message ID %s in chat ID %s", message_id, chat_id)
+    start_time = datetime.datetime.now()
+    stop_timer_log = False
+    async def _log_timing():
+        last_log = start_time
+        while not stop_timer_log:
+            await asyncio.sleep(0.1)
+            now = datetime.datetime.now()
+            if (now - last_log).total_seconds() > 10:
+                total_time = now - start_time
+                last_log = now
+                logger.info("Timer for refresh of message ID %s in chat ID %s has been waiting for %s seconds", message_id, chat_id, total_time.total_seconds())
+    timer_logger = asyncio.create_task(_log_timing())
+    with time_waiting_for_refresh.time():
+        yield
+    stop_timer_log = True
+    end_time = datetime.datetime.now()
+    duration = end_time - start_time
+    await timer_logger
+    logger.info("Message refresh for message ID %s, in chat ID %s was waiting for %s seconds", message_id, chat_id, duration.total_seconds())
 
 
 @dataclasses.dataclass
@@ -300,7 +326,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
             queue_info: MediaQueueInfo,
     ) -> tuple[telethon.tl.types.Message, MediaInfo]:
         logger.info("Refreshing message ID %s for media ID %s in chat ID %s", message_id, media_id, queue_info.chat_id)
-        with time_waiting_for_refresh.time():
+        async with refresh_timer(chat_id, message_id):
             new_message = await self.message_refresher.get_message(queue_info.chat_id, message_id, message, queue_info.archive_target)
         logger.info("Fetched new message for message ID %s in chat ID %s", message_id, queue_info.chat_id)
         media_info_entries = self._parse_media_info(new_message, queue_info.chat_id)
@@ -393,7 +419,7 @@ class MediaDownloader(AbstractTargetQueuedSubsystem[MediaQueueInfo, MediaQueueEn
                 logger.warning("File reference expired for message ID %s, will refresh message", message.id)
                 file_reference_expired_count.inc()
                 try:
-                    with time_waiting_for_refresh.time():
+                    async with refresh_timer(chat_id, message.id):
                         message = await self.message_refresher.get_message(chat_id, message.id, message, archive_target)
                     logger.info("Fetched new message for message ID %s", message.id)
                 except MessageMissingAfterRefresh:
