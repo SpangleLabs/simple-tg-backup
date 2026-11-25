@@ -213,7 +213,7 @@ class MessageRefreshCache:
 
     async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: "ArchiveTarget") -> None:
         chat_cache = self._get_chat_cache(chat_id)
-        logger.info("Fetching refreshed message objects for chat %s", chat_id)
+        logger.info("Fetching refreshed message objects for chat %s from message ID %s", chat_id, max_message_id)
         # Reset missing status for message
         chat_cache.reset_message_missing(max_message_id)
         # Actually fetch messages
