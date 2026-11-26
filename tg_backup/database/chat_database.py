@@ -237,7 +237,8 @@ class ChatDatabase(AbstractDatabase):
             resp = cursor.execute(
                 "SELECT queue_entry_id, subsystem_name, message_id, extra_data_json"
                 " FROM subsystem_queue"
-                " WHERE subsystem_name = :subsystem_name",
+                " WHERE subsystem_name = :subsystem_name"
+                " ORDER BY message_id DESC",
                 {
                     "subsystem_name": subsystem_name,
                 }
