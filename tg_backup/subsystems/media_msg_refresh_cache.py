@@ -224,8 +224,6 @@ class MessageRefreshCache:
             # Include all messages, including without media, because they might have previously had media when requested
             # Add them to the message cache
             chat_cache.add_message_to_cache(msg)
-            # Signal that the message is updated
-            chat_cache.signal_message_updated(msg.id)
             # Send the message back to the archive target for saving
             await archive_target.process_message(msg)
             # Increment counters
