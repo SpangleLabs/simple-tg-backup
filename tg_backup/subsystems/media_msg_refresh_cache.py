@@ -83,9 +83,6 @@ class ChatMessageRefreshCache:
         # Trigger any events for anything waiting on this message
         self.signal_message_updated(msg_id)
 
-    def reset_message_missing(self, msg_id: int) -> None:
-        self._missing_msg_ids.discard(msg_id)
-
     def signal_message_updated(self, message_id: int) -> None:
         wait_event = self._waiting_for_msg.get(message_id, None)
         if wait_event is not None:
@@ -200,7 +197,6 @@ class MessageRefreshCache:
             msg_id = refresh_request.msg_id
             archive_target = refresh_request.archive_target
             chat_cache = self._get_chat_cache(chat_id)
-            chat_cache.reset_message_missing(msg_id)
             # If the cache already has an updated version, skip this request
             cached_msg = chat_cache.get_message_only(msg_id)
             if cached_msg is not None and cached_msg != refresh_request.old_msg:
@@ -220,8 +216,6 @@ class MessageRefreshCache:
     async def _refresh_from_msg(self, chat_id: int, max_message_id: int, archive_target: "ArchiveTarget") -> None:
         chat_cache = self._get_chat_cache(chat_id)
         logger.info("Fetching refreshed message objects for chat %s from message ID %s", chat_id, max_message_id)
-        # Reset missing status for message
-        chat_cache.reset_message_missing(max_message_id)
         # Actually fetch messages
         min_message_id = max_message_id
         seen_message_ids: set[int] = set()
