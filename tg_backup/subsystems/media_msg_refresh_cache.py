@@ -68,6 +68,7 @@ class ChatMessageRefreshCache:
         return message_id in self._missing_msg_ids
 
     def add_message_to_cache(self, msg: telethon.types.Message) -> None:
+        logger.info("Adding message ID %s to chat ID %s refresh cache", msg.id, self.chat_id)
         # Add message to cache
         self._message_cache[msg.id] = msg
         # Ensure message isn't in the missing messages list
@@ -76,6 +77,7 @@ class ChatMessageRefreshCache:
         self.signal_message_updated(msg.id)
 
     def mark_message_missing(self, msg_id: int) -> None:
+        logger.info("Marking message ID %s as missing from chat ID %s refresh cache", msg_id, self.chat_id)
         # Mark message missing
         self._missing_msg_ids.add(msg_id)
         # Remove message from cache if it exists
